@@ -25,7 +25,7 @@ include $(TOPDIR)/config.mk
 include $(TOPDIR)/nand_spl/board/$(BOARDDIR)/config.mk
 
 LDSCRIPT= $(TOPDIR)/nand_spl/board/$(BOARDDIR)/u-boot.lds
-LDFLAGS	= -Bstatic -T $(LDSCRIPT) -Ttext $(TEXT_BASE) $(PLATFORM_LDFLAGS)
+LDFLAGS	= -Bstatic -T $(nandobj)u-boot.lds -Ttext $(TEXT_BASE) $(PLATFORM_LDFLAGS)
 AFLAGS	+= -DCONFIG_NAND_SPL
 CFLAGS	+= -DCONFIG_NAND_SPL
 
@@ -49,37 +49,40 @@ $(nandobj)u-boot-spl-16k.bin: $(nandobj)u-boot-spl
 $(nandobj)u-boot-spl.bin:	$(nandobj)u-boot-spl
 	$(OBJCOPY) ${OBJCFLAGS} -O binary $< $@
 
-$(nandobj)u-boot-spl:	$(OBJS)
+$(nandobj)u-boot-spl:	$(OBJS) $(nandobj)u-boot.lds
 	cd $(LNDIR) && $(LD) $(LDFLAGS) $(__OBJS) \
 		-Map $(nandobj)u-boot-spl.map \
 		-o $(nandobj)u-boot-spl
+
+$(nandobj)u-boot.lds: $(LDSCRIPT)
+	$(CPP) $(CPPFLAGS) $(LDPPFLAGS) -ansi -D__ASSEMBLY__ -P - <$^ >$@
 
 # create symbolic links for common files
 
 # from cpu directory
 $(obj)44x_spd_ddr2.c: $(obj)ecc.h
 	@rm -f $(obj)44x_spd_ddr2.c
-	ln -s $(SRCTREE)/cpu/ppc4xx/44x_spd_ddr2.c $(obj)44x_spd_ddr2.c
+	ln -s $(SRCTREE)/arch/powerpc/cpu/ppc4xx/44x_spd_ddr2.c $(obj)44x_spd_ddr2.c
 
 $(obj)cache.S:
 	@rm -f $(obj)cache.S
-	ln -s $(SRCTREE)/cpu/ppc4xx/cache.S $(obj)cache.S
+	ln -s $(SRCTREE)/arch/powerpc/cpu/ppc4xx/cache.S $(obj)cache.S
 
 $(obj)ecc.h:
 	@rm -f $(obj)ecc.h
-	ln -s $(SRCTREE)/cpu/ppc4xx/ecc.h $(obj)ecc.h
+	ln -s $(SRCTREE)/arch/powerpc/cpu/ppc4xx/ecc.h $(obj)ecc.h
 
 $(obj)ndfc.c:
 	@rm -f $(obj)ndfc.c
-	ln -s $(SRCTREE)/cpu/ppc4xx/ndfc.c $(obj)ndfc.c
+	ln -s $(SRCTREE)/drivers/mtd/nand/ndfc.c $(obj)ndfc.c
 
 $(obj)resetvec.S:
 	@rm -f $(obj)resetvec.S
-	ln -s $(SRCTREE)/cpu/ppc4xx/resetvec.S $(obj)resetvec.S
+	ln -s $(SRCTREE)/arch/powerpc/cpu/ppc4xx/resetvec.S $(obj)resetvec.S
 
 $(obj)start.S:
 	@rm -f $(obj)start.S
-	ln -s $(SRCTREE)/cpu/ppc4xx/start.S $(obj)start.S
+	ln -s $(SRCTREE)/arch/powerpc/cpu/ppc4xx/start.S $(obj)start.S
 
 # from nand_spl directory
 $(obj)nand_boot.c:

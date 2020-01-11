@@ -51,14 +51,12 @@
 #include <mb862xx.h>
 #endif
 
-#if CONFIG_POST & CFG_POST_SYSMON
+#if CONFIG_POST & CONFIG_SYS_POST_SYSMON
 
 DECLARE_GLOBAL_DATA_PTR;
 
 /* from dspic.c */
 extern int dspic_read(ushort reg);
-
-#define	RELOC(x) if (x != NULL) x = (void *) ((ulong) (x) + gd->reloc_off)
 
 #define REG_TEMPERATURE			0x12BC
 #define REG_VOLTAGE_5V			0x12CA
@@ -90,7 +88,7 @@ struct sysmon_s
 };
 
 static sysmon_t sysmon_dspic =
-	{CFG_I2C_DSPIC_IO_ADDR, sysmon_dspic_init, sysmon_dspic_read};
+	{CONFIG_SYS_I2C_DSPIC_IO_ADDR, sysmon_dspic_init, sysmon_dspic_read};
 
 static sysmon_t * sysmon_list[] =
 {
@@ -160,20 +158,7 @@ int sysmon_init_f (void)
 
 void sysmon_reloc (void)
 {
-	sysmon_t ** l;
-	sysmon_table_t * t;
-
-	for (l = sysmon_list; *l; l++) {
-		RELOC(*l);
-		RELOC((*l)->init);
-		RELOC((*l)->read);
-	}
-
-	for (t = sysmon_table; t < sysmon_table + sysmon_table_size; t ++) {
-		RELOC(t->exec_before);
-		RELOC(t->exec_after);
-		RELOC(t->sysmon);
-	}
+	/* Do nothing for now, sysmon_reloc() is required by the sysmon post */
 }
 
 static char *sysmon_unit_value (sysmon_table_t *s, uint val)
@@ -267,4 +252,4 @@ int sysmon_post_test (int flags)
 
 	return res;
 }
-#endif /* CONFIG_POST & CFG_POST_SYSMON */
+#endif /* CONFIG_POST & CONFIG_SYS_POST_SYSMON */

@@ -50,29 +50,26 @@ SECTIONS
   .plt : { *(.plt) }
   .text      :
   {
-    cpu/mpc86xx/start.o	(.text)
-    cpu/mpc86xx/traps.o (.text)
-    cpu/mpc86xx/interrupts.o (.text)
-    cpu/mpc86xx/cpu_init.o (.text)
-    cpu/mpc86xx/cpu.o (.text)
-    cpu/mpc86xx/speed.o (.text)
+    arch/powerpc/cpu/mpc86xx/start.o	(.text)
+    arch/powerpc/cpu/mpc86xx/traps.o (.text)
+    arch/powerpc/cpu/mpc86xx/interrupts.o (.text)
+    arch/powerpc/cpu/mpc86xx/cpu_init.o (.text)
+    arch/powerpc/cpu/mpc86xx/cpu.o (.text)
+    arch/powerpc/cpu/mpc86xx/speed.o (.text)
     common/dlmalloc.o (.text)
-    lib_generic/crc32.o (.text)
-    lib_ppc/extable.o (.text)
-    lib_generic/zlib.o (.text)
+    lib/crc32.o (.text)
+    arch/powerpc/lib/extable.o (.text)
+    lib/zlib.o (.text)
     drivers/bios_emulator/atibios.o (.text)
     *(.text)
-    *(.fixup)
     *(.got1)
    }
     _etext = .;
     PROVIDE (etext = .);
     .rodata    :
    {
-    *(.rodata)
-    *(.rodata1)
-    *(.rodata.str1.4)
     *(.eh_frame)
+    *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))
   }
   .fini      : { *(.fini)    } =0
   .ctors     : { *(.ctors)   }
@@ -129,6 +126,7 @@ SECTIONS
    *(.dynbss)
    *(.bss)
    *(COMMON)
+   . = ALIGN(4);
   }
   _end = . ;
   PROVIDE (end = .);

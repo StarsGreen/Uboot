@@ -63,7 +63,7 @@ static uchar 		din[MAX_SPI_BYTES];
  * The command prints out the hexadecimal string received via SPI.
  */
 
-int do_spi (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+int do_spi (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	struct spi_slave *slave;
 	char  *cp = 0;
@@ -123,9 +123,8 @@ int do_spi (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		printf("Error with the SPI transaction.\n");
 		rcode = 1;
 	} else {
-		cp = (char *)din;
 		for(j = 0; j < ((bitlen + 7) / 8); j++) {
-			printf("%02X", *cp++);
+			printf("%02X", din[j]);
 		}
 		printf("\n");
 	}
@@ -139,9 +138,9 @@ int do_spi (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 
 U_BOOT_CMD(
 	sspi,	5,	1,	do_spi,
-	"sspi    - SPI utility commands\n",
+	"SPI utility commands",
 	"<device> <bit_len> <dout> - Send <bit_len> bits from <dout> out the SPI\n"
 	"<device>  - Identifies the chip select of the device\n"
 	"<bit_len> - Number of bits to send (base 10)\n"
-	"<dout>    - Hexadecimal string that gets sent\n"
+	"<dout>    - Hexadecimal string that gets sent"
 );

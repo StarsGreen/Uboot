@@ -62,7 +62,7 @@
  * as data ram for buffer descriptors, which is all we use right now.
  * Currently the first 512 and last 256 bytes are used for microcode.
  */
-#ifdef  CFG_ALLOC_DPRAM
+#ifdef  CONFIG_SYS_ALLOC_DPRAM
 
 #define CPM_DATAONLY_BASE	((uint)0x0800)
 #define CPM_DATAONLY_SIZE	((uint)0x0700)
@@ -81,16 +81,16 @@
 
 #endif
 
-#ifndef CFG_CPM_POST_WORD_ADDR
+#ifndef CONFIG_SYS_CPM_POST_WORD_ADDR
 #define CPM_POST_WORD_ADDR	0x07FC
 #else
-#define CPM_POST_WORD_ADDR	CFG_CPM_POST_WORD_ADDR
+#define CPM_POST_WORD_ADDR	CONFIG_SYS_CPM_POST_WORD_ADDR
 #endif
 
-#ifndef CFG_CPM_BOOTCOUNT_ADDR
+#ifndef CONFIG_SYS_CPM_BOOTCOUNT_ADDR
 #define CPM_BOOTCOUNT_ADDR	(CPM_POST_WORD_ADDR - 2*sizeof(ulong))
 #else
-#define CPM_BOOTCOUNT_ADDR	CFG_CPM_BOOTCOUNT_ADDR
+#define CPM_BOOTCOUNT_ADDR	CONFIG_SYS_CPM_BOOTCOUNT_ADDR
 #endif
 
 #define BD_IIC_START	((uint) 0x0400) /* <- please use CPM_I2C_BASE !! */
@@ -828,38 +828,6 @@ typedef struct scc_enet {
 
 #endif	/* CONFIG_GENIETV */
 
-/*** GTH ******************************************************/
-
-#ifdef CONFIG_GTH
-#ifdef CONFIG_FEC_ENET
-#define	FEC_ENET	/* use FEC for EThernet */
-#endif	/* CONFIG_FEC_ETHERNET */
-
-/* This ENET stuff is for GTH 10 Mbit ( SCC ) */
-#define	PROFF_ENET	PROFF_SCC1
-#define	CPM_CR_ENET	CPM_CR_CH_SCC1
-#define	SCC_ENET	0
-
-#define PA_ENET_RXD	((ushort)0x0001) /* PA15 */
-#define PA_ENET_TXD	((ushort)0x0002) /* PA14 */
-#define PA_ENET_TCLK	((ushort)0x0800) /* PA4 */
-#define PA_ENET_RCLK	((ushort)0x0400) /* PA5 */
-
-#define PB_ENET_TENA	((uint)0x00001000) /* PB19 */
-
-#define PC_ENET_CLSN	((ushort)0x0010) /* PC11 */
-#define PC_ENET_RENA	((ushort)0x0020) /* PC10 */
-
-/* NOTE. This is reset for 10Mbit port only */
-#define PC_ENET_RESET	((ushort)0x0100)	/* PC 7 */
-
-#define SICR_ENET_MASK	((uint)0x000000ff)
-
-/* TCLK PA4 -->CLK4, RCLK PA5 -->CLK3 */
-#define SICR_ENET_CLKRT	((uint)0x00000037)
-
-#endif	/* CONFIG_GTH */
-
 /*** HERMES-PRO ******************************************************/
 
 /* The HERMES-PRO uses the FEC on a MPC860T for Ethernet */
@@ -1122,11 +1090,11 @@ typedef struct scc_enet {
 #define SICR_ENET_CLKRT	((uint)0x0000003d)
 #endif	/* CONFIG_MBX */
 
-/***  MGSUVD  *********************************************************/
+/***  KM8XX  *********************************************************/
 
-/* The MGSUVD Service Module uses SCC3 for Ethernet */
+/* The KM8XX Service Module uses SCC3 for Ethernet */
 
-#ifdef CONFIG_MGSUVD
+#ifdef CONFIG_KM8XX
 #define PROFF_ENET	PROFF_SCC3		/* Ethernet on SCC3 */
 #define CPM_CR_ENET	CPM_CR_CH_SCC3
 #define SCC_ENET	2
@@ -1145,7 +1113,7 @@ typedef struct scc_enet {
  */
 #define SICR_ENET_MASK	((uint)0x00FF0000)
 #define SICR_ENET_CLKRT	((uint)0x00250000)
-#endif	/* CONFIG_MGSUVD */
+#endif	/* CONFIG_KM8XX */
 
 
 /***  MHPC  ********************************************************/

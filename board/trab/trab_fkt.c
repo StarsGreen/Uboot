@@ -25,7 +25,8 @@
 
 #include <common.h>
 #include <exports.h>
-#include <s3c2400.h>
+#include <timestamp.h>
+#include <asm/arch/s3c24x0_cpu.h>
 #include "tsc2000.h"
 #include "rs485.h"
 
@@ -114,21 +115,21 @@ int do_rotary_switch (void);
 int do_pressure (void);
 int do_v_bat (void);
 int do_vfd_id (void);
-int do_buzzer (char **);
-int do_led (char **);
-int do_full_bridge (char **);
-int do_dac (char **);
+int do_buzzer (char * const *);
+int do_led (char * const *);
+int do_full_bridge (char * const *);
+int do_dac (char * const *);
 int do_motor_contact (void);
-int do_motor (char **);
-int do_pwm (char **);
-int do_thermo (char **);
-int do_touch (char **);
-int do_rs485 (char **);
-int do_serial_number (char **);
+int do_motor (char * const *);
+int do_pwm (char * const *);
+int do_thermo (char * const *);
+int do_touch (char * const *);
+int do_rs485 (char * const *);
+int do_serial_number (char * const *);
 int do_crc16 (void);
 int do_power_switch (void);
-int do_gain (char **);
-int do_eeprom (char **);
+int do_gain (char * const *);
+int do_eeprom (char * const *);
 
 /* helper functions */
 static void adc_init (void);
@@ -149,8 +150,8 @@ static unsigned short updcrc(unsigned short icrc, unsigned char *icp,
 			     unsigned int icnt);
 
 #if defined(CONFIG_CMD_I2C)
-static int trab_eeprom_read (char **argv);
-static int trab_eeprom_write (char **argv);
+static int trab_eeprom_read (char * const *argv);
+static int trab_eeprom_write (char * const *argv);
 int i2c_write_multiple (uchar chip, uint addr, int alen, uchar *buffer,
 			int len);
 int i2c_read_multiple ( uchar chip, uint addr, int alen, uchar *buffer,
@@ -162,7 +163,7 @@ int i2c_read_multiple ( uchar chip, uint addr, int alen, uchar *buffer,
  * test.
  */
 
-int trab_fkt (int argc, char *argv[])
+int trab_fkt (int argc, char * const argv[])
 {
 	int i;
 
@@ -293,10 +294,16 @@ int trab_fkt (int argc, char *argv[])
 	return 1;
 }
 
+void hang (void)
+{
+	puts ("### ERROR ### Please RESET the board ###\n");
+	for (;;);
+}
+
 int do_info (void)
 {
 	printf ("Stand-alone application for TRAB board function test\n");
-	printf ("Built: %s at %s\n", __DATE__ , __TIME__ );
+	printf ("Built: %s at %s\n", U_BOOT_DATE, U_BOOT_TIME);
 
 	return 0;
 }
@@ -399,9 +406,9 @@ static int adc_read (unsigned int channel)
 {
 	int j = 1000; /* timeout value for wait loop in us */
 	int result;
-	S3C2400_ADC *padc;
+	struct s3c2400_adc *padc;
 
-	padc = S3C2400_GetBase_ADC();
+	padc = s3c2400_get_base_adc();
 	channel &= 0x7;
 
 	padc->ADCCON &= ~ADC_STDBM; /* select normal mode */
@@ -439,9 +446,9 @@ static int adc_read (unsigned int channel)
 
 static void adc_init (void)
 {
-	S3C2400_ADC *padc;
+	struct s3c2400_adc *padc;
 
-	padc = S3C2400_GetBase_ADC();
+	padc = s3c2400_get_base_adc();
 
 	padc->ADCCON &= ~(0xff << 6); /* clear prescaler bits */
 	padc->ADCCON |= ((65 << 6) | ADC_PRSCEN); /* set prescaler */
@@ -483,7 +490,7 @@ int do_power_switch (void)
 {
 	int result;
 
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* configure GPE7 as input */
 	gpio->PECON &= ~(0x3 << (2 * 7));
@@ -550,7 +557,7 @@ int do_vfd_id (void)
 	int i;
 	long int pcup_old, pccon_old;
 	int vfd_board_id;
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* try to red vfd board id from the value defined by pull-ups */
 
@@ -578,12 +585,12 @@ int do_vfd_id (void)
 	return 0;
 }
 
-int do_buzzer (char **argv)
+int do_buzzer (char * const *argv)
 {
 	int counter;
 
-	S3C24X0_TIMERS * const timers = S3C24X0_GetBase_TIMERS();
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_timers * const timers = s3c24x0_get_base_timers();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* set prescaler for timer 2, 3 and 4 */
 	timers->TCFG0 &= ~0xFF00;
@@ -628,9 +635,9 @@ int do_buzzer (char **argv)
 }
 
 
-int do_led (char **argv)
+int do_led (char * const *argv)
 {
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* configure PC14 and PC15 as output */
 	gpio->PCCON &= ~(0xF << 28);
@@ -683,9 +690,9 @@ int do_led (char **argv)
 }
 
 
-int do_full_bridge (char **argv)
+int do_full_bridge (char * const *argv)
 {
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* configure PD5 and PD6 as output */
 	gpio->PDCON &= ~((0x3 << 5*2) | (0x3 << 6*2));
@@ -717,12 +724,12 @@ static inline unsigned long tsc2000_to_uv (u16 val)
 }
 
 
-int do_dac (char **argv)
+int do_dac (char * const *argv)
 {
 	int brightness;
 
 	/* initialize SPI */
-	spi_init ();
+	tsc2000_spi_init ();
 
 	if  (((brightness = simple_strtoul (argv[2], NULL, 10)) < 0) ||
 	     (brightness > 255)) {
@@ -792,9 +799,9 @@ int do_motor_contact (void)
 	return 0;
 }
 
-int do_motor (char **argv)
+int do_motor (char * const *argv)
 {
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* Configure I/O port */
 	gpio->PGCON &= ~(0x3 << 0);
@@ -817,11 +824,11 @@ static void print_identifier (void)
 	printf ("## FKT: ");
 }
 
-int do_pwm (char **argv)
+int do_pwm (char * const *argv)
 {
 	int counter;
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
-	S3C24X0_TIMERS * const timers = S3C24X0_GetBase_TIMERS();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
+	struct s3c24x0_timers * const timers = s3c24x0_get_base_timers();
 
 	if (strcmp (argv[2], "on") == 0) {
 		/* configure pin GPD8 as TOUT3 */
@@ -862,7 +869,7 @@ int do_pwm (char **argv)
 }
 
 
-int do_thermo (char **argv)
+int do_thermo (char * const *argv)
 {
 	int     channel, res;
 
@@ -885,7 +892,7 @@ int do_thermo (char **argv)
 }
 
 
-int do_touch (char **argv)
+int do_touch (char * const *argv)
 {
 	int     x, y;
 
@@ -1038,7 +1045,7 @@ static void touch_read_x_y (int *px, int *py)
 }
 
 
-int do_rs485 (char **argv)
+int do_rs485 (char * const *argv)
 {
 	int timeout;
 	char data[RS485_MAX_RECEIVE_BUF_LEN];
@@ -1103,7 +1110,7 @@ static int rs485_receive_chars (char *data, int timeout)
 }
 
 
-int do_serial_number (char **argv)
+int do_serial_number (char * const *argv)
 {
 #if defined(CONFIG_CMD_I2C)
 	unsigned int serial_number;
@@ -1242,7 +1249,7 @@ static unsigned short updcrc(unsigned short icrc, unsigned char *icp,
 }
 
 
-int do_gain (char **argv)
+int do_gain (char * const *argv)
 {
 	int range;
 
@@ -1258,7 +1265,7 @@ int do_gain (char **argv)
 }
 
 
-int do_eeprom (char **argv)
+int do_eeprom (char * const *argv)
 {
 #if defined(CONFIG_CMD_I2C)
 	if (strcmp (argv[2], "read") == 0) {
@@ -1279,7 +1286,7 @@ int do_eeprom (char **argv)
 }
 
 #if defined(CONFIG_CMD_I2C)
-static int trab_eeprom_read (char **argv)
+static int trab_eeprom_read (char * const *argv)
 {
 	int i;
 	int len;
@@ -1324,7 +1331,7 @@ static int trab_eeprom_read (char **argv)
 	return (0);
 }
 
-static int trab_eeprom_write (char **argv)
+static int trab_eeprom_write (char * const *argv)
 {
 	int i;
 	int len;

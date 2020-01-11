@@ -1,6 +1,6 @@
 /*
  * (C) Copyright 2002
- * Gary Jennejohn, DENX Software Engineering, <gj@denx.de>
+ * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
  *
  * See file CREDITS for list of people who contributed to this
  * project.
@@ -24,13 +24,14 @@
 /* #define DEBUG */
 
 #include <common.h>
+#include <netdev.h>
 #include <malloc.h>
-#include <s3c2400.h>
+#include <asm/arch/s3c24x0_cpu.h>
 #include <command.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifdef CFG_BRIGHTNESS
+#ifdef CONFIG_SYS_BRIGHTNESS
 static void spi_init(void);
 static void wait_transmit_done(void);
 static void tsc2000_write(unsigned int page, unsigned int reg,
@@ -68,8 +69,9 @@ int board_init ()
 #if defined(CONFIG_VFD)
 	extern int vfd_init_clocks(void);
 #endif
-	S3C24X0_CLOCK_POWER * const clk_power = S3C24X0_GetBase_CLOCK_POWER();
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_clock_power * const clk_power =
+					s3c24x0_get_base_clock_power();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	/* memory and cpu-speed are setup before relocation */
 #ifdef CONFIG_TRAB_50MHZ
@@ -199,7 +201,7 @@ int misc_init_r (void)
 		free (str);
 	}
 
-#ifdef CFG_BRIGHTNESS
+#ifdef CONFIG_SYS_BRIGHTNESS
 	tsc2000_set_brightness();
 #endif
 	return (0);
@@ -303,7 +305,7 @@ static char *key_match (ulong kbd_data)
 #endif							/* CONFIG_PREBOOT */
 
 /* Read Keyboard status */
-int do_kbd (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+int do_kbd (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 {
 	ulong kbd_data = KBD_DATA;
 	char keybd_env[KEYBD_KEY_NUM + 1];
@@ -322,8 +324,8 @@ int do_kbd (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 
 U_BOOT_CMD(
 	kbd,	1,	1,	do_kbd,
-	"kbd     - read keyboard status\n",
-	NULL
+	"read keyboard status",
+	""
 );
 
 #ifdef CONFIG_MODEM_SUPPORT
@@ -333,26 +335,26 @@ static int key_pressed(void)
 }
 #endif	/* CONFIG_MODEM_SUPPORT */
 
-#ifdef CFG_BRIGHTNESS
+#ifdef CONFIG_SYS_BRIGHTNESS
 
 static inline void SET_CS_TOUCH(void)
 {
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	gpio->PDDAT &= 0x5FF;
 }
 
 static inline void CLR_CS_TOUCH(void)
 {
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
 
 	gpio->PDDAT |= 0x200;
 }
 
 static void spi_init(void)
 {
-	S3C24X0_GPIO * const gpio = S3C24X0_GetBase_GPIO();
-	S3C24X0_SPI * const spi = S3C24X0_GetBase_SPI();
+	struct s3c24x0_gpio * const gpio = s3c24x0_get_base_gpio();
+	struct s3c24x0_spi * const spi = s3c24x0_get_base_spi();
 	int i;
 
 	/* Configure I/O ports. */
@@ -376,7 +378,7 @@ static void spi_init(void)
 
 static void wait_transmit_done(void)
 {
-	S3C24X0_SPI * const spi = S3C24X0_GetBase_SPI();
+	struct s3c24x0_spi * const spi = s3c24x0_get_base_spi();
 
 	while (!(spi->ch[0].SPSTA & 0x01)); /* wait until transfer is done */
 }
@@ -384,7 +386,7 @@ static void wait_transmit_done(void)
 static void tsc2000_write(unsigned int page, unsigned int reg,
 						  unsigned int data)
 {
-	S3C24X0_SPI * const spi = S3C24X0_GetBase_SPI();
+	struct s3c24x0_spi * const spi = s3c24x0_get_base_spi();
 	unsigned int command;
 
 	SET_CS_TOUCH();
@@ -412,11 +414,22 @@ static void tsc2000_set_brightness(void)
 	spi_init();
 	tsc2000_write(1, 2, 0x0); /* Power up DAC */
 
-	i = getenv_r("brightness", tmp, sizeof(tmp));
+	i = getenv_f("brightness", tmp, sizeof(tmp));
 	br = (i > 0)
 		? (int) simple_strtoul (tmp, NULL, 10)
-		: CFG_BRIGHTNESS;
+		: CONFIG_SYS_BRIGHTNESS;
 
 	tsc2000_write(0, 0xb, br & 0xff);
+}
+#endif
+
+#ifdef CONFIG_CMD_NET
+int board_eth_init(bd_t *bis)
+{
+	int rc = 0;
+#ifdef CONFIG_CS8900
+	rc = cs8900_initialize(0, CONFIG_CS8900_BASE);
+#endif
+	return rc;
 }
 #endif

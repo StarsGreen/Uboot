@@ -26,7 +26,8 @@ include $(OBJTREE)/include/autoconf.mk
 
 LIB				= libpost.a
 GPLIB-$(CONFIG_HAS_POST)	+= libgenpost.a
-COBJS-$(CONFIG_HAS_POST)	+= post.o tests.o
+COBJS-$(CONFIG_HAS_POST)	+= post.o
+COBJS-$(CONFIG_POST_STD_LIST)	+= tests.o
 
 SPLIB-$(CONFIG_HAS_POST) = drivers/libpostdrivers.a
 SPLIB-$(CONFIG_HAS_POST) += $(shell if [ -d lib_$(ARCH) ]; then echo \
@@ -47,12 +48,17 @@ LIB	:= $(obj)$(LIB)
 
 all:	$(LIB)
 
+postdeps:
+	@for lib in $(SPLIB-y) ; do \
+		$(MAKE) -C `dirname $$lib` all ; \
+	done
+
 # generic POST library
 $(GPLIB): $(obj).depend $(OBJS)
 	$(AR) $(ARFLAGS) $@ $(OBJS)
 
 # specific POST libraries
-$(SPLIB): $(obj).depend
+$(SPLIB): $(obj).depend postdeps
 	$(MAKE) -C $(dir $(subst $(obj),,$@))
 
 # the POST lib archive

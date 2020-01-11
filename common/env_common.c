@@ -32,11 +32,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifdef CONFIG_AMIGAONEG3SE
-	extern void enable_nvram(void);
-	extern void disable_nvram(void);
-#endif
-
 #undef DEBUG_ENV
 #ifdef DEBUG_ENV
 #define DEBUGF(fmt,args...) printf(fmt ,##args)
@@ -91,14 +86,20 @@ uchar default_environment[] = {
 #ifdef	CONFIG_ETH3ADDR
 	"eth3addr="	MK_STR(CONFIG_ETH3ADDR)		"\0"
 #endif
+#ifdef	CONFIG_ETH4ADDR
+	"eth4addr="	MK_STR(CONFIG_ETH4ADDR)		"\0"
+#endif
+#ifdef	CONFIG_ETH5ADDR
+	"eth5addr="	MK_STR(CONFIG_ETH5ADDR)		"\0"
+#endif
 #ifdef	CONFIG_IPADDR
 	"ipaddr="	MK_STR(CONFIG_IPADDR)		"\0"
 #endif
 #ifdef	CONFIG_SERVERIP
 	"serverip="	MK_STR(CONFIG_SERVERIP)		"\0"
 #endif
-#ifdef	CFG_AUTOLOAD
-	"autoload="	CFG_AUTOLOAD			"\0"
+#ifdef	CONFIG_SYS_AUTOLOAD
+	"autoload="	CONFIG_SYS_AUTOLOAD			"\0"
 #endif
 #ifdef	CONFIG_PREBOOT
 	"preboot="	CONFIG_PREBOOT			"\0"
@@ -133,11 +134,6 @@ uchar default_environment[] = {
 	"\0"
 };
 
-#if defined(CFG_ENV_IS_IN_NAND)		/* Environment is in Nand Flash */ \
-	|| defined(CFG_ENV_IS_IN_SPI_FLASH)
-int default_environment_size = sizeof(default_environment);
-#endif
-
 void env_crc_update (void)
 {
 	env_ptr->crc = crc32(0, env_ptr->data, ENV_SIZE);
@@ -158,20 +154,6 @@ static uchar env_get_char_init (int index)
 	return (c);
 }
 
-#ifdef CONFIG_AMIGAONEG3SE
-uchar env_get_char_memory (int index)
-{
-	uchar retval;
-	enable_nvram();
-	if (gd->env_valid) {
-		retval = ( *((uchar *)(gd->env_addr + index)) );
-	} else {
-		retval = ( default_environment[index] );
-	}
-	disable_nvram();
-	return retval;
-}
-#else
 uchar env_get_char_memory (int index)
 {
 	if (gd->env_valid) {
@@ -180,7 +162,6 @@ uchar env_get_char_memory (int index)
 		return ( default_environment[index] );
 	}
 }
-#endif
 
 uchar env_get_char (int index)
 {
@@ -214,7 +195,7 @@ void set_default_env(void)
 	memset(env_ptr, 0, sizeof(env_t));
 	memcpy(env_ptr->data, default_environment,
 	       sizeof(default_environment));
-#ifdef CFG_REDUNDAND_ENVIRONMENT
+#ifdef CONFIG_SYS_REDUNDAND_ENVIRONMENT
 	env_ptr->flags = 0xFF;
 #endif
 	env_crc_update ();
@@ -223,11 +204,9 @@ void set_default_env(void)
 
 void env_relocate (void)
 {
+#ifndef CONFIG_RELOC_FIXUP_WORKS
 	DEBUGF ("%s[%d] offset = 0x%lx\n", __FUNCTION__,__LINE__,
 		gd->reloc_off);
-
-#ifdef CONFIG_AMIGAONEG3SE
-	enable_nvram();
 #endif
 
 #ifdef ENV_IS_EMBEDDED
@@ -235,18 +214,20 @@ void env_relocate (void)
 	 * The environment buffer is embedded with the text segment,
 	 * just relocate the environment pointer
 	 */
+#ifndef CONFIG_RELOC_FIXUP_WORKS
 	env_ptr = (env_t *)((ulong)env_ptr + gd->reloc_off);
+#endif
 	DEBUGF ("%s[%d] embedded ENV at %p\n", __FUNCTION__,__LINE__,env_ptr);
 #else
 	/*
 	 * We must allocate a buffer for the environment
 	 */
-	env_ptr = (env_t *)malloc (CFG_ENV_SIZE);
+	env_ptr = (env_t *)malloc (CONFIG_ENV_SIZE);
 	DEBUGF ("%s[%d] malloced ENV at %p\n", __FUNCTION__,__LINE__,env_ptr);
 #endif
 
 	if (gd->env_valid == 0) {
-#if defined(CONFIG_GTH)	|| defined(CFG_ENV_IS_NOWHERE)	/* Environment not changable */
+#if defined(CONFIG_ENV_IS_NOWHERE)	/* Environment not changable */
 		puts ("Using default environment\n\n");
 #else
 		puts ("*** Warning - bad CRC, using default environment\n\n");
@@ -258,10 +239,6 @@ void env_relocate (void)
 		env_relocate_spec ();
 	}
 	gd->env_addr = (ulong)&(env_ptr->data);
-
-#ifdef CONFIG_AMIGAONEG3SE
-	disable_nvram();
-#endif
 }
 
 #ifdef CONFIG_AUTO_COMPLETE

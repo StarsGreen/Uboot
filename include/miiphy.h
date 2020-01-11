@@ -1,4 +1,6 @@
 /*----------------------------------------------------------------------------+
+|   This source code is dual-licensed.  You may use it under the terms of the
+|   GNU General Public License version 2, or under the license below.
 |
 |	This source code has been made available to you by IBM on an AS-IS
 |	basis.	Anyone receiving this source is licensed under IBM
@@ -17,6 +19,8 @@
 |
 |	COPYRIGHT   I B M   CORPORATION 1999
 |	LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
+|
+|   Additions (C) Copyright 2009 Industrie Dial Face S.p.A.
 +----------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------+
 |
@@ -32,39 +36,60 @@
 
 #include <net.h>
 
-int miiphy_read (char *devname, unsigned char addr, unsigned char reg,
+int miiphy_read (const char *devname, unsigned char addr, unsigned char reg,
 		 unsigned short *value);
-int miiphy_write (char *devname, unsigned char addr, unsigned char reg,
+int miiphy_write (const char *devname, unsigned char addr, unsigned char reg,
 		  unsigned short value);
-int miiphy_info (char *devname, unsigned char addr, unsigned int *oui,
+int miiphy_info (const char *devname, unsigned char addr, unsigned int *oui,
 		 unsigned char *model, unsigned char *rev);
-int miiphy_reset (char *devname, unsigned char addr);
-int miiphy_speed (char *devname, unsigned char addr);
-int miiphy_duplex (char *devname, unsigned char addr);
-int miiphy_is_1000base_x (char *devname, unsigned char addr);
-#ifdef CFG_FAULT_ECHO_LINK_DOWN
-int miiphy_link (char *devname, unsigned char addr);
+int miiphy_reset (const char *devname, unsigned char addr);
+int miiphy_speed (const char *devname, unsigned char addr);
+int miiphy_duplex (const char *devname, unsigned char addr);
+int miiphy_is_1000base_x (const char *devname, unsigned char addr);
+#ifdef CONFIG_SYS_FAULT_ECHO_LINK_DOWN
+int miiphy_link (const char *devname, unsigned char addr);
 #endif
 
 void miiphy_init (void);
 
-void miiphy_register (char *devname,
-		      int (*read) (char *devname, unsigned char addr,
+void miiphy_register (const char *devname,
+		      int (*read) (const char *devname, unsigned char addr,
 				   unsigned char reg, unsigned short *value),
-		      int (*write) (char *devname, unsigned char addr,
+		      int (*write) (const char *devname, unsigned char addr,
 				    unsigned char reg, unsigned short value));
 
-int miiphy_set_current_dev (char *devname);
-char *miiphy_get_current_dev (void);
+int miiphy_set_current_dev (const char *devname);
+const char *miiphy_get_current_dev (void);
 
 void miiphy_listdev (void);
 
-#define BB_MII_DEVNAME	"bbmii"
+#ifdef CONFIG_BITBANGMII
 
-int bb_miiphy_read (char *devname, unsigned char addr,
+#define BB_MII_DEVNAME	"bb_miiphy"
+
+struct bb_miiphy_bus {
+	char name[NAMESIZE];
+	int (*init)(struct bb_miiphy_bus *bus);
+	int (*mdio_active)(struct bb_miiphy_bus *bus);
+	int (*mdio_tristate)(struct bb_miiphy_bus *bus);
+	int (*set_mdio)(struct bb_miiphy_bus *bus, int v);
+	int (*get_mdio)(struct bb_miiphy_bus *bus, int *v);
+	int (*set_mdc)(struct bb_miiphy_bus *bus, int v);
+	int (*delay)(struct bb_miiphy_bus *bus);
+#ifdef CONFIG_BITBANGMII_MULTI
+	void *priv;
+#endif
+};
+
+extern struct bb_miiphy_bus bb_miiphy_buses[];
+extern int bb_miiphy_buses_num;
+
+void bb_miiphy_init (void);
+int bb_miiphy_read (const char *devname, unsigned char addr,
 		    unsigned char reg, unsigned short *value);
-int bb_miiphy_write (char *devname, unsigned char addr,
+int bb_miiphy_write (const char *devname, unsigned char addr,
 		     unsigned char reg, unsigned short value);
+#endif
 
 /* phy seed setup */
 #define AUTO			99

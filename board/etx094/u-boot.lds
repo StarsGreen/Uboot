@@ -55,30 +55,27 @@ SECTIONS
     /* WARNING - the following is hand-optimized to fit within	*/
     /* the sector layout of our flash chips!	XXX FIXME XXX	*/
 
-    cpu/mpc8xx/start.o	(.text)
-    cpu/mpc8xx/traps.o	(.text)
-    cpu/mpc8xx/interrupts.o	(.text)
-    cpu/mpc8xx/serial.o	(.text)
-    cpu/mpc8xx/cpu_init.o	(.text)
-    cpu/mpc8xx/speed.o	(.text)
+    arch/powerpc/cpu/mpc8xx/start.o	(.text)
+    arch/powerpc/cpu/mpc8xx/traps.o	(.text)
+    arch/powerpc/cpu/mpc8xx/interrupts.o	(.text)
+    arch/powerpc/cpu/mpc8xx/serial.o	(.text)
+    arch/powerpc/cpu/mpc8xx/cpu_init.o	(.text)
+    arch/powerpc/cpu/mpc8xx/speed.o	(.text)
     common/dlmalloc.o	(.text)
-    lib_generic/crc32.o		(.text)
-    lib_generic/zlib.o		(.text)
+    lib/crc32.o		(.text)
+    lib/zlib.o		(.text)
 
     . = env_offset;
-    common/environment.o(.text)
+    common/env_embedded.o(.text)
     *(.text)
-    *(.fixup)
     *(.got1)
   }
   _etext = .;
   PROVIDE (etext = .);
   .rodata    :
   {
-    *(.rodata)
-    *(.rodata1)
-    *(.rodata.str1.4)
     *(.eh_frame)
+    *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))
   }
   .fini      : { *(.fini)    } =0
   .ctors     : { *(.ctors)   }
@@ -136,6 +133,7 @@ SECTIONS
    *(.dynbss)
    *(.bss)
    *(COMMON)
+   . = ALIGN(4);
   }
   _end = . ;
   PROVIDE (end = .);

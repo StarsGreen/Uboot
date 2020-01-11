@@ -1,4 +1,4 @@
- /*
+/*
  * Copyright 2004 Freescale Semiconductor.
  * (C) Copyright 2002,2003, Motorola Inc.
  * Xianghua Xiao, (X.Xiao@motorola.com)
@@ -28,8 +28,9 @@
 #include <common.h>
 #include <pci.h>
 #include <asm/processor.h>
+#include <asm/mmu.h>
 #include <asm/immap_85xx.h>
-#include <spd_sdram.h>
+#include <asm/fsl_ddr_sdram.h>
 #include <libfdt.h>
 #include <fdt_support.h>
 
@@ -70,7 +71,7 @@ initdram(int board_type)
 
 #if defined(CONFIG_DDR_DLL)
 	{
-	    volatile ccsr_gur_t *gur = (void *)(CFG_MPC85xx_GUTS_ADDR);
+	    volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
 	    uint temp_ddrdll = 0;
 
 	    /*
@@ -82,10 +83,13 @@ initdram(int board_type)
 	}
 #endif
 
-#if defined(CONFIG_SPD_EEPROM)
-	dram_size = spd_sdram ();
+#ifdef CONFIG_SPD_EEPROM
+	dram_size = fsl_ddr_sdram();
+	dram_size = setup_ddr_tlbs(dram_size / 0x100000);
+
+	dram_size *= 0x100000;
 #else
-	dram_size = fixed_sdram ();
+	dram_size = fixed_sdram();
 #endif
 
 #if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)
@@ -112,8 +116,8 @@ initdram(int board_type)
 void
 local_bus_init(void)
 {
-	volatile ccsr_gur_t *gur = (void *)(CFG_MPC85xx_GUTS_ADDR);
-	volatile ccsr_lbc_t *lbc = (void *)(CFG_MPC85xx_LBC_ADDR);
+	volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
+	volatile fsl_lbc_t *lbc = LBC_BASE_ADDR;
 
 	uint clkdiv;
 	uint lbc_hz;
@@ -123,20 +127,20 @@ local_bus_init(void)
 	 * Errata LBC11.
 	 * Fix Local Bus clock glitch when DLL is enabled.
 	 *
-	 * If localbus freq is < 66Mhz, DLL bypass mode must be used.
-	 * If localbus freq is > 133Mhz, DLL can be safely enabled.
+	 * If localbus freq is < 66MHz, DLL bypass mode must be used.
+	 * If localbus freq is > 133MHz, DLL can be safely enabled.
 	 * Between 66 and 133, the DLL is enabled with an override workaround.
 	 */
 
 	get_sys_info(&sysinfo);
-	clkdiv = lbc->lcrr & 0x0f;
+	clkdiv = lbc->lcrr & LCRR_CLKDIV;
 	lbc_hz = sysinfo.freqSystemBus / 1000000 / clkdiv;
 
 	if (lbc_hz < 66) {
-		lbc->lcrr = CFG_LBC_LCRR | 0x80000000;	/* DLL Bypass */
+		lbc->lcrr = CONFIG_SYS_LBC_LCRR | 0x80000000;	/* DLL Bypass */
 
 	} else if (lbc_hz >= 133) {
-		lbc->lcrr = CFG_LBC_LCRR & (~0x80000000); /* DLL Enabled */
+		lbc->lcrr = CONFIG_SYS_LBC_LCRR & (~0x80000000); /* DLL Enabled */
 
 	} else {
 		/*
@@ -151,7 +155,7 @@ local_bus_init(void)
 			lbc->lcrr = 0x10000004;
 		}
 
-		lbc->lcrr = CFG_LBC_LCRR & (~0x80000000); /* DLL Enabled */
+		lbc->lcrr = CONFIG_SYS_LBC_LCRR & (~0x80000000); /* DLL Enabled */
 		udelay(200);
 
 		/*
@@ -172,52 +176,52 @@ local_bus_init(void)
 void
 sdram_init(void)
 {
-	volatile ccsr_lbc_t *lbc = (void *)(CFG_MPC85xx_LBC_ADDR);
-	uint *sdram_addr = (uint *)CFG_LBC_SDRAM_BASE;
+	volatile fsl_lbc_t *lbc = LBC_BASE_ADDR;
+	uint *sdram_addr = (uint *)CONFIG_SYS_LBC_SDRAM_BASE;
 
 	puts("    SDRAM: ");
-	print_size (CFG_LBC_SDRAM_SIZE * 1024 * 1024, "\n");
+	print_size (CONFIG_SYS_LBC_SDRAM_SIZE * 1024 * 1024, "\n");
 
 	/*
 	 * Setup SDRAM Base and Option Registers
 	 */
-	lbc->or2 = CFG_OR2_PRELIM;
-	lbc->br2 = CFG_BR2_PRELIM;
-	lbc->lbcr = CFG_LBC_LBCR;
+	set_lbc_or(2, CONFIG_SYS_OR2_PRELIM);
+	set_lbc_br(2, CONFIG_SYS_BR2_PRELIM);
+	lbc->lbcr = CONFIG_SYS_LBC_LBCR;
 	asm("msync");
 
-	lbc->lsrt = CFG_LBC_LSRT;
-	lbc->mrtpr = CFG_LBC_MRTPR;
+	lbc->lsrt = CONFIG_SYS_LBC_LSRT;
+	lbc->mrtpr = CONFIG_SYS_LBC_MRTPR;
 	asm("sync");
 
 	/*
 	 * Configure the SDRAM controller.
 	 */
-	lbc->lsdmr = CFG_LBC_LSDMR_1;
+	lbc->lsdmr = CONFIG_SYS_LBC_LSDMR_1;
 	asm("sync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
 	udelay(100);
 
-	lbc->lsdmr = CFG_LBC_LSDMR_2;
+	lbc->lsdmr = CONFIG_SYS_LBC_LSDMR_2;
 	asm("sync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
 	udelay(100);
 
-	lbc->lsdmr = CFG_LBC_LSDMR_3;
+	lbc->lsdmr = CONFIG_SYS_LBC_LSDMR_3;
 	asm("sync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
 	udelay(100);
 
-	lbc->lsdmr = CFG_LBC_LSDMR_4;
+	lbc->lsdmr = CONFIG_SYS_LBC_LSDMR_4;
 	asm("sync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
 	udelay(100);
 
-	lbc->lsdmr = CFG_LBC_LSDMR_5;
+	lbc->lsdmr = CONFIG_SYS_LBC_LSDMR_5;
 	asm("sync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
@@ -230,15 +234,15 @@ sdram_init(void)
  ************************************************************************/
 long int fixed_sdram (void)
 {
-  #ifndef CFG_RAMBOOT
-	volatile ccsr_ddr_t *ddr= (void *)(CFG_MPC85xx_DDR_ADDR);
+  #ifndef CONFIG_SYS_RAMBOOT
+	volatile ccsr_ddr_t *ddr= (void *)(CONFIG_SYS_MPC85xx_DDR_ADDR);
 
-	ddr->cs0_bnds = CFG_DDR_CS0_BNDS;
-	ddr->cs0_config = CFG_DDR_CS0_CONFIG;
-	ddr->timing_cfg_1 = CFG_DDR_TIMING_1;
-	ddr->timing_cfg_2 = CFG_DDR_TIMING_2;
-	ddr->sdram_mode = CFG_DDR_MODE;
-	ddr->sdram_interval = CFG_DDR_INTERVAL;
+	ddr->cs0_bnds = CONFIG_SYS_DDR_CS0_BNDS;
+	ddr->cs0_config = CONFIG_SYS_DDR_CS0_CONFIG;
+	ddr->timing_cfg_1 = CONFIG_SYS_DDR_TIMING_1;
+	ddr->timing_cfg_2 = CONFIG_SYS_DDR_TIMING_2;
+	ddr->sdram_mode = CONFIG_SYS_DDR_MODE;
+	ddr->sdram_interval = CONFIG_SYS_DDR_INTERVAL;
     #if defined (CONFIG_DDR_ECC)
 	ddr->err_disable = 0x0000000D;
 	ddr->err_sbe = 0x00ff0000;
@@ -247,14 +251,14 @@ long int fixed_sdram (void)
 	udelay(500);
     #if defined (CONFIG_DDR_ECC)
 	/* Enable ECC checking */
-	ddr->sdram_cfg = (CFG_DDR_CONTROL | 0x20000000);
+	ddr->sdram_cfg = (CONFIG_SYS_DDR_CONTROL | 0x20000000);
     #else
-	ddr->sdram_cfg = CFG_DDR_CONTROL;
+	ddr->sdram_cfg = CONFIG_SYS_DDR_CONTROL;
     #endif
 	asm("sync; isync; msync");
 	udelay(500);
   #endif
-	return CFG_SDRAM_SIZE * 1024 * 1024;
+	return CONFIG_SYS_SDRAM_SIZE * 1024 * 1024;
 }
 #endif	/* !defined(CONFIG_SPD_EEPROM) */
 

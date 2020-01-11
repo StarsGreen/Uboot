@@ -2,8 +2,9 @@
  * SPI flash interface
  *
  * Copyright (C) 2008 Atmel Corporation
+ * Licensed under the GPL-2 or later.
  */
-#define DEBUG
+
 #include <common.h>
 #include <malloc.h>
 #include <spi.h>
@@ -101,11 +102,11 @@ struct spi_flash *spi_flash_probe(unsigned int bus, unsigned int cs,
 	struct spi_slave *spi;
 	struct spi_flash *flash;
 	int ret;
-	u8 idcode[3];
+	u8 idcode[5];
 
 	spi = spi_setup_slave(bus, cs, max_hz, spi_mode);
 	if (!spi) {
-		debug("SF: Failed to set up slave\n");
+		printf("SF: Failed to set up slave\n");
 		return NULL;
 	}
 
@@ -120,8 +121,8 @@ struct spi_flash *spi_flash_probe(unsigned int bus, unsigned int cs,
 	if (ret)
 		goto err_read_id;
 
-	debug("SF: Got idcode %02x %02x %02x\n", idcode[0],
-			idcode[1], idcode[2]);
+	debug("SF: Got idcode %02x %02x %02x %02x %02x\n", idcode[0],
+			idcode[1], idcode[2], idcode[3], idcode[4]);
 
 	switch (idcode[0]) {
 #ifdef CONFIG_SPI_FLASH_SPANSION
@@ -134,8 +135,29 @@ struct spi_flash *spi_flash_probe(unsigned int bus, unsigned int cs,
 		flash = spi_flash_probe_atmel(spi, idcode);
 		break;
 #endif
+#ifdef CONFIG_SPI_FLASH_MACRONIX
+	case 0xc2:
+		flash = spi_flash_probe_macronix(spi, idcode);
+		break;
+#endif
+#ifdef CONFIG_SPI_FLASH_WINBOND
+	case 0xef:
+		flash = spi_flash_probe_winbond(spi, idcode);
+		break;
+#endif
+#ifdef CONFIG_SPI_FLASH_STMICRO
+	case 0x20:
+	case 0xff: /* Let the stmicro func handle non-JEDEC ids */
+		flash = spi_flash_probe_stmicro(spi, idcode);
+		break;
+#endif
+#ifdef CONFIG_SPI_FLASH_SST
+	case 0xBF:
+		flash = spi_flash_probe_sst(spi, idcode);
+		break;
+#endif
 	default:
-		debug("SF: Unsupported manufacturer %02X\n", idcode[0]);
+		printf("SF: Unsupported manufacturer %02X\n", idcode[0]);
 		flash = NULL;
 		break;
 	}

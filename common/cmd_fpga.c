@@ -44,7 +44,6 @@
 #endif
 
 /* Local functions */
-static void fpga_usage (cmd_tbl_t * cmdtp);
 static int fpga_get_op (char *opstr);
 
 /* Local defines */
@@ -156,7 +155,7 @@ int fpga_loadbitstream(unsigned long dev, char* fpgadata, size_t size)
  * If there is no data addr field, the fpgadata environment variable is used.
  * The info command requires no data address field.
  */
-int do_fpga (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+int do_fpga (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 {
 	int op, dev = FPGA_INVALID_DEVICE;
 	size_t data_size = 0;
@@ -232,8 +231,7 @@ int do_fpga (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 
 	switch (op) {
 	case FPGA_NONE:
-		fpga_usage (cmdtp);
-		break;
+		return cmd_usage(cmdtp);
 
 	case FPGA_INFO:
 		rc = fpga_info (dev);
@@ -312,15 +310,9 @@ int do_fpga (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 
 	default:
 		printf ("Unknown operation\n");
-		fpga_usage (cmdtp);
-		break;
+		return cmd_usage(cmdtp);
 	}
 	return (rc);
-}
-
-static void fpga_usage (cmd_tbl_t * cmdtp)
-{
-	printf ("Usage:\n%s\n", cmdtp->usage);
 }
 
 /*
@@ -350,16 +342,17 @@ static int fpga_get_op (char *opstr)
 }
 
 U_BOOT_CMD (fpga, 6, 1, do_fpga,
-	    "fpga    - loadable FPGA image support\n",
+	    "loadable FPGA image support",
 	    "fpga [operation type] [device number] [image address] [image size]\n"
 	    "fpga operations:\n"
 	    "\tinfo\tlist known device information\n"
 	    "\tload\tLoad device from memory buffer\n"
 	    "\tloadb\tLoad device from bitstream buffer (Xilinx devices only)\n"
 	    "\tloadmk\tLoad device generated with mkimage\n"
-	    "\tdump\tLoad device to memory buffer\n"
+	    "\tdump\tLoad device to memory buffer"
 #if defined(CONFIG_FIT)
+	    "\n"
 	    "\tFor loadmk operating on FIT format uImage address must include\n"
-	    "\tsubimage unit name in the form of addr:<subimg_uname>\n"
+	    "\tsubimage unit name in the form of addr:<subimg_uname>"
 #endif
 );

@@ -74,7 +74,7 @@ static int compare_magic (uchar *kbd_data, uchar *str);
 
 /* maximum number of "magic" key codes that can be assigned */
 
-static uchar kbd_addr = CFG_I2C_KEYBD_ADDR;
+static uchar kbd_addr = CONFIG_SYS_I2C_KEYBD_ADDR;
 
 static uchar *key_match (uchar *);
 
@@ -106,7 +106,7 @@ static void kbd_init (void)
 	uchar val, errcd;
 	int i;
 
-	i2c_init (CFG_I2C_SPEED, CFG_I2C_SLAVE);
+	i2c_init (CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
 
 	gd->kbd_status = 0;
 
@@ -380,7 +380,7 @@ static uchar *key_match (uchar *kbd_data)
 
 /***********************************************************************
 F* Function:     int do_kbd (cmd_tbl_t *cmdtp, int flag,
-F*                           int argc, char *argv[]) P*A*Z*
+F*                           int argc, char * const argv[]) P*A*Z*
  *
 P* Parameters:   cmd_tbl_t *cmdtp
 P*                - Pointer to our command table entry
@@ -389,7 +389,7 @@ P*                - If the CMD_FLAG_REPEAT bit is set, then this call is
 P*                  a repetition
 P*               int argc
 P*                - Argument count
-P*               char *argv[]
+P*               char * const argv[]
 P*                - Array of the actual arguments
 P*
 P* Returnvalue:  int
@@ -404,7 +404,7 @@ D* Design:       wd@denx.de
 C* Coding:       wd@denx.de
 V* Verification: dzu@denx.de
  ***********************************************************************/
-int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	uchar kbd_data[KEYBD_DATALEN];
 	char keybd_env[2 * KEYBD_DATALEN + 1];
@@ -412,7 +412,7 @@ int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 	int i;
 
 #if 0 /* Done in kbd_init */
-	i2c_init (CFG_I2C_SPEED, CFG_I2C_SLAVE);
+	i2c_init (CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
 #endif
 
 	/* Read keys */
@@ -432,8 +432,8 @@ int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 
 U_BOOT_CMD(
 	kbd,	1,	1,	do_kbd,
-	"kbd     - read keyboard status\n",
-	NULL
+	"read keyboard status",
+	""
 );
 
 /*----------------------------- Utilities -----------------------------*/

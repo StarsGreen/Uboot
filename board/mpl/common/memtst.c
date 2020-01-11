@@ -29,7 +29,7 @@ int testdram (void)
 	unsigned char s[32];
 	int i;
 
-	i = getenv_r ("testmem", s, 32);
+	i = getenv_f("testmem", s, 32);
 	if (i != 0) {
 		i = (int) simple_strtoul (s, NULL, 10);
 		if ((i > 0) && (i < 0xf)) {
@@ -467,32 +467,6 @@ static RAM_MEMTEST_FUNC test_stage[TEST_STAGES] = {
 	{RAM_MemTest_WriteRandomPattern, "random data test...\n",
 	 RAM_MemTest_CheckRandomPattern, NULL}
 };
-
-void mem_test_reloc(void)
-{
-	unsigned long addr;
-	int i;
-	for (i=0; i< TEST_STAGES; i++) {
-		addr = (ulong) (test_stage[i].test_write) + gd->reloc_off;
-		test_stage[i].test_write=
-			(void (*) (unsigned long startaddr, unsigned long size,
-						unsigned long *pat))addr;
-		addr = (ulong) (test_stage[i].test_write_desc) + gd->reloc_off;
-		test_stage[i].test_write_desc=(char *)addr;
-		if(test_stage[i].test_check1) {
-			addr = (ulong) (test_stage[i].test_check1) + gd->reloc_off;
-			test_stage[i].test_check1=
-				(void *(*) (int mode, unsigned long startaddr,
-				 unsigned long size, unsigned long *pat))addr;
-		}
-		if(test_stage[i].test_check2) {
-			addr = (ulong) (test_stage[i].test_check2) + gd->reloc_off;
-			test_stage[i].test_check2=
-				(void *(*) (int mode, unsigned long startaddr,
-				 unsigned long size, unsigned long *pat))addr;
-		}
-	}
-}
 
 
 int mem_test (unsigned long start, unsigned long ramsize, int quiet)

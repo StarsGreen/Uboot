@@ -20,14 +20,10 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 # MA 02111-1307 USA
 #
-#
-# AMCC 440EPx Reference Platform (Sequoia) board
-#
-
 sinclude $(OBJTREE)/board/$(BOARDDIR)/config.tmp
 
 ifndef TEXT_BASE
-TEXT_BASE = 0xFFFA0000
+TEXT_BASE = 0xFFF90000
 endif
 
 PLATFORM_CPPFLAGS += -DCONFIG_440=1
@@ -37,5 +33,5 @@ PLATFORM_CPPFLAGS += -DDEBUG
 endif
 
 ifeq ($(dbcr),1)
-PLATFORM_CPPFLAGS += -DCFG_INIT_DBCR=0x8cff0000
+PLATFORM_CPPFLAGS += -DCONFIG_SYS_INIT_DBCR=0x8cff0000
 endif

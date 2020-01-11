@@ -33,16 +33,11 @@
 #include <pci.h>
 #include <asm/processor.h>
 #include <asm/immap_86xx.h>
-#include <asm/immap_fsl_pci.h>
-#include <spd_sdram.h>
+#include <asm/fsl_pci.h>
+#include <asm/fsl_ddr_sdram.h>
 #include <libfdt.h>
 #include <fdt_support.h>
 
-#if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)
-extern void ddr_enable_ecc (unsigned int dram_size);
-#endif
-
-void sdram_init (void);
 long int fixed_sdram (void);
 
 int board_early_init_f (void)
@@ -62,32 +57,20 @@ phys_size_t initdram (int board_type)
 	long dram_size = 0;
 
 #if defined(CONFIG_SPD_EEPROM)
-	dram_size = spd_sdram ();
+	dram_size = fsl_ddr_sdram();
 #else
 	dram_size = fixed_sdram ();
-#endif
-
-#if defined(CFG_RAMBOOT)
-	puts ("    DDR: ");
-	return dram_size;
-#endif
-
-#if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)
-	/*
-	 * Initialize and enable DDR ECC.
-	 */
-	ddr_enable_ecc (dram_size);
 #endif
 
 	puts ("    DDR: ");
 	return dram_size;
 }
 
-#if defined(CFG_DRAM_TEST)
+#if defined(CONFIG_SYS_DRAM_TEST)
 int testdram (void)
 {
-	uint *pstart = (uint *) CFG_MEMTEST_START;
-	uint *pend = (uint *) CFG_MEMTEST_END;
+	uint *pstart = (uint *) CONFIG_SYS_MEMTEST_START;
+	uint *pend = (uint *) CONFIG_SYS_MEMTEST_END;
 	uint *p;
 
 	puts ("SDRAM test phase 1:\n");
@@ -123,72 +106,72 @@ int testdram (void)
  */
 long int fixed_sdram (void)
 {
-#if !defined(CFG_RAMBOOT)
-	volatile immap_t *immap = (immap_t *) CFG_IMMR;
+#if !defined(CONFIG_SYS_RAMBOOT)
+	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
 	volatile ccsr_ddr_t *ddr = &immap->im_ddr1;
 
-	ddr->cs0_bnds = CFG_DDR_CS0_BNDS;
-	ddr->cs1_bnds = CFG_DDR_CS1_BNDS;
-	ddr->cs2_bnds = CFG_DDR_CS2_BNDS;
-	ddr->cs3_bnds = CFG_DDR_CS3_BNDS;
-	ddr->cs0_config = CFG_DDR_CS0_CONFIG;
-	ddr->cs1_config = CFG_DDR_CS1_CONFIG;
-	ddr->cs2_config = CFG_DDR_CS2_CONFIG;
-	ddr->cs3_config = CFG_DDR_CS3_CONFIG;
-	ddr->timing_cfg_3 = CFG_DDR_TIMING_3;
-	ddr->timing_cfg_0 = CFG_DDR_TIMING_0;
-	ddr->timing_cfg_1 = CFG_DDR_TIMING_1;
-	ddr->timing_cfg_2 = CFG_DDR_TIMING_2;
-	ddr->sdram_cfg_1 = CFG_DDR_CFG_1A;
-	ddr->sdram_cfg_2 = CFG_DDR_CFG_2;
-	ddr->sdram_mode_1 = CFG_DDR_MODE_1;
-	ddr->sdram_mode_2 = CFG_DDR_MODE_2;
-	ddr->sdram_mode_cntl = CFG_DDR_MODE_CTL;
-	ddr->sdram_interval = CFG_DDR_INTERVAL;
-	ddr->sdram_data_init = CFG_DDR_DATA_INIT;
-	ddr->sdram_clk_cntl = CFG_DDR_CLK_CTRL;
+	ddr->cs0_bnds = CONFIG_SYS_DDR_CS0_BNDS;
+	ddr->cs1_bnds = CONFIG_SYS_DDR_CS1_BNDS;
+	ddr->cs2_bnds = CONFIG_SYS_DDR_CS2_BNDS;
+	ddr->cs3_bnds = CONFIG_SYS_DDR_CS3_BNDS;
+	ddr->cs0_config = CONFIG_SYS_DDR_CS0_CONFIG;
+	ddr->cs1_config = CONFIG_SYS_DDR_CS1_CONFIG;
+	ddr->cs2_config = CONFIG_SYS_DDR_CS2_CONFIG;
+	ddr->cs3_config = CONFIG_SYS_DDR_CS3_CONFIG;
+	ddr->timing_cfg_3 = CONFIG_SYS_DDR_TIMING_3;
+	ddr->timing_cfg_0 = CONFIG_SYS_DDR_TIMING_0;
+	ddr->timing_cfg_1 = CONFIG_SYS_DDR_TIMING_1;
+	ddr->timing_cfg_2 = CONFIG_SYS_DDR_TIMING_2;
+	ddr->sdram_cfg = CONFIG_SYS_DDR_CFG_1A;
+	ddr->sdram_cfg_2 = CONFIG_SYS_DDR_CFG_2;
+	ddr->sdram_mode = CONFIG_SYS_DDR_MODE_1;
+	ddr->sdram_mode_2 = CONFIG_SYS_DDR_MODE_2;
+	ddr->sdram_mode_cntl = CONFIG_SYS_DDR_MODE_CTL;
+	ddr->sdram_interval = CONFIG_SYS_DDR_INTERVAL;
+	ddr->sdram_data_init = CONFIG_SYS_DDR_DATA_INIT;
+	ddr->sdram_clk_cntl = CONFIG_SYS_DDR_CLK_CTRL;
 
 	asm ("sync;isync");
 
 	udelay (500);
 
-	ddr->sdram_cfg_1 = CFG_DDR_CFG_1B;
+	ddr->sdram_cfg = CONFIG_SYS_DDR_CFG_1B;
 	asm ("sync; isync");
 
 	udelay (500);
 	ddr = &immap->im_ddr2;
 
-	ddr->cs0_bnds = CFG_DDR2_CS0_BNDS;
-	ddr->cs1_bnds = CFG_DDR2_CS1_BNDS;
-	ddr->cs2_bnds = CFG_DDR2_CS2_BNDS;
-	ddr->cs3_bnds = CFG_DDR2_CS3_BNDS;
-	ddr->cs0_config = CFG_DDR2_CS0_CONFIG;
-	ddr->cs1_config = CFG_DDR2_CS1_CONFIG;
-	ddr->cs2_config = CFG_DDR2_CS2_CONFIG;
-	ddr->cs3_config = CFG_DDR2_CS3_CONFIG;
-	ddr->timing_cfg_3 = CFG_DDR2_EXT_REFRESH;
-	ddr->timing_cfg_0 = CFG_DDR2_TIMING_0;
-	ddr->timing_cfg_1 = CFG_DDR2_TIMING_1;
-	ddr->timing_cfg_2 = CFG_DDR2_TIMING_2;
-	ddr->sdram_cfg_1 = CFG_DDR2_CFG_1A;
-	ddr->sdram_cfg_2 = CFG_DDR2_CFG_2;
-	ddr->sdram_mode_1 = CFG_DDR2_MODE_1;
-	ddr->sdram_mode_2 = CFG_DDR2_MODE_2;
-	ddr->sdram_mode_cntl = CFG_DDR2_MODE_CTL;
-	ddr->sdram_interval = CFG_DDR2_INTERVAL;
-	ddr->sdram_data_init = CFG_DDR2_DATA_INIT;
-	ddr->sdram_clk_cntl = CFG_DDR2_CLK_CTRL;
+	ddr->cs0_bnds = CONFIG_SYS_DDR2_CS0_BNDS;
+	ddr->cs1_bnds = CONFIG_SYS_DDR2_CS1_BNDS;
+	ddr->cs2_bnds = CONFIG_SYS_DDR2_CS2_BNDS;
+	ddr->cs3_bnds = CONFIG_SYS_DDR2_CS3_BNDS;
+	ddr->cs0_config = CONFIG_SYS_DDR2_CS0_CONFIG;
+	ddr->cs1_config = CONFIG_SYS_DDR2_CS1_CONFIG;
+	ddr->cs2_config = CONFIG_SYS_DDR2_CS2_CONFIG;
+	ddr->cs3_config = CONFIG_SYS_DDR2_CS3_CONFIG;
+	ddr->timing_cfg_3 = CONFIG_SYS_DDR2_EXT_REFRESH;
+	ddr->timing_cfg_0 = CONFIG_SYS_DDR2_TIMING_0;
+	ddr->timing_cfg_1 = CONFIG_SYS_DDR2_TIMING_1;
+	ddr->timing_cfg_2 = CONFIG_SYS_DDR2_TIMING_2;
+	ddr->sdram_cfg = CONFIG_SYS_DDR2_CFG_1A;
+	ddr->sdram_cfg_2 = CONFIG_SYS_DDR2_CFG_2;
+	ddr->sdram_mode = CONFIG_SYS_DDR2_MODE_1;
+	ddr->sdram_mode_2 = CONFIG_SYS_DDR2_MODE_2;
+	ddr->sdram_mode_cntl = CONFIG_SYS_DDR2_MODE_CTL;
+	ddr->sdram_interval = CONFIG_SYS_DDR2_INTERVAL;
+	ddr->sdram_data_init = CONFIG_SYS_DDR2_DATA_INIT;
+	ddr->sdram_clk_cntl = CONFIG_SYS_DDR2_CLK_CTRL;
 
 	asm ("sync;isync");
 
 	udelay (500);
 
-	ddr->sdram_cfg_1 = CFG_DDR2_CFG_1B;
+	ddr->sdram_cfg = CONFIG_SYS_DDR2_CFG_1B;
 	asm ("sync; isync");
 
 	udelay (500);
 #endif
-	return CFG_SDRAM_SIZE * 1024 * 1024;
+	return CONFIG_SYS_SDRAM_SIZE * 1024 * 1024;
 }
 #endif				/* !defined(CONFIG_SPD_EEPROM) */
 
@@ -208,32 +191,32 @@ static struct pci_config_table pci_fsl86xxads_config_table[] = {
 };
 #endif
 
-static struct pci_controller pci1_hose = {
+static struct pci_controller pcie1_hose = {
 #ifndef CONFIG_PCI_PNP
 	config_table:pci_mpc86xxcts_config_table
 #endif
 };
 #endif /* CONFIG_PCI */
 
-#ifdef CONFIG_PCI2
-static struct pci_controller pci2_hose;
-#endif	/* CONFIG_PCI2 */
+#ifdef CONFIG_PCIE2
+static struct pci_controller pcie2_hose;
+#endif	/* CONFIG_PCIE2 */
 
 int first_free_busno = 0;
 
 void pci_init_board(void)
 {
-	volatile immap_t *immap = (immap_t *) CFG_CCSRBAR;
+	volatile immap_t *immap = (immap_t *) CONFIG_SYS_CCSRBAR;
 	volatile ccsr_gur_t *gur = &immap->im_gur;
 	uint devdisr = gur->devdisr;
 	uint io_sel = (gur->pordevsr & MPC8641_PORDEVSR_IO_SEL)
 		>> MPC8641_PORDEVSR_IO_SEL_SHIFT;
 
-#ifdef CONFIG_PCI1
+#ifdef CONFIG_PCIE1
 {
-	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *) CFG_PCI1_ADDR;
-	extern void fsl_pci_init(struct pci_controller *hose);
-	struct pci_controller *hose = &pci1_hose;
+	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *) CONFIG_SYS_PCIE1_ADDR;
+	struct pci_controller *hose = &pcie1_hose;
+	struct pci_region *r = hose->regions;
 #ifdef DEBUG
 	uint host1_agent = (gur->porbmsr & MPC8641_PORBMSR_HA)
 		>> MPC8641_PORBMSR_HA_SHIFT;
@@ -251,33 +234,25 @@ void pci_init_board(void)
 		}
 		debug("\n");
 
-		/* inbound */
-		pci_set_region(hose->regions + 0,
-			       CFG_PCI_MEMORY_BUS,
-			       CFG_PCI_MEMORY_PHYS,
-			       CFG_PCI_MEMORY_SIZE,
-			       PCI_REGION_MEM | PCI_REGION_MEMORY);
-
 		/* outbound memory */
-		pci_set_region(hose->regions + 1,
-			       CFG_PCI1_MEM_BASE,
-			       CFG_PCI1_MEM_PHYS,
-			       CFG_PCI1_MEM_SIZE,
+		pci_set_region(r++,
+			       CONFIG_SYS_PCIE1_MEM_BUS,
+			       CONFIG_SYS_PCIE1_MEM_PHYS,
+			       CONFIG_SYS_PCIE1_MEM_SIZE,
 			       PCI_REGION_MEM);
 
 		/* outbound io */
-		pci_set_region(hose->regions + 2,
-			       CFG_PCI1_IO_BASE,
-			       CFG_PCI1_IO_PHYS,
-			       CFG_PCI1_IO_SIZE,
+		pci_set_region(r++,
+			       CONFIG_SYS_PCIE1_IO_BUS,
+			       CONFIG_SYS_PCIE1_IO_PHYS,
+			       CONFIG_SYS_PCIE1_IO_SIZE,
 			       PCI_REGION_IO);
 
-		hose->region_count = 3;
+		hose->region_count = r - hose->regions;
 
 		hose->first_busno=first_free_busno;
-		pci_setup_indirect(hose, (int) &pci->cfg_addr, (int) &pci->cfg_data);
 
-		fsl_pci_init(hose);
+		fsl_pci_init(hose, (u32)&pci->cfg_addr, (u32)&pci->cfg_data);
 
 		first_free_busno=hose->last_busno+1;
 		printf ("    PCI-EXPRESS 1 on bus %02x - %02x\n",
@@ -289,42 +264,33 @@ void pci_init_board(void)
 }
 #else
 	puts("PCI-EXPRESS1: Disabled\n");
-#endif /* CONFIG_PCI1 */
+#endif /* CONFIG_PCIE1 */
 
-#ifdef CONFIG_PCI2
+#ifdef CONFIG_PCIE2
 {
-	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *) CFG_PCI2_ADDR;
-	extern void fsl_pci_init(struct pci_controller *hose);
-	struct pci_controller *hose = &pci2_hose;
-
-
-	/* inbound */
-	pci_set_region(hose->regions + 0,
-		       CFG_PCI_MEMORY_BUS,
-		       CFG_PCI_MEMORY_PHYS,
-		       CFG_PCI_MEMORY_SIZE,
-		       PCI_REGION_MEM | PCI_REGION_MEMORY);
+	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *) CONFIG_SYS_PCIE2_ADDR;
+	struct pci_controller *hose = &pcie2_hose;
+	struct pci_region *r = hose->regions;
 
 	/* outbound memory */
-	pci_set_region(hose->regions + 1,
-		       CFG_PCI2_MEM_BASE,
-		       CFG_PCI2_MEM_PHYS,
-		       CFG_PCI2_MEM_SIZE,
+	pci_set_region(r++,
+		       CONFIG_SYS_PCIE2_MEM_BUS,
+		       CONFIG_SYS_PCIE2_MEM_PHYS,
+		       CONFIG_SYS_PCIE2_MEM_SIZE,
 		       PCI_REGION_MEM);
 
 	/* outbound io */
-	pci_set_region(hose->regions + 2,
-		       CFG_PCI2_IO_BASE,
-		       CFG_PCI2_IO_PHYS,
-		       CFG_PCI2_IO_SIZE,
+	pci_set_region(r++,
+		       CONFIG_SYS_PCIE2_IO_BUS,
+		       CONFIG_SYS_PCIE2_IO_PHYS,
+		       CONFIG_SYS_PCIE2_IO_SIZE,
 		       PCI_REGION_IO);
 
-	hose->region_count = 3;
+	hose->region_count = r - hose->regions;
 
 	hose->first_busno=first_free_busno;
-	pci_setup_indirect(hose, (int) &pci->cfg_addr, (int) &pci->cfg_data);
 
-	fsl_pci_init(hose);
+	fsl_pci_init(hose, (u32)&pci->cfg_addr, (u32)&pci->cfg_data);
 
 	first_free_busno=hose->last_busno+1;
 	printf ("    PCI-EXPRESS 2 on bus %02x - %02x\n",
@@ -332,39 +298,17 @@ void pci_init_board(void)
 }
 #else
 	puts("PCI-EXPRESS 2: Disabled\n");
-#endif /* CONFIG_PCI2 */
+#endif /* CONFIG_PCIE2 */
 
 }
 
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-
-void
-ft_board_setup (void *blob, bd_t *bd)
+void ft_board_setup (void *blob, bd_t *bd)
 {
-	int node, tmp[2];
-	const char *path;
-
 	ft_cpu_setup(blob, bd);
 
-	node = fdt_path_offset(blob, "/aliases");
-	tmp[0] = 0;
-	if (node >= 0) {
-#ifdef CONFIG_PCI1
-		path = fdt_getprop(blob, node, "pci0", NULL);
-		if (path) {
-			tmp[1] = pci1_hose.last_busno - pci1_hose.first_busno;
-			do_fixup_by_path(blob, path, "bus-range", &tmp, 8, 1);
-		}
-#endif
-#ifdef CONFIG_PCI2
-		path = fdt_getprop(blob, node, "pci1", NULL);
-		if (path) {
-			tmp[1] = pci2_hose.last_busno - pci2_hose.first_busno;
-			do_fixup_by_path(blob, path, "bus-range", &tmp, 8, 1);
-		}
-#endif
-	}
+	FT_FSL_PCI_SETUP;
 }
 #endif
 
@@ -415,3 +359,41 @@ unsigned long get_board_sys_clk (ulong dummy)
 
 	return val;
 }
+
+void board_reset(void)
+{
+#ifdef CONFIG_SYS_RESET_ADDRESS
+	ulong addr = CONFIG_SYS_RESET_ADDRESS;
+
+	/* flush and disable I/D cache */
+	__asm__ __volatile__ ("mfspr	3, 1008"	::: "r3");
+	__asm__ __volatile__ ("ori	5, 5, 0xcc00"	::: "r5");
+	__asm__ __volatile__ ("ori	4, 3, 0xc00"	::: "r4");
+	__asm__ __volatile__ ("andc	5, 3, 5"	::: "r5");
+	__asm__ __volatile__ ("sync");
+	__asm__ __volatile__ ("mtspr	1008, 4");
+	__asm__ __volatile__ ("isync");
+	__asm__ __volatile__ ("sync");
+	__asm__ __volatile__ ("mtspr	1008, 5");
+	__asm__ __volatile__ ("isync");
+	__asm__ __volatile__ ("sync");
+
+	/*
+	 * SRR0 has system reset vector, SRR1 has default MSR value
+	 * rfi restores MSR from SRR1 and sets the PC to the SRR0 value
+	 */
+	__asm__ __volatile__ ("mtspr	26, %0"		:: "r" (addr));
+	__asm__ __volatile__ ("li	4, (1 << 6)"	::: "r4");
+	__asm__ __volatile__ ("mtspr	27, 4");
+	__asm__ __volatile__ ("rfi");
+#endif
+}
+
+#ifdef CONFIG_MP
+extern void cpu_mp_lmb_reserve(struct lmb *lmb);
+
+void board_lmb_reserve(struct lmb *lmb)
+{
+	cpu_mp_lmb_reserve(lmb);
+}
+#endif

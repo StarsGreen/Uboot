@@ -59,24 +59,21 @@ SECTIONS
   .plt : { *(.plt) }
   .text      :
   {
-    cpu/74xx_7xx/start.o	(.text)
+    arch/powerpc/cpu/74xx_7xx/start.o	(.text)
 
 /* store the environment in a seperate sector in the boot flash */
 /*    . = env_offset; */
-/*    common/environment.o(.text) */
+/*    common/env_embedded.o(.text) */
 
     *(.text)
-    *(.fixup)
     *(.got1)
   }
   _etext = .;
   PROVIDE (etext = .);
   .rodata    :
   {
-    *(.rodata)
-    *(.rodata1)
-    *(.rodata.str1.4)
     *(.eh_frame)
+    *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))
   }
   .fini      : { *(.fini)    } =0
   .ctors     : { *(.ctors)   }
@@ -134,6 +131,7 @@ SECTIONS
    *(.dynbss)
    *(.bss)
    *(COMMON)
+   . = ALIGN(4);
   }
   _end = . ;
   PROVIDE (end = .);

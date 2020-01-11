@@ -55,18 +55,15 @@ SECTIONS
   .plt           : { *(.plt)		}
   .text :
   {
-    cpu/mpc8xx/start.o	(.text)
+    arch/powerpc/cpu/mpc8xx/start.o	(.text)
     *(.text)
-    *(.fixup)
     *(.got1)
   }
   _etext = .;
   PROVIDE (etext = .);
   .rodata    :
   {
-    *(.rodata)
-    *(.rodata1)
-    *(.rodata.str1.4)
+    *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))
   }
   .fini      : { *(.fini)    } =0
   .ctors     : { *(.ctors)   }
@@ -125,6 +122,7 @@ SECTIONS
    *(.dynbss)
    *(.bss)
    *(COMMON)
+   . = ALIGN(4);
   }
 
   _end = . ;
@@ -133,6 +131,6 @@ SECTIONS
   .ppcenv:
   {
     . = env_offset;
-    common/environment.o
+    common/env_embedded.o
   }
 }

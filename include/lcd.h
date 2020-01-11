@@ -43,6 +43,18 @@ extern void *lcd_console_address;	/* Start of console buffer	*/
 
 extern short console_col;
 extern short console_row;
+extern struct vidinfo panel_info;
+
+extern void lcd_ctrl_init (void *lcdbase);
+extern void lcd_enable (void);
+
+/* setcolreg used in 8bpp/16bpp; initcolregs used in monochrome */
+extern void lcd_setcolreg (ushort regno,
+				ushort red, ushort green, ushort blue);
+extern void lcd_initcolregs (void);
+
+/* gunzip_bmp used if CONFIG_VIDEO_BMP_GZIP */
+extern struct bmp_image *gunzip_bmp(unsigned long addr, unsigned long *lenp);
 
 #if defined CONFIG_MPC823
 /*
@@ -75,9 +87,7 @@ typedef struct vidinfo {
 	u_char	vl_wbf;		/* Wait between frames */
 } vidinfo_t;
 
-extern vidinfo_t panel_info;
-
-#elif defined CONFIG_PXA250
+#elif defined CONFIG_PXA250 || defined CONFIG_PXA27X || defined CONFIG_CPU_MONAHANS
 /*
  * PXA LCD DMA descriptor
  */
@@ -146,16 +156,6 @@ typedef struct vidinfo {
 	struct	pxafb_info pxa;
 } vidinfo_t;
 
-extern vidinfo_t panel_info;
-
-#elif defined(CONFIG_MCC200)
-typedef struct vidinfo {
-	ushort	vl_col;		/* Number of columns (i.e. 160) */
-	ushort	vl_row;		/* Number of rows (i.e. 100) */
-
-	u_char	vl_bpix;	/* Bits per pixel, 0 = 1 */
-} vidinfo_t;
-
 #elif defined(CONFIG_ATMEL_LCD)
 
 typedef struct vidinfo {
@@ -181,9 +181,22 @@ typedef struct vidinfo {
 	u_long	mmio;		/* Memory mapped registers */
 } vidinfo_t;
 
-extern vidinfo_t panel_info;
+#else
+
+typedef struct vidinfo {
+	ushort	vl_col;		/* Number of columns (i.e. 160) */
+	ushort	vl_row;		/* Number of rows (i.e. 100) */
+
+	u_char	vl_bpix;	/* Bits per pixel, 0 = 1 */
+
+	ushort	*cmap;		/* Pointer to the colormap */
+
+	void	*priv;		/* Pointer to driver-specific data */
+} vidinfo_t;
 
 #endif /* CONFIG_MPC823, CONFIG_PXA250 or CONFIG_MCC200 or CONFIG_ATMEL_LCD */
+
+extern vidinfo_t panel_info;
 
 /* Video functions */
 
@@ -197,6 +210,8 @@ void	lcd_putc	(const char c);
 void	lcd_puts	(const char *s);
 void	lcd_printf	(const char *fmt, ...);
 
+/* Allow boards to customize the information displayed */
+void lcd_show_board_info(void);
 
 /************************************************************************/
 /* ** BITMAP DISPLAY SUPPORT						*/
@@ -211,8 +226,8 @@ void	lcd_printf	(const char *fmt, ...);
  *  the LCD controller and memory allocation. Someone has to know what
  *  is connected, as we can't autodetect anything.
  */
-#define CFG_HIGH	0	/* Pins are active high			*/
-#define CFG_LOW		1	/* Pins are active low			*/
+#define CONFIG_SYS_HIGH	0	/* Pins are active high			*/
+#define CONFIG_SYS_LOW		1	/* Pins are active low			*/
 
 #define LCD_MONOCHROME	0
 #define LCD_COLOR2	1
@@ -307,7 +322,7 @@ void	lcd_printf	(const char *fmt, ...);
 #if LCD_BPP == LCD_MONOCHROME
 # define COLOR_MASK(c)		((c)	  | (c) << 1 | (c) << 2 | (c) << 3 | \
 				 (c) << 4 | (c) << 5 | (c) << 6 | (c) << 7)
-#elif LCD_BPP == LCD_COLOR8
+#elif (LCD_BPP == LCD_COLOR8) || (LCD_BPP == LCD_COLOR16)
 # define COLOR_MASK(c)		(c)
 #else
 # error Unsupported LCD BPP.

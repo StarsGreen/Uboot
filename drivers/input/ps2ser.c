@@ -1,9 +1,8 @@
 /***********************************************************************
  *
- * (C) Copyright 2004
+ * (C) Copyright 2004-2009
  * DENX Software Engineering
  * Wolfgang Denk, wd@denx.de
- * All rights reserved.
  *
  * Simple 16550A serial driver
  *
@@ -15,14 +14,14 @@
 
 #include <common.h>
 
-#ifdef CONFIG_PS2SERIAL
-
 #include <asm/io.h>
 #include <asm/atomic.h>
 #include <ps2mult.h>
-#if defined(CFG_NS16550) || defined(CONFIG_MPC85xx)
-#include <ns16550.h>
+/* This is needed for ns16550.h */
+#ifndef CONFIG_SYS_NS16550_REG_SIZE
+#define CONFIG_SYS_NS16550_REG_SIZE 1
 #endif
+#include <ns16550.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -37,8 +36,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #define PSC_BASE MPC5XXX_PSC2
 #elif CONFIG_PS2SERIAL == 3
 #define PSC_BASE MPC5XXX_PSC3
-#elif defined(CONFIG_MGT5100)
-#error CONFIG_PS2SERIAL must be in 1, 2 or 3
 #elif CONFIG_PS2SERIAL == 4
 #define PSC_BASE MPC5XXX_PSC4
 #elif CONFIG_PS2SERIAL == 5
@@ -53,9 +50,9 @@ DECLARE_GLOBAL_DATA_PTR;
       defined(CONFIG_MPC8548) || defined(CONFIG_MPC8555)
 
 #if CONFIG_PS2SERIAL == 1
-#define COM_BASE (CFG_CCSRBAR+0x4500)
+#define COM_BASE (CONFIG_SYS_CCSRBAR+0x4500)
 #elif CONFIG_PS2SERIAL == 2
-#define COM_BASE (CFG_CCSRBAR+0x4600)
+#define COM_BASE (CONFIG_SYS_CCSRBAR+0x4600)
 #else
 #error CONFIG_PS2SERIAL must be in 1 ... 2
 #endif
@@ -88,23 +85,14 @@ int ps2ser_init(void)
 	psc->command = PSC_SEL_MODE_REG_1;
 
 	/* select clock sources */
-#if defined(CONFIG_MGT5100)
-	psc->psc_clock_select = 0xdd00;
-	baseclk = (CFG_MPC5XXX_CLKIN + 16) / 32;
-#elif defined(CONFIG_MPC5200)
 	psc->psc_clock_select = 0;
 	baseclk = (gd->ipb_clk + 16) / 32;
-#endif
 
 	/* switch to UART mode */
 	psc->sicr = 0;
 
 	/* configure parity, bit length and so on */
-#if defined(CONFIG_MGT5100)
-	psc->mode = PSC_MODE_ERR | PSC_MODE_8_BITS | PSC_MODE_PARNONE;
-#elif defined(CONFIG_MPC5200)
 	psc->mode = PSC_MODE_8_BITS | PSC_MODE_PARNONE;
-#endif
 	psc->mode = PSC_MODE_ONE_STOP;
 
 	/* set up UART divisor */
@@ -130,12 +118,12 @@ int ps2ser_init(void)
 	NS16550_t com_port = (NS16550_t)COM_BASE;
 
 	com_port->ier = 0x00;
-	com_port->lcr = LCR_BKSE | LCR_8N1;
-	com_port->dll = (CFG_NS16550_CLK / 16 / PS2SER_BAUD) & 0xff;
-	com_port->dlm = ((CFG_NS16550_CLK / 16 / PS2SER_BAUD) >> 8) & 0xff;
-	com_port->lcr = LCR_8N1;
-	com_port->mcr = (MCR_DTR | MCR_RTS);
-	com_port->fcr = (FCR_FIFO_EN | FCR_RXSR | FCR_TXSR);
+	com_port->lcr = UART_LCR_BKSE | UART_LCR_8N1;
+	com_port->dll = (CONFIG_SYS_NS16550_CLK / 16 / PS2SER_BAUD) & 0xff;
+	com_port->dlm = ((CONFIG_SYS_NS16550_CLK / 16 / PS2SER_BAUD) >> 8) & 0xff;
+	com_port->lcr = UART_LCR_8N1;
+	com_port->mcr = (UART_MCR_DTR | UART_MCR_RTS);
+	com_port->fcr = (UART_FCR_FIFO_EN | UART_FCR_RXSR | UART_FCR_TXSR);
 
 	return (0);
 }
@@ -204,7 +192,7 @@ void ps2ser_putc(int chr)
 	psc->psc_buffer_8 = chr;
 #elif defined(CONFIG_MPC8540) || defined(CONFIG_MPC8541) || \
       defined(CONFIG_MPC8548) || defined(CONFIG_MPC8555)
-	while ((com_port->lsr & LSR_THRE) == 0);
+	while ((com_port->lsr & UART_LSR_THRE) == 0);
 	com_port->thr = chr;
 #else
 	while (!(ps2ser_in(UART_LSR) & UART_LSR_THRE));
@@ -229,7 +217,7 @@ static int ps2ser_getc_hw(void)
 	}
 #elif defined(CONFIG_MPC8540) || defined(CONFIG_MPC8541) || \
       defined(CONFIG_MPC8548) || defined(CONFIG_MPC8555)
-	if (com_port->lsr & LSR_DR) {
+	if (com_port->lsr & UART_LSR_DR) {
 		res = com_port->rbr;
 	}
 #else
@@ -317,7 +305,7 @@ static void ps2ser_interrupt(void *dev_id)
 	} while (status & PSC_SR_RXRDY);
 #elif defined(CONFIG_MPC8540) || defined(CONFIG_MPC8541) || \
       defined(CONFIG_MPC8548) || defined(CONFIG_MPC8555)
-	} while (status & LSR_DR);
+	} while (status & UART_LSR_DR);
 #else
 	} while (status & UART_IIR_RDI);
 #endif
@@ -326,5 +314,3 @@ static void ps2ser_interrupt(void *dev_id)
 		ps2mult_callback(atomic_read(&ps2buf_cnt));
 	}
 }
-
-#endif /* CONFIG_PS2SERIAL */

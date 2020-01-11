@@ -52,20 +52,17 @@ SECTIONS
   .plt : { *(.plt) }
   .text      :
   {
-    cpu/mpc824x/start.o		(.text)
-    lib_ppc/board.o		(.text)
-    lib_ppc/ppcstring.o		(.text)
-    lib_generic/vsprintf.o	(.text)
-    lib_generic/crc32.o		(.text)
-    lib_generic/zlib.o		(.text)
+    arch/powerpc/cpu/mpc824x/start.o		(.text)
+    arch/powerpc/lib/board.o		(.text)
+    arch/powerpc/lib/ppcstring.o		(.text)
+    lib/vsprintf.o	(.text)
+    lib/crc32.o		(.text)
+    lib/zlib.o		(.text)
 
-    *(.fixup)
     *(.got1)
     . = ALIGN(16);
-    *(.rodata)
-    *(.rodata1)
-    *(.rodata.str1.4)
     *(.eh_frame)
+    *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))
   }
   .fini      : { *(.fini)    } =0
   .ctors     : { *(.ctors)   }
@@ -123,6 +120,7 @@ SECTIONS
    *(.dynbss)
    *(.bss)
    *(COMMON)
+   . = ALIGN(4);
   }
 
   _end = . ;

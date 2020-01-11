@@ -22,6 +22,7 @@
  */
 
 #include <common.h>
+#include <netdev.h>
 #include <i2c.h>
 #include <da9030.h>
 #include <malloc.h>
@@ -239,7 +240,7 @@ static uchar *key_match (uchar *kbd_data)
 	return (NULL);
 }
 
-int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	uchar kbd_data[KEYBD_DATALEN];
 	char keybd_env[2 * KEYBD_DATALEN + 1];
@@ -259,8 +260,8 @@ int do_kbd (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 
 U_BOOT_CMD(
 	   kbd,	1,	1,	do_kbd,
-	   "kbd     - read keyboard status\n",
-	   NULL
+	   "read keyboard status",
+	   ""
 );
 
 #endif /* DELTA_CHECK_KEYBD */
@@ -304,8 +305,8 @@ static void init_DA9030()
 	GPCR0 = (1<<17);	/* drive GPIO17 low */
 	GPSR0 = (1<<17);	/* drive GPIO17 high */
 
-#if CFG_DA9030_EXTON_DELAY
-	udelay((unsigned long) CFG_DA9030_EXTON_DELAY);	/* wait for DA9030 */
+#if CONFIG_SYS_DA9030_EXTON_DELAY
+	udelay((unsigned long) CONFIG_SYS_DA9030_EXTON_DELAY);	/* wait for DA9030 */
 #endif
 	GPCR0 = (1<<17);	/* drive GPIO17 low */
 
@@ -361,5 +362,16 @@ void hw_watchdog_reset(void)
 	val = i2c_reg_read(addr, SYS_CONTROL_A);
 	val |= SYS_CONTROL_A_WATCHDOG;
 	i2c_reg_write(addr, SYS_CONTROL_A, val);
+}
+#endif
+
+#ifdef CONFIG_CMD_NET
+int board_eth_init(bd_t *bis)
+{
+	int rc = 0;
+#ifdef CONFIG_SMC91111
+	rc = smc91111_initialize(0, CONFIG_SMC91111_BASE);
+#endif
+	return rc;
 }
 #endif

@@ -62,15 +62,15 @@ int board_early_init_f (void)
    |
    +-------------------------------------------------------------------------*/
 
-	mtdcr (uicsr, 0xFFFFFFFF);	/* clear all ints */
-	mtdcr (uicer, 0x00000000);	/* disable all ints */
-	mtdcr (uiccr, 0x00000000);	/* set all SMI to be non-critical */
-	mtdcr (uicpr, 0xFFFFFF88);	/* set int polarities; IRQ3 to 1 */
-	mtdcr (uictr, 0x10000000);	/* set int trigger levels, UART0 is EDGE */
-	mtdcr (uicvcr, 0x00000001);	/* set vect base=0,INT0 highest priority */
-	mtdcr (uicsr, 0xFFFFFFFF);	/* clear all ints */
+	mtdcr (UIC0SR, 0xFFFFFFFF);	/* clear all ints */
+	mtdcr (UIC0ER, 0x00000000);	/* disable all ints */
+	mtdcr (UIC0CR, 0x00000000);	/* set all SMI to be non-critical */
+	mtdcr (UIC0PR, 0xFFFFFF88);	/* set int polarities; IRQ3 to 1 */
+	mtdcr (UIC0TR, 0x10000000);	/* set int trigger levels, UART0 is EDGE */
+	mtdcr (UIC0VCR, 0x00000001);	/* set vect base=0,INT0 highest priority */
+	mtdcr (UIC0SR, 0xFFFFFFFF);	/* clear all ints */
 
-	mtdcr (cntrl0, 0x00002000);	/* set IRQ6 as GPIO23 to generate an interrupt request to the PCP2PCI bridge */
+	mtdcr (CPC0_CR0, 0x00002000);	/* set IRQ6 as GPIO23 to generate an interrupt request to the PCP2PCI bridge */
 
 	out32 (PPC405GP_GPIO0_OR, 0x60000000);	/*fixme is SMB_INT high or low active??; IRQ6 is GPIO23 output */
 	out32 (PPC405GP_GPIO0_TCR, 0x7E400000);
@@ -132,7 +132,7 @@ phys_size_t initdram (int board_type)
 	/*
 	 * ToDo: Move the asm init routine sdram_init() to this C file,
 	 * or even better use some common ppc4xx code available
-	 * in cpu/ppc4xx
+	 * in arch/powerpc/cpu/ppc4xx
 	 */
 	sdram_init();
 
@@ -142,7 +142,7 @@ phys_size_t initdram (int board_type)
 	 * so let init.S do the init job for SDRAM
 	 * and simply return 32MByte here
 	 */
-	return (CFG_SDRAM_SIZE * 1024 * 1024);
+	return (CONFIG_SYS_SDRAM_SIZE * 1024 * 1024);
 #else
 
 	/* Read Serial Presence Detect Information */

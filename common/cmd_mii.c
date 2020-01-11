@@ -292,19 +292,17 @@ static void extract_range(
 }
 
 /* ---------------------------------------------------------------- */
-int do_mii (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+int do_mii (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 {
 	char		op[2];
 	unsigned char	addrlo, addrhi, reglo, reghi;
 	unsigned char	addr, reg;
 	unsigned short	data;
 	int		rcode = 0;
-	char		*devname;
+	const char	*devname;
 
-	if (argc < 2) {
-		printf("Usage:\n%s\n", cmdtp->usage);
-		return 1;
-	}
+	if (argc < 2)
+		return cmd_usage(cmdtp);
 
 #if defined(CONFIG_MII_INIT)
 	mii_init ();
@@ -431,8 +429,7 @@ int do_mii (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 		else
 			miiphy_set_current_dev (argv[2]);
 	} else {
-		printf("Usage:\n%s\n", cmdtp->usage);
-		return 1;
+		return cmd_usage(cmdtp);
 	}
 
 	/*
@@ -453,12 +450,12 @@ int do_mii (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 
 U_BOOT_CMD(
 	mii,	5,	1,	do_mii,
-	"mii     - MII utility commands\n",
+	"MII utility commands",
 	"device                     - list available devices\n"
 	"mii device <devname>           - set current device\n"
 	"mii info   <addr>              - display MII PHY info\n"
 	"mii read   <addr> <reg>        - read  MII PHY <addr> register <reg>\n"
 	"mii write  <addr> <reg> <data> - write MII PHY <addr> register <reg>\n"
 	"mii dump   <addr> <reg>        - pretty-print <addr> <reg> (0-5 only)\n"
-	"Addr and/or reg may be ranges, e.g. 2-7.\n"
+	"Addr and/or reg may be ranges, e.g. 2-7."
 );

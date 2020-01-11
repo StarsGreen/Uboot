@@ -29,11 +29,10 @@
 
 #ifdef CONFIG_FSL_DIU_FB
 
-#include "../common/pixis.h"
 #include "../common/fsl_diu_fb.h"
 
 #if defined(CONFIG_VIDEO) || defined(CONFIG_CFB_CONSOLE)
-#include <devices.h>
+#include <stdio_dev.h>
 #include <video_fb.h>
 #endif
 
@@ -43,7 +42,7 @@ static int xres, yres;
 
 void diu_set_pixel_clock(unsigned int pixclock)
 {
-	volatile immap_t *immap = (immap_t *)CFG_IMMR;
+	volatile immap_t *immap = (immap_t *)CONFIG_SYS_IMMR;
 	volatile ccsr_gur_t *gur = &immap->im_gur;
 	volatile unsigned int *guts_clkdvdr = &gur->clkdvdr;
 	unsigned long speed_ccb, temp, pixval;
@@ -69,9 +68,10 @@ void mpc8610hpcd_diu_init(void)
 	unsigned int pixel_format;
 	unsigned char tmp_val;
 	unsigned char pixis_arch;
+	u8 *pixis_base = (u8 *)PIXIS_BASE;
 
-	tmp_val = in8(PIXIS_BASE + PIXIS_BRDCFG0);
-	pixis_arch = in8(PIXIS_BASE + PIXIS_VER);
+	tmp_val = in_8(pixis_base + PIXIS_BRDCFG0);
+	pixis_arch = in_8(pixis_base + PIXIS_VER);
 
 	monitor_port = getenv("monitor");
 	if (!strncmp(monitor_port, "0", 1)) {	/* 0 - DVI */
@@ -82,28 +82,28 @@ void mpc8610hpcd_diu_init(void)
 		else
 			pixel_format = 0x88883316;
 		gamma_fix = 0;
-		out8(PIXIS_BASE + PIXIS_BRDCFG0, tmp_val | 0x08);
+		out_8(pixis_base + PIXIS_BRDCFG0, tmp_val | 0x08);
 
 	} else if (!strncmp(monitor_port, "1", 1)) { /* 1 - Single link LVDS */
 		xres = 1024;
 		yres = 768;
 		pixel_format = 0x88883316;
 		gamma_fix = 0;
-		out8(PIXIS_BASE + PIXIS_BRDCFG0, (tmp_val & 0xf7) | 0x10);
+		out_8(pixis_base + PIXIS_BRDCFG0, (tmp_val & 0xf7) | 0x10);
 
 	} else if (!strncmp(monitor_port, "2", 1)) { /* 2 - Double link LVDS */
 		xres = 1280;
 		yres = 1024;
 		pixel_format = 0x88883316;
 		gamma_fix = 1;
-		out8(PIXIS_BASE + PIXIS_BRDCFG0, tmp_val & 0xe7);
+		out_8(pixis_base + PIXIS_BRDCFG0, tmp_val & 0xe7);
 
 	} else {	/* DVI */
 		xres = 1280;
 		yres = 1024;
 		pixel_format = 0x88882317;
 		gamma_fix = 0;
-		out8(PIXIS_BASE + PIXIS_BRDCFG0, tmp_val | 0x08);
+		out_8(pixis_base + PIXIS_BRDCFG0, tmp_val | 0x08);
 	}
 
 	fsl_diu_init(xres, pixel_format, gamma_fix,
@@ -111,14 +111,12 @@ void mpc8610hpcd_diu_init(void)
 }
 
 int mpc8610diu_init_show_bmp(cmd_tbl_t *cmdtp,
-			     int flag, int argc, char *argv[])
+			     int flag, int argc, char * const argv[])
 {
 	unsigned int addr;
 
-	if (argc < 2) {
-		printf ("Usage:\n%s\n", cmdtp->usage);
-		return 1;
-	}
+	if (argc < 2)
+		return cmd_usage(cmdtp);
 
 	if (!strncmp(argv[1],"init",4)) {
 #if defined(CONFIG_VIDEO) || defined(CONFIG_CFB_CONSOLE)
@@ -137,11 +135,11 @@ int mpc8610diu_init_show_bmp(cmd_tbl_t *cmdtp,
 }
 
 U_BOOT_CMD(
-	diufb, CFG_MAXARGS, 1, mpc8610diu_init_show_bmp,
-	"diufb init | addr - Init or Display BMP file\n",
+	diufb, CONFIG_SYS_MAXARGS, 1, mpc8610diu_init_show_bmp,
+	"Init or Display BMP file",
 	"init\n    - initialize DIU\n"
-	"addr\n    - display bmp at address 'addr'\n"
-	);
+	"addr\n    - display bmp at address 'addr'"
+);
 
 
 #if defined(CONFIG_VIDEO) || defined(CONFIG_CFB_CONSOLE)
@@ -181,15 +179,6 @@ void *video_hw_init(void)
 	pGD->cprBase = 0;
 
 	return (void *)pGD;
-}
-
-void video_set_lut (unsigned int index,	/* color number */
-		    unsigned char r,	/* red */
-		    unsigned char g,	/* green */
-		    unsigned char b	/* blue */
-		    )
-{
-	return;
 }
 
 #endif /* defined(CONFIG_VIDEO) || defined(CONFIG_CFB_CONSOLE) */

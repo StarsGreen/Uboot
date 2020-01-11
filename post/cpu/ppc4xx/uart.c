@@ -4,6 +4,8 @@
  *
  * Author: Igor Lisitsin <igor@emcraft.com>
  *
+ * Copyright 2010, Stefan Roese, DENX Software Engineering, sr@denx.de
+ *
  * See file CREDITS for list of people who contributed to this
  * project.
  *
@@ -24,6 +26,9 @@
  */
 
 #include <common.h>
+#include <ppc4xx.h>
+#include <ns16550.h>
+#include <asm/io.h>
 
 /*
  * UART test
@@ -34,14 +39,14 @@
 
 #include <post.h>
 
-#if CONFIG_POST & CFG_POST_UART
+#if CONFIG_POST & CONFIG_SYS_POST_UART
 
 /*
  * This table defines the UART's that should be tested and can
  * be overridden in the board config file
  */
-#ifndef CFG_POST_UART_TABLE
-#define CFG_POST_UART_TABLE	{UART0_BASE, UART1_BASE, UART2_BASE, UART3_BASE}
+#ifndef CONFIG_SYS_POST_UART_TABLE
+#define CONFIG_SYS_POST_UART_TABLE	{UART0_BASE, UART1_BASE, UART2_BASE, UART3_BASE}
 #endif
 
 #include <asm/processor.h>
@@ -50,17 +55,17 @@
 #if defined(CONFIG_440)
 #if defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
     defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
-#define UART0_BASE  CFG_PERIPHERAL_BASE + 0x00000300
-#define UART1_BASE  CFG_PERIPHERAL_BASE + 0x00000400
-#define UART2_BASE  CFG_PERIPHERAL_BASE + 0x00000500
-#define UART3_BASE  CFG_PERIPHERAL_BASE + 0x00000600
+#define UART0_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000300
+#define UART1_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000400
+#define UART2_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000500
+#define UART3_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000600
 #else
-#define UART0_BASE  CFG_PERIPHERAL_BASE + 0x00000200
-#define UART1_BASE  CFG_PERIPHERAL_BASE + 0x00000300
+#define UART0_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000200
+#define UART1_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000300
 #endif
 
 #if defined(CONFIG_440SP) || defined(CONFIG_440SPE)
-#define UART2_BASE  CFG_PERIPHERAL_BASE + 0x00000600
+#define UART2_BASE  CONFIG_SYS_PERIPHERAL_BASE + 0x00000600
 #endif
 
 #if defined(CONFIG_440GP)
@@ -68,7 +73,7 @@
 #define CR0_EXTCLK_ENA  0x00600000
 #define CR0_UDIV_POS    16
 #define UDIV_SUBTRACT	1
-#define UART0_SDR	cntrl0
+#define UART0_SDR	CPC0_CR0
 #define MFREG(a, d)	d = mfdcr(a)
 #define MTREG(a, d)	mtdcr(a, d)
 #else /* #if defined(CONFIG_440GP) */
@@ -77,16 +82,16 @@
 #define CR0_EXTCLK_ENA  0x00800000
 #define CR0_UDIV_POS    0
 #define UDIV_SUBTRACT	0
-#define UART0_SDR	sdr_uart0
-#define UART1_SDR	sdr_uart1
+#define UART0_SDR	SDR0_UART0
+#define UART1_SDR	SDR0_UART1
 #if defined(CONFIG_440EP) || defined(CONFIG_440EPX) || \
     defined(CONFIG_440GR) || defined(CONFIG_440GRX) || \
     defined(CONFIG_440SP) || defined(CONFIG_440SPE)
-#define UART2_SDR	sdr_uart2
+#define UART2_SDR	SDR0_UART2
 #endif
 #if defined(CONFIG_440EP) || defined(CONFIG_440EPX) || \
     defined(CONFIG_440GR) || defined(CONFIG_440GRX)
-#define UART3_SDR	sdr_uart3
+#define UART3_SDR	SDR0_UART3
 #endif
 #define MFREG(a, d)	mfsdr(a, d)
 #define MTREG(a, d)	mtsdr(a, d)
@@ -106,8 +111,8 @@
 #define CR0_EXTCLK_ENA	0x00800000
 #define CR0_UDIV_POS	0
 #define UDIV_SUBTRACT	0
-#define UART0_SDR	sdr_uart0
-#define UART1_SDR	sdr_uart1
+#define UART0_SDR	SDR0_UART0
+#define UART1_SDR	SDR0_UART1
 #define MFREG(a, d)	mfsdr(a, d)
 #define MTREG(a, d)	mtsdr(a, d)
 #else /* CONFIG_405GP || CONFIG_405CR */
@@ -119,35 +124,26 @@
 #define UDIV_MAX        32
 #endif
 
-#define UART_RBR    0x00
-#define UART_THR    0x00
-#define UART_IER    0x01
-#define UART_IIR    0x02
-#define UART_FCR    0x02
-#define UART_LCR    0x03
-#define UART_MCR    0x04
-#define UART_LSR    0x05
-#define UART_MSR    0x06
-#define UART_SCR    0x07
-#define UART_DLL    0x00
-#define UART_DLM    0x01
-
-/*
- * Line Status Register.
- */
-#define asyncLSRDataReady1            0x01
-#define asyncLSROverrunError1         0x02
-#define asyncLSRParityError1          0x04
-#define asyncLSRFramingError1         0x08
-#define asyncLSRBreakInterrupt1       0x10
-#define asyncLSRTxHoldEmpty1          0x20
-#define asyncLSRTxShiftEmpty1         0x40
-#define asyncLSRRxFifoError1          0x80
-
 DECLARE_GLOBAL_DATA_PTR;
 
+static void uart_post_init_common(struct NS16550 *com_port, unsigned short bdiv)
+{
+	volatile char val;
+
+	out_8(&com_port->lcr, 0x80);	/* set DLAB bit */
+	out_8(&com_port->dll, bdiv);	/* set baudrate divisor */
+	out_8(&com_port->dlm, bdiv >> 8); /* set baudrate divisor */
+	out_8(&com_port->lcr, 0x03);	/* clear DLAB; set 8 bits, no parity */
+	out_8(&com_port->fcr, 0x00);	/* disable FIFO */
+	out_8(&com_port->mcr, 0x10);	/* enable loopback mode */
+	val = in_8(&com_port->lsr);	/* clear line status */
+	val = in_8(&com_port->rbr);	/* read receive buffer */
+	out_8(&com_port->scr, 0x00);	/* set scratchpad */
+	out_8(&com_port->ier, 0x00);	/* set interrupt enable reg */
+}
+
 #if defined(CONFIG_440) || defined(CONFIG_405EX)
-#if !defined(CFG_EXT_SERIAL_CLOCK)
+#if !defined(CONFIG_SYS_EXT_SERIAL_CLOCK)
 static void serial_divs (int baudrate, unsigned long *pudiv,
 			 unsigned short *pbdiv)
 {
@@ -190,30 +186,29 @@ static void serial_divs (int baudrate, unsigned long *pudiv,
 }
 #endif
 
-static int uart_post_init (unsigned long dev_base)
+static int uart_post_init (struct NS16550 *com_port)
 {
 	unsigned long reg = 0;
 	unsigned long udiv;
 	unsigned short bdiv;
-	volatile char val;
-#ifdef CFG_EXT_SERIAL_CLOCK
+#ifdef CONFIG_SYS_EXT_SERIAL_CLOCK
 	unsigned long tmp;
 #endif
 	int i;
 
 	for (i = 0; i < 3500; i++) {
-		if (in8 (dev_base + UART_LSR) & asyncLSRTxHoldEmpty1)
+		if (in_8(&com_port->lsr) & UART_LSR_THRE)
 			break;
 		udelay (100);
 	}
 	MFREG(UART0_SDR, reg);
 	reg &= ~CR0_MASK;
 
-#ifdef CFG_EXT_SERIAL_CLOCK
+#ifdef CONFIG_SYS_EXT_SERIAL_CLOCK
 	reg |= CR0_EXTCLK_ENA;
 	udiv = 1;
 	tmp  = gd->baudrate * 16;
-	bdiv = (CFG_EXT_SERIAL_CLOCK + tmp / 2) / tmp;
+	bdiv = (CONFIG_SYS_EXT_SERIAL_CLOCK + tmp / 2) / tmp;
 #else
 	/* For 440, the cpu clock is on divider chain A, UART on divider
 	 * chain B ... so cpu clock is irrelevant. Get the "optimized"
@@ -239,34 +234,24 @@ static int uart_post_init (unsigned long dev_base)
 	MTREG(UART3_SDR, reg);
 #endif
 
-	out8(dev_base + UART_LCR, 0x80);	/* set DLAB bit */
-	out8(dev_base + UART_DLL, bdiv);	/* set baudrate divisor */
-	out8(dev_base + UART_DLM, bdiv >> 8);	/* set baudrate divisor */
-	out8(dev_base + UART_LCR, 0x03);	/* clear DLAB; set 8 bits, no parity */
-	out8(dev_base + UART_FCR, 0x00);	/* disable FIFO */
-	out8(dev_base + UART_MCR, 0x10);	/* enable loopback mode */
-	val = in8(dev_base + UART_LSR);		/* clear line status */
-	val = in8(dev_base + UART_RBR);		/* read receive buffer */
-	out8(dev_base + UART_SCR, 0x00);	/* set scratchpad */
-	out8(dev_base + UART_IER, 0x00);	/* set interrupt enable reg */
+	uart_post_init_common(com_port, bdiv);
 
 	return 0;
 }
 
 #else /* CONFIG_440 */
 
-static int uart_post_init (unsigned long dev_base)
+static int uart_post_init (struct NS16550 *com_port)
 {
 	unsigned long reg;
 	unsigned long tmp;
 	unsigned long clk;
 	unsigned long udiv;
 	unsigned short bdiv;
-	volatile char val;
 	int i;
 
 	for (i = 0; i < 3500; i++) {
-		if (in8 (dev_base + UART_LSR) & asyncLSRTxHoldEmpty1)
+		if (in_8(&com_port->lsr) & UART_LSR_THRE)
 			break;
 		udelay (100);
 	}
@@ -276,92 +261,84 @@ static int uart_post_init (unsigned long dev_base)
 	clk = tmp = reg = 0;
 #else
 #ifdef CONFIG_405EP
-	reg = mfdcr(cpc0_ucr) & ~(UCR0_MASK | UCR1_MASK);
+	reg = mfdcr(CPC0_UCR) & ~(UCR0_MASK | UCR1_MASK);
 	clk = gd->cpu_clk;
-	tmp = CFG_BASE_BAUD * 16;
+	tmp = CONFIG_SYS_BASE_BAUD * 16;
 	udiv = (clk + tmp / 2) / tmp;
 	if (udiv > UDIV_MAX)                    /* max. n bits for udiv */
 		udiv = UDIV_MAX;
 	reg |= (udiv) << UCR0_UDIV_POS;	        /* set the UART divisor */
 	reg |= (udiv) << UCR1_UDIV_POS;	        /* set the UART divisor */
-	mtdcr (cpc0_ucr, reg);
+	mtdcr (CPC0_UCR, reg);
 #else /* CONFIG_405EP */
-	reg = mfdcr(cntrl0) & ~CR0_MASK;
-#ifdef CFG_EXT_SERIAL_CLOCK
-	clk = CFG_EXT_SERIAL_CLOCK;
+	reg = mfdcr(CPC0_CR0) & ~CR0_MASK;
+#ifdef CONFIG_SYS_EXT_SERIAL_CLOCK
+	clk = CONFIG_SYS_EXT_SERIAL_CLOCK;
 	udiv = 1;
 	reg |= CR0_EXTCLK_ENA;
 #else
 	clk = gd->cpu_clk;
-#ifdef CFG_405_UART_ERRATA_59
+#ifdef CONFIG_SYS_405_UART_ERRATA_59
 	udiv = 31;			/* Errata 59: stuck at 31 */
 #else
-	tmp = CFG_BASE_BAUD * 16;
+	tmp = CONFIG_SYS_BASE_BAUD * 16;
 	udiv = (clk + tmp / 2) / tmp;
 	if (udiv > UDIV_MAX)                    /* max. n bits for udiv */
 		udiv = UDIV_MAX;
 #endif
 #endif
 	reg |= (udiv - 1) << CR0_UDIV_POS;	/* set the UART divisor */
-	mtdcr (cntrl0, reg);
+	mtdcr (CPC0_CR0, reg);
 #endif /* CONFIG_405EP */
 	tmp = gd->baudrate * udiv * 16;
 	bdiv = (clk + tmp / 2) / tmp;
 #endif /* CONFIG_405EZ */
 
-	out8(dev_base + UART_LCR, 0x80);	/* set DLAB bit */
-	out8(dev_base + UART_DLL, bdiv);	/* set baudrate divisor */
-	out8(dev_base + UART_DLM, bdiv >> 8);	/* set baudrate divisor */
-	out8(dev_base + UART_LCR, 0x03);	/* clear DLAB; set 8 bits, no parity */
-	out8(dev_base + UART_FCR, 0x00);	/* disable FIFO */
-	out8(dev_base + UART_MCR, 0x10);	/* enable loopback mode */
-	val = in8(dev_base + UART_LSR);	/* clear line status */
-	val = in8(dev_base + UART_RBR);	/* read receive buffer */
-	out8(dev_base + UART_SCR, 0x00);	/* set scratchpad */
-	out8(dev_base + UART_IER, 0x00);	/* set interrupt enable reg */
+	uart_post_init_common(com_port, bdiv);
 
-	return (0);
+	return 0;
 }
 #endif /* CONFIG_440 */
 
-static void uart_post_putc (unsigned long dev_base, char c)
+static void uart_post_putc (struct NS16550 *com_port, char c)
 {
 	int i;
 
-	out8 (dev_base + UART_THR, c);	/* put character out */
+	out_8(&com_port->thr, c);	/* put character out */
 
 	/* Wait for transfer completion */
 	for (i = 0; i < 3500; i++) {
-		if (in8 (dev_base + UART_LSR) & asyncLSRTxHoldEmpty1)
+		if (in_8(&com_port->lsr) & UART_LSR_THRE)
 			break;
 		udelay (100);
 	}
 }
 
-static int uart_post_getc (unsigned long dev_base)
+static int uart_post_getc (struct NS16550 *com_port)
 {
 	int i;
 
 	/* Wait for character available */
 	for (i = 0; i < 3500; i++) {
-		if (in8 (dev_base + UART_LSR) & asyncLSRDataReady1)
+		if (in_8(&com_port->lsr) & UART_LSR_DR)
 			break;
 		udelay (100);
 	}
-	return 0xff & in8 (dev_base + UART_RBR);
+
+	return 0xff & in_8(&com_port->rbr);
 }
 
-static int test_ctlr (unsigned long dev_base, int index)
+static int test_ctlr (struct NS16550 *com_port, int index)
 {
 	int res = -1;
 	char test_str[] = "*** UART Test String ***\r\n";
 	int i;
 
-	uart_post_init (dev_base);
+	uart_post_init (com_port);
 
 	for (i = 0; i < sizeof (test_str) - 1; i++) {
-		uart_post_putc (dev_base, test_str[i]);
-		if (uart_post_getc (dev_base) != test_str[i])
+		uart_post_putc (com_port, test_str[i]);
+		if (uart_post_getc (com_port) != test_str[i])
 			goto done;
 	}
 	res = 0;
@@ -375,10 +352,10 @@ done:
 int uart_post_test (int flags)
 {
 	int i, res = 0;
-	static unsigned long base[] = CFG_POST_UART_TABLE;
+	static unsigned long base[] = CONFIG_SYS_POST_UART_TABLE;
 
-	for (i = 0; i < sizeof (base) / sizeof (base[0]); i++) {
-		if (test_ctlr (base[i], i))
+	for (i = 0; i < ARRAY_SIZE(base); i++) {
+		if (test_ctlr((struct NS16550 *)base[i], i))
 			res = -1;
 	}
 	serial_reinit_all ();
@@ -386,4 +363,4 @@ int uart_post_test (int flags)
 	return res;
 }
 
-#endif /* CONFIG_POST & CFG_POST_UART */
+#endif /* CONFIG_POST & CONFIG_SYS_POST_UART */

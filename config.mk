@@ -44,44 +44,51 @@ PLATFORM_RELFLAGS =
 PLATFORM_CPPFLAGS =
 PLATFORM_LDFLAGS =
 
-#
-# When cross-compiling on NetBSD, we have to define __PPC__ or else we
-# will pick up a va_list declaration that is incompatible with the
-# actual argument lists emitted by the compiler.
-#
-# [Tested on NetBSD/i386 1.5 + cross-powerpc-netbsd-1.3]
-
-ifeq ($(ARCH),ppc)
-ifeq ($(CROSS_COMPILE),powerpc-netbsd-)
-PLATFORM_CPPFLAGS+= -D__PPC__
-endif
-ifeq ($(CROSS_COMPILE),powerpc-openbsd-)
-PLATFORM_CPPFLAGS+= -D__PPC__
-endif
-endif
-
-ifeq ($(ARCH),arm)
-ifeq ($(CROSS_COMPILE),powerpc-netbsd-)
-PLATFORM_CPPFLAGS+= -D__ARM__
-endif
-ifeq ($(CROSS_COMPILE),powerpc-openbsd-)
-PLATFORM_CPPFLAGS+= -D__ARM__
-endif
-endif
-
 #########################################################################
 
-CONFIG_SHELL	:= $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
-		    else if [ -x /bin/bash ]; then echo /bin/bash; \
-		    else echo sh; fi ; fi)
+HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer \
+		  $(HOSTCPPFLAGS)
+HOSTSTRIP	= strip
 
-ifeq ($(HOSTOS)-$(HOSTARCH),darwin-ppc)
-HOSTCC		= cc
+#
+# Mac OS X / Darwin's C preprocessor is Apple specific.  It
+# generates numerous errors and warnings.  We want to bypass it
+# and use GNU C's cpp.  To do this we pass the -traditional-cpp
+# option to the compiler.  Note that the -traditional-cpp flag
+# DOES NOT have the same semantics as GNU C's flag, all it does
+# is invoke the GNU preprocessor in stock ANSI/ISO C fashion.
+#
+# Apple's linker is similar, thanks to the new 2 stage linking
+# multiple symbol definitions are treated as errors, hence the
+# -multiply_defined suppress option to turn off this error.
+#
+
+ifeq ($(HOSTOS),darwin)
+# get major and minor product version (e.g. '10' and '6' for Snow Leopard)
+DARWIN_MAJOR_VERSION	= $(shell sw_vers -productVersion | cut -f 1 -d '.')
+DARWIN_MINOR_VERSION	= $(shell sw_vers -productVersion | cut -f 2 -d '.')
+
+os_x_before	= $(shell if [ $(DARWIN_MAJOR_VERSION) -le $(1) -a \
+	$(DARWIN_MINOR_VERSION) -le $(2) ] ; then echo "$(3)"; else echo "$(4)"; fi ;)
+
+# Snow Leopards build environment has no longer restrictions as described above
+HOSTCC		 = $(call os_x_before, 10, 5, "cc", "gcc")
+HOSTCFLAGS	+= $(call os_x_before, 10, 4, "-traditional-cpp")
+HOSTLDFLAGS	+= $(call os_x_before, 10, 5, "-multiply_defined suppress")
 else
 HOSTCC		= gcc
 endif
-HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer
-HOSTSTRIP	= strip
+
+ifeq ($(HOSTOS),cygwin)
+HOSTCFLAGS	+= -ansi
+endif
+
+# We build some files with extra pedantic flags to try to minimize things
+# that won't build on some weird host compiler -- though there are lots of
+# exceptions for files that aren't complaint.
+
+HOSTCFLAGS_NOPED = $(filter-out -pedantic,$(HOSTCFLAGS))
+HOSTCFLAGS	+= -pedantic
 
 #########################################################################
 #
@@ -111,14 +118,20 @@ RANLIB	= $(CROSS_COMPILE)RANLIB
 # Load generated board configuration
 sinclude $(OBJTREE)/include/autoconf.mk
 
-ifdef	ARCH
-sinclude $(TOPDIR)/$(ARCH)_config.mk	# include architecture dependend rules
+# Some architecture config.mk files need to know what CPUDIR is set to,
+# so calculate CPUDIR before including ARCH/SOC/CPU config.mk files.
+# Check if arch/$ARCH/cpu/$CPU exists, otherwise assume arch/$ARCH/cpu contains
+# CPU-specific code.
+CPUDIR=arch/$(ARCH)/cpu/$(CPU)
+ifneq ($(SRCTREE)/$(CPUDIR),$(wildcard $(SRCTREE)/$(CPUDIR)))
+CPUDIR=arch/$(ARCH)/cpu
 endif
-ifdef	CPU
-sinclude $(TOPDIR)/cpu/$(CPU)/config.mk	# include  CPU	specific rules
-endif
+
+sinclude $(TOPDIR)/arch/$(ARCH)/config.mk	# include architecture dependend rules
+sinclude $(TOPDIR)/$(CPUDIR)/config.mk		# include  CPU	specific rules
+
 ifdef	SOC
-sinclude $(TOPDIR)/cpu/$(CPU)/$(SOC)/config.mk	# include  SoC	specific rules
+sinclude $(TOPDIR)/$(CPUDIR)/$(SOC)/config.mk	# include  SoC	specific rules
 endif
 ifdef	VENDOR
 BOARDDIR = $(VENDOR)/$(BOARD)
@@ -157,6 +170,10 @@ ifneq ($(TEXT_BASE),)
 CPPFLAGS += -DTEXT_BASE=$(TEXT_BASE)
 endif
 
+ifneq ($(RESET_VECTOR_ADDRESS),)
+CPPFLAGS += -DRESET_VECTOR_ADDRESS=$(RESET_VECTOR_ADDRESS)
+endif
+
 ifneq ($(OBJTREE),$(SRCTREE))
 CPPFLAGS += -I$(OBJTREE)/include2 -I$(OBJTREE)/include
 endif
@@ -174,14 +191,6 @@ endif
 
 CFLAGS += $(call cc-option,-fno-stack-protector)
 
-# avoid trigraph warnings while parsing pci.h (produced by NIOS gcc-2.9)
-# this option have to be placed behind -Wall -- that's why it is here
-ifeq ($(ARCH),nios)
-ifeq ($(findstring 2.9,$(shell $(CC) --version)),2.9)
-CFLAGS := $(CPPFLAGS) -Wall -Wno-trigraphs
-endif
-endif
-
 # $(CPPFLAGS) sets -g, which causes gcc to pass a suitable -g<format>
 # option to the assembler.
 AFLAGS_DEBUG :=
@@ -195,7 +204,7 @@ endif
 
 AFLAGS := $(AFLAGS_DEBUG) -D__ASSEMBLY__ $(CPPFLAGS)
 
-LDFLAGS += -Bstatic -T $(LDSCRIPT) $(PLATFORM_LDFLAGS)
+LDFLAGS += -Bstatic -T $(obj)u-boot.lds $(PLATFORM_LDFLAGS)
 ifneq ($(TEXT_BASE),)
 LDFLAGS += -Ttext $(TEXT_BASE)
 endif
@@ -210,7 +219,7 @@ endif
 #
 # So far, this is used only by tools/gdb/Makefile.
 
-ifeq ($(HOSTOS)-$(HOSTARCH),darwin-ppc)
+ifeq ($(HOSTOS),darwin)
 BFD_ROOT_DIR =		/usr/local/tools
 else
 ifeq ($(HOSTARCH),$(ARCH))
@@ -223,36 +232,30 @@ BFD_ROOT_DIR =		/opt/powerpc
 endif
 endif
 
-ifeq ($(PCI_CLOCK),PCI_66M)
-CFLAGS := $(CFLAGS) -DPCI_66M
-endif
-
 #########################################################################
 
-export	CONFIG_SHELL HPATH HOSTCC HOSTCFLAGS CROSS_COMPILE \
-	AS LD CC CPP AR NM STRIP OBJCOPY OBJDUMP \
-	MAKE
+export	HOSTCC HOSTCFLAGS HOSTLDFLAGS PEDCFLAGS HOSTSTRIP CROSS_COMPILE \
+	AS LD CC CPP AR NM STRIP OBJCOPY OBJDUMP MAKE
 export	TEXT_BASE PLATFORM_CPPFLAGS PLATFORM_RELFLAGS CPPFLAGS CFLAGS AFLAGS
 
 #########################################################################
 
-ifndef REMOTE_BUILD
-
-%.s:	%.S
-	$(CPP) $(AFLAGS) -o $@ $<
-%.o:	%.S
-	$(CC) $(AFLAGS) -c -o $@ $<
-%.o:	%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-else
-
+# Allow boards to use custom optimize flags on a per dir/file basis
+BCURDIR = $(subst $(SRCTREE)/,,$(CURDIR:$(obj)%=%))
 $(obj)%.s:	%.S
-	$(CPP) $(AFLAGS) -o $@ $<
+	$(CPP) $(AFLAGS) $(AFLAGS_$(BCURDIR)/$(@F)) $(AFLAGS_$(BCURDIR)) \
+		-o $@ $<
 $(obj)%.o:	%.S
-	$(CC) $(AFLAGS) -c -o $@ $<
+	$(CC)  $(AFLAGS) $(AFLAGS_$(BCURDIR)/$(@F)) $(AFLAGS_$(BCURDIR)) \
+		-o $@ $< -c
 $(obj)%.o:	%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-endif
+	$(CC)  $(CFLAGS) $(CFLAGS_$(BCURDIR)/$(@F)) $(CFLAGS_$(BCURDIR)) \
+		-o $@ $< -c
+$(obj)%.i:	%.c
+	$(CPP) $(CFLAGS) $(CFLAGS_$(BCURDIR)/$(@F)) $(CFLAGS_$(BCURDIR)) \
+		-o $@ $< -c
+$(obj)%.s:	%.c
+	$(CC)  $(CFLAGS) $(CFLAGS_$(BCURDIR)/$(@F)) $(CFLAGS_$(BCURDIR)) \
+		-o $@ $< -c -S
 
 #########################################################################

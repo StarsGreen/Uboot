@@ -86,8 +86,8 @@ static int nDebugLvl = DEBUG_ERROR_CRIT;
 # define ASSERT(expr, func)
 #endif				/* DEBUG */
 
-#define NS7520_MII_NEG_DELAY		(5*CFG_HZ)	/* in s */
-#define TX_TIMEOUT			(5*CFG_HZ)	/* in s */
+#define NS7520_MII_NEG_DELAY		(5*CONFIG_SYS_HZ)	/* in s */
+#define TX_TIMEOUT			(5*CONFIG_SYS_HZ)	/* in s */
 #define RX_STALL_WORKAROUND_CNT 100
 
 static int ns7520_eth_reset(void);
@@ -761,7 +761,7 @@ enum mii_status {
 /**
  * Read a 16-bit value from an MII register.
  */
-extern int ns7520_miiphy_read(char *devname, unsigned char const addr,
+extern int ns7520_miiphy_read(const char *devname, unsigned char const addr,
 		unsigned char const reg, unsigned short *const value)
 {
 	int ret = MII_STATUS_FAILURE;
@@ -807,7 +807,7 @@ extern int ns7520_miiphy_read(char *devname, unsigned char const addr,
 /**
  * Write a 16-bit value to an MII register.
  */
-extern int ns7520_miiphy_write(char *devname, unsigned char const addr,
+extern int ns7520_miiphy_write(const char *devname, unsigned char const addr,
 		unsigned char const reg, unsigned short const value)
 {
 	int ret = MII_STATUS_FAILURE;
