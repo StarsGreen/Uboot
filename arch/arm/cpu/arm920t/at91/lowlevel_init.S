@@ -6,23 +6,7 @@
  * (C) Copyright 2004
  * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <config.h>
@@ -39,9 +23,9 @@
 _MTEXT_BASE:
 #undef START_FROM_MEM
 #ifdef START_FROM_MEM
-	.word	TEXT_BASE-PHYS_FLASH_1
+	.word	CONFIG_SYS_TEXT_BASE-PHYS_FLASH_1
 #else
-	.word	TEXT_BASE
+	.word	CONFIG_SYS_TEXT_BASE
 #endif
 
 .globl lowlevel_init
@@ -65,7 +49,8 @@ LoopOsc:
 	ldr	r0, =SMRDATA
 	ldr	r1, _MTEXT_BASE
 	sub	r0, r0, r1
-	add	r2, r0, #80
+	ldr	r2, =SMRDATAE
+	sub	r2, r2, r1
 pllloop:
 	/* the address */
 	ldr	r1, [r0], #4
@@ -83,7 +68,8 @@ lock:
 	ldr	r0, =SMRDATA1
 	ldr	r1, _MTEXT_BASE
 	sub	r0, r0, r1
-	add	r2, r0, #176
+	ldr	r2, =SMRDATA1E
+	sub	r2, r2, r1
 sdinit:
 	/* the address */
 	ldr	r1, [r0], #4
@@ -114,6 +100,7 @@ SMRDATA:
 	.word CONFIG_SYS_PLLBR_VAL
 	.word AT91_ASM_PMC_MCKR
 	.word CONFIG_SYS_MCKR_VAL
+SMRDATAE:
 	/* here there's a delay */
 SMRDATA1:
 	.word AT91_ASM_PIOC_ASR
@@ -160,5 +147,6 @@ SMRDATA1:
 	.word CONFIG_SYS_SDRC_MR_VAL3
 	.word CONFIG_SYS_SDRAM
 	.word CONFIG_SYS_SDRAM_VAL
+SMRDATA1E:
 	/* SMRDATA1 is 176 bytes long */
 #endif /* CONFIG_SKIP_LOWLEVEL_INIT */

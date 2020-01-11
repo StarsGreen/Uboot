@@ -12,8 +12,8 @@
 /*
  * Processor Settings
  */
-#define CONFIG_BFIN_CPU				bf561-0.5
-#define CONFIG_BFIN_BOOT_MODE		BFIN_BOOT_BYPASS
+#define CONFIG_BFIN_CPU             bf561-0.5
+#define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
 
 
 /*
@@ -53,7 +53,7 @@
 #define CONFIG_EBIU_AMBCTL0_VAL		0xffc2ffc2
 #define CONFIG_EBIU_AMBCTL1_VAL		0x99b35554
 
-#define CONFIG_SYS_MONITOR_LEN		(256 * 1024)
+#define CONFIG_SYS_MONITOR_LEN		(384 * 1024)
 #define CONFIG_SYS_MALLOC_LEN		(128 * 1024)
 
 
@@ -76,7 +76,6 @@
  * Network Settings
  */
 #define ADI_CMDS_NETWORK			1
-#define CONFIG_NET_MULTI
 #define CONFIG_CMD_NET
 #define CONFIG_CMD_MII
 #define CONFIG_CMD_DATE
@@ -161,7 +160,6 @@
 #define CONFIG_UART_CONSOLE			0
 #define CONFIG_BAUDRATE				57600
 #define CONFIG_SYS_PROMPT "Acvilon> "
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

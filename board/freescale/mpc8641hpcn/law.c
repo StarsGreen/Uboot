@@ -1,26 +1,10 @@
 /*
- * Copyright 2008,2010 Freescale Semiconductor, Inc.
+ * Copyright 2008,2010-2011 Freescale Semiconductor, Inc.
  *
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -52,14 +36,6 @@
 struct law_entry law_table[] = {
 #if !defined(CONFIG_SPD_EEPROM)
 	SET_LAW(CONFIG_SYS_DDR_SDRAM_BASE, LAW_SIZE_256M, LAW_TRGT_IF_DDR_1),
-#endif
-#ifdef CONFIG_PCI
-	SET_LAW(CONFIG_SYS_PCIE1_MEM_PHYS, LAW_SIZE_512M, LAW_TRGT_IF_PCI_1),
-	SET_LAW(CONFIG_SYS_PCIE2_MEM_PHYS, LAW_SIZE_512M, LAW_TRGT_IF_PCI_2),
-	SET_LAW(CONFIG_SYS_PCIE1_IO_PHYS, LAW_SIZE_64K, LAW_TRGT_IF_PCI_1),
-	SET_LAW(CONFIG_SYS_PCIE2_IO_PHYS, LAW_SIZE_64K, LAW_TRGT_IF_PCI_2),
-#elif defined(CONFIG_RIO)
-	SET_LAW(CONFIG_SYS_RIO_MEM_PHYS, LAW_SIZE_512M, LAW_TRGT_IF_RIO),
 #endif
 	SET_LAW(PIXIS_BASE_PHYS, LAW_SIZE_64K, LAW_TRGT_IF_LBC),
 	SET_LAW(CONFIG_SYS_FLASH_BASE_PHYS, LAW_SIZE_8M, LAW_TRGT_IF_LBC),

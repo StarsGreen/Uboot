@@ -3,23 +3,7 @@
  *
  * Copyright (c) 2005-2007 Analog Devices Inc.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __BLACKFIN_LOCAL_H__
@@ -48,7 +32,8 @@
 #define L1_CACHE_SHIFT 5
 #define L1_CACHE_BYTES (1 << L1_CACHE_SHIFT)
 
-#include <asm/linkage.h>
+#include <linux/linkage.h>
+#include <asm/cache.h>
 
 #ifndef __ASSEMBLY__
 # ifdef SHARED_RESOURCES
@@ -57,13 +42,9 @@
 
 # include <linux/types.h>
 
-extern u_long get_vco(void);
-extern u_long get_cclk(void);
-extern u_long get_sclk(void);
-
 # define bfin_revid() (bfin_read_CHIPID() >> 28)
 
-extern bool bfin_os_log_check(void);
+extern int bfin_os_log_check(void);
 extern void bfin_os_log_dump(void);
 
 extern void blackfin_icache_flush_range(const void *, const void *);
@@ -93,65 +74,64 @@ extern void blackfin_dcache_flush_invalidate_range(const void *, const void *);
 # define NOP_PAD_ANOMALY_05000198
 #endif
 
-#define bfin_read8(addr) ({ \
-	uint8_t __v; \
-	__asm__ __volatile__( \
-		NOP_PAD_ANOMALY_05000198 \
-		"%0 = b[%1] (z);" \
-		: "=d" (__v) \
-		: "a" (addr) \
-	); \
-	__v; })
+#define BFIN_BUG() while (1) asm volatile("emuexcpt;");
 
-#define bfin_read16(addr) ({ \
-	uint16_t __v; \
+#define _bfin_readX(addr, size, asm_size, asm_ext) ({ \
+	u32 __v; \
 	__asm__ __volatile__( \
 		NOP_PAD_ANOMALY_05000198 \
-		"%0 = w[%1] (z);" \
+		"%0 = " #asm_size "[%1]" #asm_ext ";" \
 		: "=d" (__v) \
 		: "a" (addr) \
 	); \
 	__v; })
+#define _bfin_writeX(addr, val, size, asm_size) \
+	__asm__ __volatile__( \
+		NOP_PAD_ANOMALY_05000198 \
+		#asm_size "[%0] = %1;" \
+		: \
+		: "a" (addr), "d" ((u##size)(val)) \
+		: "memory" \
+	)
 
-#define bfin_read32(addr) ({ \
-	uint32_t __v; \
-	__asm__ __volatile__( \
-		NOP_PAD_ANOMALY_05000198 \
-		"%0 = [%1];" \
-		: "=d" (__v) \
-		: "a" (addr) \
-	); \
-	__v; })
+#define bfin_read8(addr)  _bfin_readX(addr,  8, b, (z))
+#define bfin_read16(addr) _bfin_readX(addr, 16, w, (z))
+#define bfin_read32(addr) _bfin_readX(addr, 32,  ,    )
+#define bfin_write8(addr, val)  _bfin_writeX(addr, val,  8, b)
+#define bfin_write16(addr, val) _bfin_writeX(addr, val, 16, w)
+#define bfin_write32(addr, val) _bfin_writeX(addr, val, 32,  )
+
+#define bfin_read(addr) \
+({ \
+	sizeof(*(addr)) == 1 ? bfin_read8(addr)  : \
+	sizeof(*(addr)) == 2 ? bfin_read16(addr) : \
+	sizeof(*(addr)) == 4 ? bfin_read32(addr) : \
+	({ BFIN_BUG(); 0; }); \
+})
+#define bfin_write(addr, val) \
+do { \
+	switch (sizeof(*(addr))) { \
+	case 1: bfin_write8(addr, val);  break; \
+	case 2: bfin_write16(addr, val); break; \
+	case 4: bfin_write32(addr, val); break; \
+	default: \
+		BFIN_BUG(); \
+	} \
+} while (0)
+
+#define bfin_write_or(addr, bits) \
+do { \
+	typeof(addr) __addr = (addr); \
+	bfin_write(__addr, bfin_read(__addr) | (bits)); \
+} while (0)
+
+#define bfin_write_and(addr, bits) \
+do { \
+	typeof(addr) __addr = (addr); \
+	bfin_write(__addr, bfin_read(__addr) & (bits)); \
+} while (0)
 
 #define bfin_readPTR(addr) bfin_read32(addr)
-
-#define bfin_write8(addr, val) \
-	__asm__ __volatile__( \
-		NOP_PAD_ANOMALY_05000198 \
-		"b[%0] = %1;" \
-		: \
-		: "a" (addr), "d" (val) \
-		: "memory" \
-	)
-
-#define bfin_write16(addr, val) \
-	__asm__ __volatile__( \
-		NOP_PAD_ANOMALY_05000198 \
-		"w[%0] = %1;" \
-		: \
-		: "a" (addr), "d" (val) \
-		: "memory" \
-	)
-
-#define bfin_write32(addr, val) \
-	__asm__ __volatile__( \
-		NOP_PAD_ANOMALY_05000198 \
-		"[%0] = %1;" \
-		: \
-		: "a" (addr), "d" (val) \
-		: "memory" \
-	)
-
 #define bfin_writePTR(addr, val) bfin_write32(addr, val)
 
 /* SSYNC implementation for C file */

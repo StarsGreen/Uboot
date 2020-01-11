@@ -2,93 +2,48 @@
 # (C) Copyright 2000-2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# See file CREDITS for list of people who contributed to this
-# project.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of
-# the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-# MA 02111-1307 USA
+# SPDX-License-Identifier:	GPL-2.0+
 #
 
-include $(TOPDIR)/config.mk
+extra-y	:= resetvec.o
+extra-y	+= start.o
 
-LIB	= $(obj)lib$(CPU).a
+obj-y	:= cache.o
+obj-y	+= dcr.o
+obj-y	+= kgdb.o
 
-START	:= resetvec.o
-START	+= start.o
+obj-y	+= 40x_spd_sdram.o
 
-SOBJS	:= cache.o
-SOBJS	+= dcr.o
-SOBJS	+= kgdb.o
-
-COBJS	:= 40x_spd_sdram.o
-
-COBJS	+= 44x_spd_ddr.o
-COBJS	+= 44x_spd_ddr2.o
-ifdef CONFIG_PPC4xx_DDR_AUTOCALIBRATION
-COBJS	+= 4xx_ibm_ddr2_autocalib.o
-endif
-COBJS	+= 4xx_pci.o
-COBJS	+= 4xx_pcie.o
-COBJS	+= bedbug_405.o
-ifdef CONFIG_CMD_CHIP_CONFIG
-COBJS	+= cmd_chip_config.o
-endif
-COBJS	+= cpu.o
-COBJS	+= cpu_init.o
-COBJS	+= denali_data_eye.o
-COBJS	+= denali_spd_ddr2.o
-COBJS	+= ecc.o
-ifdef CONFIG_CMD_ECCTEST
-COBJS	+= cmd_ecctest.o
-endif
-COBJS	+= fdt.o
-COBJS	+= interrupts.o
-COBJS	+= iop480_uart.o
-ifdef CONFIG_CMD_REGINFO
-COBJS	+= reginfo.o
-endif
-COBJS	+= sdram.o
-COBJS	+= speed.o
-COBJS	+= tlb.o
-COBJS	+= traps.o
-COBJS	+= usb.o
-COBJS	+= usb_ohci.o
-COBJS	+= usbdev.o
+obj-y	+= 44x_spd_ddr.o
+obj-$(CONFIG_SDRAM_PPC4xx_IBM_DDR2) += 44x_spd_ddr2.o
+obj-$(CONFIG_PPC4xx_DDR_AUTOCALIBRATION) += 4xx_ibm_ddr2_autocalib.o
+obj-y	+= 4xx_pci.o
+obj-y	+= 4xx_pcie.o
+obj-y	+= bedbug_405.o
+obj-$(CONFIG_CMD_CHIP_CONFIG)	+= cmd_chip_config.o
+obj-y	+= cpu.o
+obj-y	+= cpu_init.o
+obj-y	+= denali_data_eye.o
+obj-y	+= denali_spd_ddr2.o
+obj-y	+= ecc.o
+obj-$(CONFIG_CMD_ECCTEST) += cmd_ecctest.o
+obj-y	+= fdt.o
+obj-y	+= interrupts.o
+obj-$(CONFIG_CMD_REGINFO) += reginfo.o
+obj-y	+= sdram.o
+obj-y	+= speed.o
+obj-y	+= tlb.o
+obj-y	+= traps.o
+obj-y	+= usb.o
+obj-y	+= usb_ohci.o
+obj-$(CONFIG_XILINX_440) += xilinx_irq.o
 ifndef CONFIG_XILINX_440
-COBJS	+= 4xx_uart.o
-COBJS	+= gpio.o
-COBJS	+= miiphy.o
-COBJS	+= uic.o
-else
-COBJS	+= xilinx_irq.o
+obj-y	+= 4xx_uart.o
+obj-y	+= gpio.o
+obj-y	+= miiphy.o
+obj-y	+= uic.o
 endif
 
-SRCS	:= $(START:.o=.S) $(SOBJS:.o=.S) $(COBJS:.o=.c)
-OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS))
-START	:= $(addprefix $(obj),$(START))
-
-all:	$(obj).depend $(START) $(LIB)
-
-$(LIB):	$(OBJS)
-	$(AR) $(ARFLAGS) $@ $(OBJS)
-
-#########################################################################
-
-# defines $(obj).depend target
-include $(SRCTREE)/rules.mk
-
-sinclude $(obj).depend
-
-#########################################################################
+ifdef CONFIG_SPL_BUILD
+obj-y += spl_boot.o
+endif

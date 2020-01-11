@@ -69,7 +69,6 @@
 #define CONFIG_DRIVER_NAND_BFIN
 #define CONFIG_SYS_NAND_BASE		0 /* not actually used */
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
-#define NAND_MAX_CHIPS		1
 #endif
 
 
@@ -128,9 +127,8 @@
  * SPI_MMC Settings
  */
 #define CONFIG_MMC
-#define CONFIG_CMD_EXT2
-#define CONFIG_SPI_MMC
-#define CONFIG_SPI_MMC_DEFAULT_CS (7 + GPIO_PH3)
+#define CONFIG_GENERIC_MMC
+#define CONFIG_MMC_SPI
 
 
 /*
@@ -138,7 +136,6 @@
  */
 #define CONFIG_MISC_INIT_R
 #define CONFIG_UART_CONSOLE	0
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

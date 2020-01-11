@@ -1,72 +1,78 @@
 /*
- * (C) Copyright 2002
+ * (C) Copyright 2002-2010
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef	__ASM_GBL_DATA_H
 #define __ASM_GBL_DATA_H
-/*
- * The following data structure is placed in some memory wich is
- * available very early after boot (like DPRAM on MPC8xx/MPC82xx, or
- * some locked parts of the data cache) to allow for a minimum set of
- * global variables during system initialization (until we have set
- * up the memory controller so that we can use RAM).
- *
- * Keep it *SMALL* and remember to set CONFIG_SYS_GBL_DATA_SIZE > sizeof(gd_t)
- */
 
-typedef	struct	global_data {
-	bd_t		*bd;
-	unsigned long	flags;
-	unsigned long	baudrate;
-	unsigned long	have_console;	/* serial_init() was called */
-	unsigned long	env_addr;	/* Address  of Environment struct */
-	unsigned long	env_valid;	/* Checksum of Environment valid? */
-	unsigned long	fb_base;	/* base address of frame buffer */
-#ifdef CONFIG_VFD
-	unsigned char	vfd_type;	/* display type */
+#ifdef CONFIG_OMAP
+#include <asm/omap_boot.h>
 #endif
-#ifdef CONFIG_FSL_ESDHC
-	unsigned long	sdhc_clk;
-#endif
-#if 0
-	unsigned long	cpu_clk;	/* CPU clock in Hz!		*/
-	unsigned long	bus_clk;
-	phys_size_t	ram_size;	/* RAM size */
-	unsigned long	reset_status;	/* reset status register at boot */
-#endif
-	void		**jt;		/* jump table */
-} gd_t;
 
-/*
- * Global Data Flags
- */
-#define	GD_FLG_RELOC	0x00001		/* Code was relocated to RAM		*/
-#define	GD_FLG_DEVINIT	0x00002		/* Devices have been initialized	*/
-#define	GD_FLG_SILENT	0x00004		/* Silent mode				*/
-#define	GD_FLG_POSTFAIL	0x00008		/* Critical POST test failed		*/
-#define	GD_FLG_POSTSTOP	0x00010		/* POST seqeunce aborted		*/
-#define	GD_FLG_LOGINIT	0x00020		/* Log Buffer has been initialized	*/
-#define GD_FLG_DISABLE_CONSOLE	0x00040		/* Disable console (in & out)	 */
+/* Architecture-specific global data */
+struct arch_global_data {
+#if defined(CONFIG_FSL_ESDHC)
+	u32 sdhc_clk;
+#endif
+#ifdef CONFIG_AT91FAMILY
+	/* "static data" needed by at91's clock.c */
+	unsigned long	cpu_clk_rate_hz;
+	unsigned long	main_clk_rate_hz;
+	unsigned long	mck_rate_hz;
+	unsigned long	plla_rate_hz;
+	unsigned long	pllb_rate_hz;
+	unsigned long	at91_pllb_usb_init;
+#endif
+	/* "static data" needed by most of timer.c on ARM platforms */
+	unsigned long timer_rate_hz;
+	unsigned long tbu;
+	unsigned long tbl;
+	unsigned long lastinc;
+	unsigned long long timer_reset_value;
+#if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
+	unsigned long tlb_addr;
+	unsigned long tlb_size;
+#endif
 
-#define DECLARE_GLOBAL_DATA_PTR     register volatile gd_t *gd asm ("r8")
+#ifdef CONFIG_OMAP
+	struct omap_boot_parameters omap_boot_params;
+#endif
+};
+
+#include <asm-generic/global_data.h>
+
+#ifdef __clang__
+
+#define DECLARE_GLOBAL_DATA_PTR
+#define gd	get_gd()
+
+static inline gd_t *get_gd(void)
+{
+	gd_t *gd_ptr;
+
+#ifdef CONFIG_ARM64
+	/*
+	 * Make will already error that reserving x18 is not supported at the
+	 * time of writing, clang: error: unknown argument: '-ffixed-x18'
+	 */
+	__asm__ volatile("mov %0, x18\n" : "=r" (gd_ptr));
+#else
+	__asm__ volatile("mov %0, r9\n" : "=r" (gd_ptr));
+#endif
+
+	return gd_ptr;
+}
+
+#else
+
+#ifdef CONFIG_ARM64
+#define DECLARE_GLOBAL_DATA_PTR		register volatile gd_t *gd asm ("x18")
+#else
+#define DECLARE_GLOBAL_DATA_PTR		register volatile gd_t *gd asm ("r9")
+#endif
+#endif
 
 #endif /* __ASM_GBL_DATA_H */

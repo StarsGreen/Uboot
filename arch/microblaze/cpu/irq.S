@@ -3,23 +3,7 @@
  *
  * Michal  SIMEK <monstr@monstr.eu>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <config.h>
@@ -60,7 +44,6 @@ _interrupt_handler:
 	addik	r1, r1, -124
 	brlid	r15, interrupt_handler
 	nop
-	nop
 	addik	r1, r1, 124
 	lwi	r31, r1, -120
 	lwi	r30, r1, -116
@@ -93,22 +76,6 @@ _interrupt_handler:
 	lwi	r3, r1, -8
 	lwi	r2, r1, -4
 
-	/* enable_interrupt */
-#ifdef XILINX_USE_MSR_INSTR
-	msrset	r0, 2
-#else
-	/* FIXME unstable in stressed mode - two irqs */
-	nop
-	addi	r1, r1, -4
-	swi	r12, r1, 0
-	mfs	r12, rmsr
-	ori	r12, r12, 2
-	mts	rmsr, r12
-	lwi	r12, r1, 0
-	addi	r1, r1, 4
-	nop
-#endif
-	bra	r14
-	nop
+	rtid	r14, 0
 	nop
 	.size _interrupt_handler,.-_interrupt_handler

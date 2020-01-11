@@ -1,30 +1,21 @@
 /*
  * Copyright (C) 2009 Texas Instruments Incorporated
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <nand.h>
 #include <asm/io.h>
 #include <asm/arch/hardware.h>
-#include <asm/arch/emif_defs.h>
-#include <asm/arch/nand_defs.h>
-#include <asm/arch/gpio_defs.h>
+#include <asm/ti-common/davinci_nand.h>
+#include <asm/arch/gpio.h>
 #include <netdev.h>
-#include "../common/misc.h"
+#include <asm/arch/davinci_misc.h>
+#ifdef CONFIG_DAVINCI_MMC
+#include <mmc.h>
+#include <asm/arch/sdmmc_defs.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -68,7 +59,7 @@ int board_eth_init(bd_t *bis)
 
 	/* Read Ethernet MAC address from EEPROM */
 	if (dvevm_read_mac_address(eeprom_enetaddr))
-		dv_configure_mac_address(eeprom_enetaddr);
+		davinci_sync_env_enetaddr(eeprom_enetaddr);
 
 	davinci_emac_initialize();
 
@@ -99,5 +90,50 @@ int board_nand_init(struct nand_chip *nand)
 	davinci_nand_init(nand);
 	nand->select_chip = nand_dm365evm_select_chip;
 	return 0;
+}
+#endif
+
+#ifdef CONFIG_DAVINCI_MMC
+static struct davinci_mmc mmc_sd0 = {
+	.reg_base	= (struct davinci_mmc_regs *)DAVINCI_MMC_SD0_BASE,
+	.input_clk	= 121500000,
+	.host_caps	= MMC_MODE_4BIT,
+	.voltages	= MMC_VDD_32_33 | MMC_VDD_33_34,
+	.version	= MMC_CTLR_VERSION_2,
+};
+
+#ifdef CONFIG_DAVINCI_MMC_SD1
+static struct davinci_mmc mmc_sd1 = {
+	.reg_base	= (struct davinci_mmc_regs *)DAVINCI_MMC_SD1_BASE,
+	.input_clk	= 121500000,
+	.host_caps	= MMC_MODE_4BIT,
+	.voltages	= MMC_VDD_32_33 | MMC_VDD_33_34,
+	.version	= MMC_CTLR_VERSION_2,
+};
+#endif
+
+int board_mmc_init(bd_t *bis)
+{
+	int err;
+
+	/* Add slot-0 to mmc subsystem */
+	err = davinci_mmc_init(bis, &mmc_sd0);
+	if (err)
+		return err;
+
+#ifdef CONFIG_DAVINCI_MMC_SD1
+#define PUPDCTL1		0x01c4007c
+	/* PINMUX(4)-DAT0-3/CMD;  PINMUX(0)-CLK */
+	writel((readl(PINMUX4) | 0x55400000), PINMUX4);
+	writel((readl(PINMUX0) | 0x00010000), PINMUX0);
+
+	/* Configure MMC/SD pins as pullup */
+	writel((readl(PUPDCTL1) & ~0x07c0), PUPDCTL1);
+
+	/* Add slot-1 to mmc subsystem */
+	err = davinci_mmc_init(bis, &mmc_sd1);
+#endif
+
+	return err;
 }
 #endif

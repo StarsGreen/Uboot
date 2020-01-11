@@ -17,7 +17,7 @@
 
 #ifdef __KERNEL__
 
-#include <asm/proc/system.h>
+#include <asm/proc-armv/system.h>
 
 #define smp_mb__before_clear_bit()	do { } while (0)
 #define smp_mb__after_clear_bit()	do { } while (0)
@@ -104,6 +104,11 @@ extern int find_next_zero_bit(void * addr, int size, int offset);
 static inline int test_bit(int nr, const void * addr)
 {
     return ((unsigned char *) addr)[nr >> 3] & (1U << (nr & 7));
+}
+
+static inline int __ilog2(unsigned int x)
+{
+	return generic_fls(x) - 1;
 }
 
 /*

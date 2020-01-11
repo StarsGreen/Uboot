@@ -63,7 +63,6 @@
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
-#define CONFIG_NET_MULTI
 #define CONFIG_SMC91111	1
 #define CONFIG_SMC91111_BASE	0x20200300
 #define CONFIG_HOSTNAME		cm-bf533
@@ -98,7 +97,6 @@
 #define CONFIG_UART_CONSOLE	0
 #define CONFIG_BOOTCOMMAND	"run flashboot"
 #define FLASHBOOT_ENV_SETTINGS	"flashboot=bootm 0x20040000\0"
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

@@ -3,20 +3,7 @@
  *
  * SH7722 Internal I/O register
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _ASM_CPU_SH7722_H_
@@ -226,16 +213,7 @@
 
 
 /*	TMU	*/
-#define TSTR        0xFFD80004
-#define TCOR0       0xFFD80008
-#define TCNT0       0xFFD8000C
-#define TCR0        0xFFD80010
-#define TCOR1       0xFFD80014
-#define TCNT1       0xFFD80018
-#define TCR1        0xFFD8001C
-#define TCOR2       0xFFD80020
-#define TCNT2       0xFFD80024
-#define TCR2        0xFFD80028
+#define TMU_BASE	0xFFD80000
 
 /*	TPU	*/
 #define TPU_TSTR    0xA4C90000
@@ -325,44 +303,6 @@
 #define SPICR1      0xA4420030
 
 /*	SCIF	*/
-/*
-#define SCSMR       0xFFE00000
-#define SCBRR       0xFFE00004
-#define SCSCR       0xFFE00008
-#define SCFTDR      0xFFE0000C
-#define SCFSR       0xFFE00010
-#define SCFRDR      0xFFE00014
-#define SCFCR       0xFFE00018
-#define SCFDR       0xFFE0001C
-#define SCLSR       0xFFE00024
-#define SCSMR1      0xFFE10000
-#define SCBRR1      0xFFE10004
-#define SCSCR1      0xFFE10008
-#define SCFTDR1     0xFFE1000C
-#define SCFSR1      0xFFE10010
-#define SCFRDR1     0xFFE10014
-#define SCFCR1      0xFFE10018
-#define SCFDR1      0xFFE1001C
-#define SCLSR1      0xFFE10024
-#define SCSMR2      0xFFE20000
-#define SCBRR2      0xFFE20004
-#define SCSCR2      0xFFE20008
-#define SCFTDR2     0xFFE2000C
-#define SCFSR2      0xFFE20010
-#define SCFRDR2     0xFFE20014
-#define SCFCR2      0xFFE20018
-#define SCFDR2      0xFFE2001C
-#define SCLSR2      0xFFE20024
-#define SCSMR3      0xFFE30000
-#define SCBRR3      0xFFE30004
-#define SCSCR3      0xFFE30008
-#define SCFTDR3     0xFFE3000C
-#define SCFSR3      0xFFE30010
-#define SCFRDR3     0xFFE30014
-#define SCFCR3      0xFFE30018
-#define SCFDR3      0xFFE3001C
-#define SCLSR3      0xFFE30024
-*/
 #define SCIF0_BASE  0xFFE00000
 
 /*	SIM	*/
@@ -1310,8 +1250,9 @@
 #define PUDR        0xA4050162
 #define PVDR        0xA4050164
 #define PWDR        0xA4050166
-#define PYDR        0xA4050168
-#define PZDR        0xA405016A
+#define PXDR        0xA4050168
+#define PYDR        0xA405016A
+#define PZDR        0xA405016C
 
 /*	UBC	*/
 #define CBR0        0xFF200000

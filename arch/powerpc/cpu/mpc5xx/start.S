@@ -4,23 +4,7 @@
  *  Copyright (C) 2000, 2001, 2002 Wolfgang Denk <wd@denx.de>
  *  Copyright (C) 2003  Martin Winistoerfer, martinwinistoerfer@gmx.ch.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -30,23 +14,16 @@
  *
  */
 
+#include <asm-offsets.h>
 #include <config.h>
 #include <mpc5xx.h>
-#include <timestamp.h>
 #include <version.h>
-
-#define CONFIG_5xx 1		/* needed for Linux kernel header files */
-#define _LINUX_CONFIG_H 1	/* avoid reading Linux autoconf.h file	*/
 
 #include <ppc_asm.tmpl>
 #include <ppc_defs.h>
 
-#include <linux/config.h>
 #include <asm/processor.h>
-
-#ifndef  CONFIG_IDENT_STRING
-#define  CONFIG_IDENT_STRING ""
-#endif
+#include <asm/u-boot.h>
 
 /* We don't have a MMU.
 */
@@ -68,7 +45,7 @@
 	GOT_ENTRY(transfer_to_handler)
 
 	GOT_ENTRY(__init_end)
-	GOT_ENTRY(_end)
+	GOT_ENTRY(__bss_end)
 	GOT_ENTRY(__bss_start)
 	END_GOT
 
@@ -80,9 +57,7 @@
 	.long	0x27051956			/* U-Boot Magic Number */
 	.globl	version_string
 version_string:
-	.ascii U_BOOT_VERSION
-	.ascii " (", U_BOOT_DATE, " - ", U_BOOT_TIME, ")"
-	.ascii CONFIG_IDENT_STRING, "\0"
+	.ascii U_BOOT_VERSION_STRING, "\0"
 
 	. = EXC_OFF_SYS_RESET
 	.globl	_start
@@ -91,18 +66,6 @@ _start:
 	li	r4, CONFIG_SYS_ISB			/* Set ISB bit */
 	or	r3, r3, r4
 	mtspr	638, r3
-	li	r21, BOOTFLAG_COLD		/* Normal Power-On: Boot from FLASH	*/
-	b	boot_cold
-
-	. = EXC_OFF_SYS_RESET + 0x20
-
-	.globl	_start_warm
-_start_warm:
-	li	r21, BOOTFLAG_WARM		/* Software reboot */
-	b	boot_warm
-
-boot_cold:
-boot_warm:
 
 	/* Initialize machine status; enable machine check interrupt		*/
 	/*----------------------------------------------------------------------*/
@@ -188,9 +151,9 @@ in_flash:
 	/* r3: IMMR */
 	bl	cpu_init_f	/* run low-level CPU init code     (from Flash)	*/
 
-	mr	r3, r21
-	/* r3: BOOTFLAG */
 	bl	board_init_f	/* run 1st part of board init code (from Flash) */
+
+	/* NOTREACHED - board_init_f() does not return */
 
 
 	.globl	_start_of_vectors
@@ -464,17 +427,19 @@ in_ram:
 	beq	4f
 3:	lwzu	r4,4(r3)
 	lwzux	r0,r4,r11
+	cmpwi	r0,0
 	add	r0,r0,r11
-	stw	r10,0(r3)
+	stw	r4,0(r3)
+	beq-	5f
 	stw	r0,0(r4)
-	bdnz	3b
+5:	bdnz	3b
 4:
 clear_bss:
 	/*
 	 * Now clear BSS segment
 	 */
 	lwz	r3,GOT(__bss_start)
-	lwz	r4,GOT(_end)
+	lwz	r4,GOT(__bss_end)
 	cmplw	0, r3, r4
 	beq	6f
 

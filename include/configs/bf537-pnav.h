@@ -52,7 +52,7 @@
 #define CONFIG_EBIU_AMBCTL0_VAL	0x7BB033B0
 #define CONFIG_EBIU_AMBCTL1_VAL	0xFFC27BB0
 
-#define CONFIG_SYS_MONITOR_LEN		(256 * 1024)
+#define CONFIG_SYS_MONITOR_LEN		(512 * 1024)
 #define CONFIG_SYS_MALLOC_LEN		(128 * 1024)
 
 
@@ -63,12 +63,11 @@
 #define ADI_CMDS_NETWORK	1
 #define CONFIG_BFIN_MAC
 #define CONFIG_RMII
-#define CONFIG_NET_MULTI	1
 #endif
 #define CONFIG_HOSTNAME		bf537-pnav
 /* Uncomment next line to use fixed MAC address */
 /* #define CONFIG_ETHADDR	02:80:ad:24:21:18 */
-
+#define CONFIG_LIB_RAND
 
 /*
  * Flash Settings
@@ -112,13 +111,10 @@
  * it linked after the configuration sector.
  */
 # define LDS_BOARD_TEXT \
-	arch/blackfin/cpu/traps.o		(.text .text.*); \
-	arch/blackfin/cpu/interrupt.o	(.text .text.*); \
-	arch/blackfin/cpu/serial.o		(.text .text.*); \
-	common/dlmalloc.o		(.text .text.*); \
-	lib/crc32.o		(.text .text.*); \
+	arch/blackfin/lib/built-in.o (.text*); \
+	arch/blackfin/cpu/built-in.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
-	common/env_embedded.o		(.text .text.*);
+	common/env_embedded.o (.text*);
 #endif
 
 

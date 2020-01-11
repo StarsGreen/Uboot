@@ -1,31 +1,15 @@
 /*
-  * Copyright (C) 2010 Albert ARIBAUD <albert.aribaud@free.fr>
+  * Copyright (C) 2010 Albert ARIBAUD <albert.u.boot@aribaud.net>
  *
  * Based on original Kirkwood support which is
  * Copyright (C) Marvell International Ltd. and its affiliates
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
-#include <asm/arch/orion5x.h>
+#include <asm/io.h>
 
 #define UBOOT_CNTR	0	/* counter to use for uboot timer */
 
@@ -90,15 +74,10 @@ static inline ulong read_timer(void)
 	      / (CONFIG_SYS_TCLK / 1000);
 }
 
-static ulong timestamp;
-static ulong lastdec;
+DECLARE_GLOBAL_DATA_PTR;
 
-void reset_timer_masked(void)
-{
-	/* reset time */
-	lastdec = read_timer();
-	timestamp = 0;
-}
+#define timestamp gd->arch.tbl
+#define lastdec gd->arch.lastinc
 
 ulong get_timer_masked(void)
 {
@@ -117,19 +96,9 @@ ulong get_timer_masked(void)
 	return timestamp;
 }
 
-void reset_timer(void)
-{
-	reset_timer_masked();
-}
-
 ulong get_timer(ulong base)
 {
 	return get_timer_masked() - base;
-}
-
-void set_timer(ulong t)
-{
-	timestamp = t;
 }
 
 static inline ulong uboot_cntr_val(void)
@@ -173,9 +142,30 @@ int timer_init(void)
 	cntmrctrl |= CTCR_ARM_TIMER_EN(UBOOT_CNTR);
 	cntmrctrl |= CTCR_ARM_TIMER_AUTO_EN(UBOOT_CNTR);
 	writel(cntmrctrl, CNTMR_CTRL_REG);
-
-	/* init the timestamp and lastdec value */
-	reset_timer_masked();
-
 	return 0;
+}
+
+void timer_init_r(void)
+{
+	/* init the timestamp and lastdec value */
+	lastdec = read_timer();
+	timestamp = 0;
+}
+
+/*
+ * This function is derived from PowerPC code (read timebase as long long).
+ * On ARM it just returns the timer value.
+ */
+unsigned long long get_ticks(void)
+{
+	return get_timer(0);
+}
+
+/*
+ * This function is derived from PowerPC code (timebase clock frequency).
+ * On ARM it returns the number of timer ticks per second.
+ */
+ulong get_tbclk (void)
+{
+	return (ulong)CONFIG_SYS_HZ;
 }

@@ -84,13 +84,12 @@
 	P_MII0_MDIO, \
 	0 }
 #define CONFIG_NETCONSOLE	1
-#define CONFIG_NET_MULTI	1
 #endif
 #define CONFIG_HOSTNAME		bf518f-ezbrd
 #define CONFIG_PHY_ADDR		3
 /* Uncomment next line to use fixed MAC address */
 /* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
-
+#define CONFIG_LIB_RAND
 
 /*
  * Flash Settings
@@ -156,7 +155,6 @@
 #define CONFIG_MISC_INIT_R
 #define CONFIG_RTC_BFIN
 #define CONFIG_UART_CONSOLE	0
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

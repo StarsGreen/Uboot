@@ -2,23 +2,7 @@
  * (C) Copyright 2008
  * Steve Sakoman <steve@sakoman.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 #ifndef _OVERO_H_
 #define _OVERO_H_
@@ -33,14 +17,12 @@ const omap3_sysinfo sysinfo = {
 #endif
 };
 
-/* GPMC CS 5 connected to an SMSC LAN9221 ethernet controller */
-#define NET_LAN9221_GPMC_CONFIG1    0x00001000
-#define NET_LAN9221_GPMC_CONFIG2    0x00080701
-#define NET_LAN9221_GPMC_CONFIG3    0x00020201
-#define NET_LAN9221_GPMC_CONFIG4    0x08030703
-#define NET_LAN9221_GPMC_CONFIG5    0x00060908
-#define NET_LAN9221_GPMC_CONFIG6    0x87030000
-#define NET_LAN9221_GPMC_CONFIG7    0x00000f6c
+/* overo revisions */
+#define REVISION_0	0x0
+#define REVISION_1	0x1
+#define REVISION_2	0x2
+#define REVISION_3	0x3
+#define REVISION_4	0x4
 
 /*
  * IEN  - Input Enable
@@ -128,7 +110,7 @@ const omap3_sysinfo sysinfo = {
 	MUX_VAL(CP(GPMC_NCS6),		(IEN  | PTD | DIS | M0)) /*GPMC_nCS6*/\
 	MUX_VAL(CP(GPMC_NCS7),		(IEN  | PTU | EN  | M0)) /*GPMC_nCS7*/\
 	MUX_VAL(CP(GPMC_NBE1),		(IEN  | PTD | DIS | M0)) /*GPMC_nCS3*/\
-	MUX_VAL(CP(GPMC_CLK),		(IDIS | PTU | EN  | M0)) /*GPMC_CLK*/\
+	MUX_VAL(CP(GPMC_CLK),		(IEN  | PTU | EN  | M0)) /*GPMC_CLK*/\
 	MUX_VAL(CP(GPMC_NADV_ALE),	(IDIS | PTD | DIS | M0)) /*GPMC_nADV_ALE*/\
 	MUX_VAL(CP(GPMC_NOE),		(IDIS | PTD | DIS | M0)) /*GPMC_nOE*/\
 	MUX_VAL(CP(GPMC_NWE),		(IDIS | PTD | DIS | M0)) /*GPMC_nWE*/\
@@ -169,10 +151,10 @@ const omap3_sysinfo sysinfo = {
 	MUX_VAL(CP(DSS_DATA22),		(IDIS | PTD | DIS | M0)) /*DSS_DATA22*/\
 	MUX_VAL(CP(DSS_DATA23),		(IDIS | PTD | DIS | M0)) /*DSS_DATA23*/\
  /*CAMERA*/\
-	MUX_VAL(CP(CAM_HS),		(IEN  | PTU | EN  | M0)) /*CAM_HS */\
-	MUX_VAL(CP(CAM_VS),		(IEN  | PTU | EN  | M0)) /*CAM_VS */\
+	MUX_VAL(CP(CAM_HS),		(IEN  | PTU | DIS | M0)) /*CAM_HS */\
+	MUX_VAL(CP(CAM_VS),		(IEN  | PTU | DIS | M0)) /*CAM_VS */\
 	MUX_VAL(CP(CAM_XCLKA),		(IDIS | PTD | DIS | M0)) /*CAM_XCLKA*/\
-	MUX_VAL(CP(CAM_PCLK),		(IEN  | PTU | EN  | M0)) /*CAM_PCLK*/\
+	MUX_VAL(CP(CAM_PCLK),		(IEN  | PTU | DIS | M0)) /*CAM_PCLK*/\
 	MUX_VAL(CP(CAM_FLD),		(IDIS | PTD | DIS | M4)) /*CAM_FLD*/\
 	MUX_VAL(CP(CAM_D0),		(IEN  | PTD | DIS | M0)) /*CAM_D0*/\
 	MUX_VAL(CP(CAM_D1),		(IEN  | PTD | DIS | M0)) /*CAM_D1*/\
@@ -299,7 +281,7 @@ const omap3_sysinfo sysinfo = {
 	MUX_VAL(CP(SYS_BOOT5),		(IEN  | PTD | DIS | M4)) /*GPIO_7*/\
 	MUX_VAL(CP(SYS_BOOT6),		(IDIS | PTD | DIS | M4)) /*GPIO_8*/\
 	MUX_VAL(CP(SYS_OFF_MODE),	(IEN  | PTD | DIS | M0)) /*SYS_OFF_MODE*/\
-	MUX_VAL(CP(SYS_CLKOUT1),	(IEN  | PTD | DIS | M0)) /*SYS_CLKOUT1*/\
+	MUX_VAL(CP(SYS_CLKOUT1),	(IEN  | PTU | EN  | M4)) /*GPIO_10*/\
 	MUX_VAL(CP(SYS_CLKOUT2),	(IEN  | PTU | EN  | M4)) /*GPIO_186*/\
 	MUX_VAL(CP(ETK_CLK_ES2),	(IEN  | PTU | EN  | M2)) /*MMC3_CLK*/\
 	MUX_VAL(CP(ETK_CTL_ES2),	(IEN  | PTU | EN  | M2)) /*MMC3_CMD*/\
@@ -418,5 +400,25 @@ const omap3_sysinfo sysinfo = {
 	MUX_VAL(CP(MMC1_DAT5),		(IEN  | PTU | EN  | M4)) /*GPIO_127*/\
 	MUX_VAL(CP(MMC1_DAT6),		(IEN  | PTU | EN  | M4)) /*GPIO_128*/\
 	MUX_VAL(CP(MMC1_DAT7),		(IEN  | PTU | EN  | M4)) /*GPIO_129*/
+
+#define MUX_USRP_E() \
+	MUX_VAL(CP(MCSPI1_SOMI),	(IEN  | PTD | DIS | M4)) /*GPIO_173 */\
+	MUX_VAL(CP(MCSPI1_CS1),		(IDIS | PTD | EN  | M4)) /*GPIO_175 */\
+
+#define MUX_ALTO35() \
+	MUX_VAL(CP(SYS_CLKOUT1),	(IEN  | PTU | EN  | M4)) /*GPIO_10-BTN*/\
+	MUX_VAL(CP(UART1_TX),		(IDIS | PTD | DIS | M4)) /*GPIO_148-RED LED*/\
+	MUX_VAL(CP(UART1_CTS),		(IDIS | PTD | DIS | M4)) /*GPIO_150-YELLOW LED*/\
+	MUX_VAL(CP(UART1_RX),		(IDIS | PTD | DIS | M4)) /*GPIO_151-BLUE LED*/\
+	MUX_VAL(CP(HDQ_SIO),		(IDIS | PTD | DIS | M4)) /*GPIO_170-GREEN LED*/\
+	MUX_VAL(CP(MCSPI1_CS1),		(IDIS | PTD | EN  | M4)) /*GPIO_175*/\
+
+#define MUX_ARBOR43C() \
+	MUX_VAL(CP(CSI2_DX1),		(IDIS | PTD | DIS | M4)) /*GPIO_114-RED LED*/\
+	MUX_VAL(CP(UART1_CTS),		(IDIS | PTD | DIS | M4)) /*GPIO_150-YELLOW LED*/\
+	MUX_VAL(CP(HDQ_SIO),		(IEN  | PTU | EN  | M4)) /*GPIO_170-BUTTON */\
+	MUX_VAL(CP(SYS_CLKOUT2),	(IDIS | PTD | DIS | M4)) /*GPIO_186-BLUE LED*/\
+	MUX_VAL(CP(JTAG_EMU1),		(IDIS | PTD | DIS | M4)) /*GPIO_31-CAP WAKE*/\
+	MUX_VAL(CP(SYS_CLKOUT1),	(IEN  | PTU | EN  | M4)) /*GPIO_10-CAP IRQ*/\
 
 #endif

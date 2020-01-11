@@ -64,12 +64,11 @@
 #define ADI_CMDS_NETWORK	1
 #define CONFIG_BFIN_MAC
 #define CONFIG_NETCONSOLE	1
-#define CONFIG_NET_MULTI	1
 #endif
 #define CONFIG_HOSTNAME		tcm-bf518
 /* Uncomment next line to use fixed MAC address */
 /* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
-
+#define CONFIG_LIB_RAND
 
 /*
  * Flash Settings
@@ -117,7 +116,6 @@
 #define CONFIG_UART_CONSOLE	0
 #define CONFIG_BOOTCOMMAND	"run flashboot"
 #define FLASHBOOT_ENV_SETTINGS	"flashboot=bootm 0x20040000\0"
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

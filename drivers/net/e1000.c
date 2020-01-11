@@ -9,22 +9,7 @@ tested on both gig copper and gig fiber boards
 
   Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
 
-  This program is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by the Free
-  Software Foundation; either version 2 of the License, or (at your option)
-  any later version.
-
-  This program is distributed in the hope that it will be useful, but WITHOUT
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  more details.
-
-  You should have received a copy of the GNU General Public License along with
-  this program; if not, write to the Free Software Foundation, Inc., 59
-  Temple Place - Suite 330, Boston, MA	02111-1307, USA.
-
-  The full GNU General Public License is included in this distribution in the
-  file called LICENSE.
+ * SPDX-License-Identifier:	GPL-2.0+
 
   Contact Information:
   Linux NICS <linux.nics@intel.com>
@@ -40,6 +25,8 @@ tested on both gig copper and gig fiber boards
  *  Copyright (C) Linux Networx.
  *  Massive upgrade to work with the new intel gigabit NICs.
  *  <ebiederman at lnxi dot com>
+ *
+ *  Copyright 2011 Freescale Semiconductor, Inc.
  */
 
 #include "e1000.h"
@@ -48,24 +35,23 @@ tested on both gig copper and gig fiber boards
 
 #define virt_to_bus(devno, v)	pci_virt_to_mem(devno, (void *) (v))
 #define bus_to_phys(devno, a)	pci_mem_to_phys(devno, a)
-#define mdelay(n)	udelay((n)*1000)
 
 #define E1000_DEFAULT_PCI_PBA	0x00000030
 #define E1000_DEFAULT_PCIE_PBA	0x000a0026
 
 /* NIC specific static variables go here */
 
-static char tx_pool[128 + 16];
-static char rx_pool[128 + 16];
-static char packet[2096];
+/* Intel i210 needs the DMA descriptor rings aligned to 128b */
+#define E1000_BUFFER_ALIGN	128
 
-static struct e1000_tx_desc *tx_base;
-static struct e1000_rx_desc *rx_base;
+DEFINE_ALIGN_BUFFER(struct e1000_tx_desc, tx_base, 16, E1000_BUFFER_ALIGN);
+DEFINE_ALIGN_BUFFER(struct e1000_rx_desc, rx_base, 16, E1000_BUFFER_ALIGN);
+DEFINE_ALIGN_BUFFER(unsigned char, packet, 4096, E1000_BUFFER_ALIGN);
 
 static int tx_tail;
 static int rx_tail, rx_last;
 
-static struct pci_device_id supported[] = {
+static struct pci_device_id e1000_supported[] = {
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82542},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82543GC_FIBER},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82543GC_COPPER},
@@ -100,11 +86,18 @@ static struct pci_device_id supported[] = {
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82573E},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82573E_IAMT},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82573L},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82574L},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82546GB_QUAD_COPPER_KSP3},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_80003ES2LAN_COPPER_DPT},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_80003ES2LAN_SERDES_DPT},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_80003ES2LAN_COPPER_SPT},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_80003ES2LAN_SERDES_SPT},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I210_COPPER},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I210_COPPER_FLASHLESS},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I210_SERDES},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I210_SERDES_FLASHLESS},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I210_1000BASEKX},
+
 	{}
 };
 
@@ -127,20 +120,13 @@ static int e1000_write_phy_reg(struct e1000_hw *hw, uint32_t reg_addr,
 static int32_t e1000_phy_hw_reset(struct e1000_hw *hw);
 static int e1000_phy_reset(struct e1000_hw *hw);
 static int e1000_detect_gig_phy(struct e1000_hw *hw);
-static void e1000_put_hw_eeprom_semaphore(struct e1000_hw *hw);
 static void e1000_set_media_type(struct e1000_hw *hw);
 
 static int32_t e1000_swfw_sync_acquire(struct e1000_hw *hw, uint16_t mask);
 static int32_t e1000_check_phy_reset_block(struct e1000_hw *hw);
-#define E1000_WRITE_REG(a, reg, value) (writel((value), ((a)->hw_addr + E1000_##reg)))
-#define E1000_READ_REG(a, reg) (readl((a)->hw_addr + E1000_##reg))
-#define E1000_WRITE_REG_ARRAY(a, reg, offset, value) (\
-			writel((value), ((a)->hw_addr + E1000_##reg + ((offset) << 2))))
-#define E1000_READ_REG_ARRAY(a, reg, offset) ( \
-	readl((a)->hw_addr + E1000_##reg + ((offset) << 2)))
-#define E1000_WRITE_FLUSH(a) {uint32_t x; x = E1000_READ_REG(a, STATUS);}
 
-#ifndef CONFIG_AP1000 /* remove for warnings */
+#ifndef CONFIG_E1000_NO_NVM
+static void e1000_put_hw_eeprom_semaphore(struct e1000_hw *hw);
 static int32_t e1000_read_eeprom(struct e1000_hw *hw, uint16_t offset,
 		uint16_t words,
 		uint16_t *data);
@@ -150,8 +136,7 @@ static int32_t e1000_read_eeprom(struct e1000_hw *hw, uint16_t offset,
  * hw - Struct containing variables accessed by shared code
  * eecd - EECD's current value
  *****************************************************************************/
-static void
-e1000_raise_ee_clk(struct e1000_hw *hw, uint32_t * eecd)
+void e1000_raise_ee_clk(struct e1000_hw *hw, uint32_t * eecd)
 {
 	/* Raise the clock input to the EEPROM (by setting the SK bit), and then
 	 * wait 50 microseconds.
@@ -168,8 +153,7 @@ e1000_raise_ee_clk(struct e1000_hw *hw, uint32_t * eecd)
  * hw - Struct containing variables accessed by shared code
  * eecd - EECD's current value
  *****************************************************************************/
-static void
-e1000_lower_ee_clk(struct e1000_hw *hw, uint32_t * eecd)
+void e1000_lower_ee_clk(struct e1000_hw *hw, uint32_t * eecd)
 {
 	/* Lower the clock input to the EEPROM (by clearing the SK bit), and then
 	 * wait 50 microseconds.
@@ -273,8 +257,7 @@ e1000_shift_in_ee_bits(struct e1000_hw *hw, uint16_t count)
  *
  * hw - Struct containing variables accessed by shared code
  *****************************************************************************/
-static void
-e1000_standby_eeprom(struct e1000_hw *hw)
+void e1000_standby_eeprom(struct e1000_hw *hw)
 {
 	struct e1000_eeprom_info *eeprom = &hw->eeprom;
 	uint32_t eecd;
@@ -322,16 +305,16 @@ e1000_standby_eeprom(struct e1000_hw *hw)
 *
 * hw - Struct containing variables accessed by shared code
 ****************************************************************************/
-static boolean_t e1000_is_onboard_nvm_eeprom(struct e1000_hw *hw)
+static bool e1000_is_onboard_nvm_eeprom(struct e1000_hw *hw)
 {
 	uint32_t eecd = 0;
 
 	DEBUGFUNC();
 
 	if (hw->mac_type == e1000_ich8lan)
-		return FALSE;
+		return false;
 
-	if (hw->mac_type == e1000_82573) {
+	if (hw->mac_type == e1000_82573 || hw->mac_type == e1000_82574) {
 		eecd = E1000_READ_REG(hw, EECD);
 
 		/* Isolate bits 15 & 16 */
@@ -339,9 +322,9 @@ static boolean_t e1000_is_onboard_nvm_eeprom(struct e1000_hw *hw)
 
 		/* If both bits are set, device is Flash type */
 		if (eecd == 0x03)
-			return FALSE;
+			return false;
 	}
-	return TRUE;
+	return true;
 }
 
 /******************************************************************************
@@ -352,8 +335,7 @@ static boolean_t e1000_is_onboard_nvm_eeprom(struct e1000_hw *hw)
  * Lowers EEPROM clock. Clears input pin. Sets the chip select pin. This
  * function should be called before issuing a command to the EEPROM.
  *****************************************************************************/
-static int32_t
-e1000_acquire_eeprom(struct e1000_hw *hw)
+int32_t e1000_acquire_eeprom(struct e1000_hw *hw)
 {
 	struct e1000_eeprom_info *eeprom = &hw->eeprom;
 	uint32_t eecd, i = 0;
@@ -364,7 +346,7 @@ e1000_acquire_eeprom(struct e1000_hw *hw)
 		return -E1000_ERR_SWFW_SYNC;
 	eecd = E1000_READ_REG(hw, EECD);
 
-	if (hw->mac_type != e1000_82573) {
+	if (hw->mac_type != e1000_82573 && hw->mac_type != e1000_82574) {
 		/* Request EEPROM Access */
 		if (hw->mac_type > e1000_82544) {
 			eecd |= E1000_EECD_REQ;
@@ -415,9 +397,14 @@ e1000_acquire_eeprom(struct e1000_hw *hw)
 static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 {
 	struct e1000_eeprom_info *eeprom = &hw->eeprom;
-	uint32_t eecd = E1000_READ_REG(hw, EECD);
+	uint32_t eecd;
 	int32_t ret_val = E1000_SUCCESS;
 	uint16_t eeprom_size;
+
+	if (hw->mac_type == e1000_igb)
+		eecd = E1000_READ_REG(hw, I210_EECD);
+	else
+		eecd = E1000_READ_REG(hw, EECD);
 
 	DEBUGFUNC();
 
@@ -431,8 +418,8 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 		eeprom->opcode_bits = 3;
 		eeprom->address_bits = 6;
 		eeprom->delay_usec = 50;
-		eeprom->use_eerd = FALSE;
-		eeprom->use_eewr = FALSE;
+		eeprom->use_eerd = false;
+		eeprom->use_eewr = false;
 	break;
 	case e1000_82540:
 	case e1000_82545:
@@ -449,8 +436,8 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 			eeprom->word_size = 64;
 			eeprom->address_bits = 6;
 		}
-		eeprom->use_eerd = FALSE;
-		eeprom->use_eewr = FALSE;
+		eeprom->use_eerd = false;
+		eeprom->use_eewr = false;
 		break;
 	case e1000_82541:
 	case e1000_82541_rev_2:
@@ -479,8 +466,8 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 				eeprom->address_bits = 6;
 			}
 		}
-		eeprom->use_eerd = FALSE;
-		eeprom->use_eewr = FALSE;
+		eeprom->use_eerd = false;
+		eeprom->use_eewr = false;
 		break;
 	case e1000_82571:
 	case e1000_82572:
@@ -494,10 +481,11 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 			eeprom->page_size = 8;
 			eeprom->address_bits = 8;
 		}
-		eeprom->use_eerd = FALSE;
-		eeprom->use_eewr = FALSE;
+		eeprom->use_eerd = false;
+		eeprom->use_eewr = false;
 		break;
 	case e1000_82573:
+	case e1000_82574:
 		eeprom->type = e1000_eeprom_spi;
 		eeprom->opcode_bits = 8;
 		eeprom->delay_usec = 1;
@@ -508,9 +496,10 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 			eeprom->page_size = 8;
 			eeprom->address_bits = 8;
 		}
-		eeprom->use_eerd = TRUE;
-		eeprom->use_eewr = TRUE;
-		if (e1000_is_onboard_nvm_eeprom(hw) == FALSE) {
+		if (e1000_is_onboard_nvm_eeprom(hw) == false) {
+			eeprom->use_eerd = true;
+			eeprom->use_eewr = true;
+
 			eeprom->type = e1000_eeprom_flash;
 			eeprom->word_size = 2048;
 
@@ -531,8 +520,18 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 			eeprom->page_size = 8;
 			eeprom->address_bits = 8;
 		}
-		eeprom->use_eerd = TRUE;
-		eeprom->use_eewr = FALSE;
+		eeprom->use_eerd = true;
+		eeprom->use_eewr = false;
+		break;
+	case e1000_igb:
+		/* i210 has 4k of iNVM mapped as EEPROM */
+		eeprom->type = e1000_eeprom_invm;
+		eeprom->opcode_bits = 8;
+		eeprom->delay_usec = 1;
+		eeprom->page_size = 32;
+		eeprom->address_bits = 16;
+		eeprom->use_eerd = true;
+		eeprom->use_eewr = false;
 		break;
 
 	/* ich8lan does not support currently. if needed, please
@@ -544,8 +543,8 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 		int32_t  i = 0;
 
 		eeprom->type = e1000_eeprom_ich8;
-		eeprom->use_eerd = FALSE;
-		eeprom->use_eewr = FALSE;
+		eeprom->use_eerd = false;
+		eeprom->use_eewr = false;
 		eeprom->word_size = E1000_SHADOW_RAM_WORDS;
 		uint32_t flash_size = E1000_READ_ICH_FLASH_REG(hw,
 				ICH_FLASH_GFPREG);
@@ -553,7 +552,7 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 		 * so as to save time for driver init */
 		if (hw->eeprom_shadow_ram != NULL) {
 			for (i = 0; i < E1000_SHADOW_RAM_WORDS; i++) {
-				hw->eeprom_shadow_ram[i].modified = FALSE;
+				hw->eeprom_shadow_ram[i].modified = false;
 				hw->eeprom_shadow_ram[i].eeprom_word = 0xFFFF;
 			}
 		}
@@ -575,7 +574,8 @@ static int32_t e1000_init_eeprom_params(struct e1000_hw *hw)
 		break;
 	}
 
-	if (eeprom->type == e1000_eeprom_spi) {
+	if (eeprom->type == e1000_eeprom_spi ||
+	    eeprom->type == e1000_eeprom_invm) {
 		/* eeprom_size will be an enum [0..8] that maps
 		 * to eeprom sizes 128B to
 		 * 32KB (incremented by powers of 2).
@@ -619,10 +619,17 @@ e1000_poll_eerd_eewr_done(struct e1000_hw *hw, int eerd)
 	int32_t done = E1000_ERR_EEPROM;
 
 	for (i = 0; i < attempts; i++) {
-		if (eerd == E1000_EEPROM_POLL_READ)
-			reg = E1000_READ_REG(hw, EERD);
-		else
-			reg = E1000_READ_REG(hw, EEWR);
+		if (eerd == E1000_EEPROM_POLL_READ) {
+			if (hw->mac_type == e1000_igb)
+				reg = E1000_READ_REG(hw, I210_EERD);
+			else
+				reg = E1000_READ_REG(hw, EERD);
+		} else {
+			if (hw->mac_type == e1000_igb)
+				reg = E1000_READ_REG(hw, I210_EEWR);
+			else
+				reg = E1000_READ_REG(hw, EEWR);
+		}
 
 		if (reg & E1000_EEPROM_RW_REG_DONE) {
 			done = E1000_SUCCESS;
@@ -655,21 +662,30 @@ e1000_read_eeprom_eerd(struct e1000_hw *hw,
 		eerd = ((offset+i) << E1000_EEPROM_RW_ADDR_SHIFT) +
 			E1000_EEPROM_RW_REG_START;
 
-		E1000_WRITE_REG(hw, EERD, eerd);
+		if (hw->mac_type == e1000_igb)
+			E1000_WRITE_REG(hw, I210_EERD, eerd);
+		else
+			E1000_WRITE_REG(hw, EERD, eerd);
+
 		error = e1000_poll_eerd_eewr_done(hw, E1000_EEPROM_POLL_READ);
 
 		if (error)
 			break;
-		data[i] = (E1000_READ_REG(hw, EERD) >>
+
+		if (hw->mac_type == e1000_igb) {
+			data[i] = (E1000_READ_REG(hw, I210_EERD) >>
 				E1000_EEPROM_RW_REG_DATA);
+		} else {
+			data[i] = (E1000_READ_REG(hw, EERD) >>
+				E1000_EEPROM_RW_REG_DATA);
+		}
 
 	}
 
 	return error;
 }
 
-static void
-e1000_release_eeprom(struct e1000_hw *hw)
+void e1000_release_eeprom(struct e1000_hw *hw)
 {
 	uint32_t eecd;
 
@@ -789,8 +805,8 @@ e1000_read_eeprom(struct e1000_hw *hw, uint16_t offset,
 	 * directly. In this case, we need to acquire the EEPROM so that
 	 * FW or other port software does not interrupt.
 	 */
-	if (e1000_is_onboard_nvm_eeprom(hw) == TRUE &&
-		hw->eeprom.use_eerd == FALSE) {
+	if (e1000_is_onboard_nvm_eeprom(hw) == true &&
+		hw->eeprom.use_eerd == false) {
 
 		/* Prepare the EEPROM for bit-bang reading */
 		if (e1000_acquire_eeprom(hw) != E1000_SUCCESS)
@@ -798,7 +814,7 @@ e1000_read_eeprom(struct e1000_hw *hw, uint16_t offset,
 	}
 
 	/* Eerd register EEPROM access requires no eeprom aquire/release */
-	if (eeprom->use_eerd == TRUE)
+	if (eeprom->use_eerd == true)
 		return e1000_read_eeprom_eerd(hw, offset, words, data);
 
 	/* ich8lan does not support currently. if needed, please
@@ -873,30 +889,44 @@ e1000_read_eeprom(struct e1000_hw *hw, uint16_t offset,
  * If the the sum of the 64 16 bit words is 0xBABA, the EEPROM's checksum is
  * valid.
  *****************************************************************************/
-static int
-e1000_validate_eeprom_checksum(struct eth_device *nic)
+static int e1000_validate_eeprom_checksum(struct e1000_hw *hw)
 {
-	struct e1000_hw *hw = nic->priv;
-	uint16_t checksum = 0;
-	uint16_t i, eeprom_data;
+	uint16_t i, checksum, checksum_reg, *buf;
 
 	DEBUGFUNC();
 
-	for (i = 0; i < (EEPROM_CHECKSUM_REG + 1); i++) {
-		if (e1000_read_eeprom(hw, i, 1,  &eeprom_data) < 0) {
-			DEBUGOUT("EEPROM Read Error\n");
-			return -E1000_ERR_EEPROM;
-		}
-		checksum += eeprom_data;
-	}
-
-	if (checksum == (uint16_t) EEPROM_SUM) {
-		return 0;
-	} else {
-		DEBUGOUT("EEPROM Checksum Invalid\n");
+	/* Allocate a temporary buffer */
+	buf = malloc(sizeof(buf[0]) * (EEPROM_CHECKSUM_REG + 1));
+	if (!buf) {
+		E1000_ERR(hw->nic, "Unable to allocate EEPROM buffer!\n");
 		return -E1000_ERR_EEPROM;
 	}
+
+	/* Read the EEPROM */
+	if (e1000_read_eeprom(hw, 0, EEPROM_CHECKSUM_REG + 1, buf) < 0) {
+		E1000_ERR(hw->nic, "Unable to read EEPROM!\n");
+		return -E1000_ERR_EEPROM;
+	}
+
+	/* Compute the checksum */
+	checksum = 0;
+	for (i = 0; i < EEPROM_CHECKSUM_REG; i++)
+		checksum += buf[i];
+	checksum = ((uint16_t)EEPROM_SUM) - checksum;
+	checksum_reg = buf[i];
+
+	/* Verify it! */
+	if (checksum == checksum_reg)
+		return 0;
+
+	/* Hrm, verification failed, print an error */
+	E1000_ERR(hw->nic, "EEPROM checksum is incorrect!\n");
+	E1000_ERR(hw->nic, "  ...register was 0x%04hx, calculated 0x%04hx\n",
+			checksum_reg, checksum);
+
+	return -E1000_ERR_EEPROM;
 }
+#endif /* CONFIG_E1000_NO_NVM */
 
 /*****************************************************************************
  * Set PHY to class A mode
@@ -909,6 +939,7 @@ e1000_validate_eeprom_checksum(struct eth_device *nic)
 static int32_t
 e1000_set_phy_mode(struct e1000_hw *hw)
 {
+#ifndef CONFIG_E1000_NO_NVM
 	int32_t ret_val;
 	uint16_t eeprom_data;
 
@@ -932,14 +963,14 @@ e1000_set_phy_mode(struct e1000_hw *hw)
 			if (ret_val)
 				return ret_val;
 
-			hw->phy_reset_disable = FALSE;
+			hw->phy_reset_disable = false;
 		}
 	}
-
+#endif
 	return E1000_SUCCESS;
 }
-#endif /* #ifndef CONFIG_AP1000 */
 
+#ifndef CONFIG_E1000_NO_NVM
 /***************************************************************************
  *
  * Obtaining software semaphore bit (SMBI) before resetting PHY.
@@ -957,6 +988,10 @@ e1000_get_software_semaphore(struct e1000_hw *hw)
 	 uint32_t swsm;
 
 	DEBUGFUNC();
+
+		swsm = E1000_READ_REG(hw, SWSM);
+		swsm &= ~E1000_SWSM_SMBI;
+		E1000_WRITE_REG(hw, SWSM, swsm);
 
 	if (hw->mac_type != e1000_80003es2lan)
 		return E1000_SUCCESS;
@@ -978,6 +1013,7 @@ e1000_get_software_semaphore(struct e1000_hw *hw)
 
 	return E1000_SUCCESS;
 }
+#endif
 
 /***************************************************************************
  * This function clears HW semaphore bits.
@@ -990,6 +1026,7 @@ e1000_get_software_semaphore(struct e1000_hw *hw)
 static void
 e1000_put_hw_eeprom_semaphore(struct e1000_hw *hw)
 {
+#ifndef CONFIG_E1000_NO_NVM
 	 uint32_t swsm;
 
 	DEBUGFUNC();
@@ -1004,6 +1041,7 @@ e1000_put_hw_eeprom_semaphore(struct e1000_hw *hw)
 	} else
 		swsm &= ~(E1000_SWSM_SWESMBI);
 	E1000_WRITE_REG(hw, SWSM, swsm);
+#endif
 }
 
 /***************************************************************************
@@ -1020,6 +1058,7 @@ e1000_put_hw_eeprom_semaphore(struct e1000_hw *hw)
 static int32_t
 e1000_get_hw_eeprom_semaphore(struct e1000_hw *hw)
 {
+#ifndef CONFIG_E1000_NO_NVM
 	int32_t timeout;
 	uint32_t swsm;
 
@@ -1056,7 +1095,7 @@ e1000_get_hw_eeprom_semaphore(struct e1000_hw *hw)
 				"SWESMBI bit is set.\n");
 		return -E1000_ERR_EEPROM;
 	}
-
+#endif
 	return E1000_SUCCESS;
 }
 
@@ -1074,7 +1113,7 @@ e1000_swfw_sync_acquire(struct e1000_hw *hw, uint16_t mask)
 			return -E1000_ERR_SWFW_SYNC;
 
 		swfw_sync = E1000_READ_REG(hw, SW_FW_SYNC);
-		if (!(swfw_sync & (fwmask | swmask)))
+		if ((swfw_sync & swmask) && !(swfw_sync & fwmask))
 			break;
 
 		/* firmware currently using resource (fwmask) */
@@ -1096,6 +1135,21 @@ e1000_swfw_sync_acquire(struct e1000_hw *hw, uint16_t mask)
 	return E1000_SUCCESS;
 }
 
+static bool e1000_is_second_port(struct e1000_hw *hw)
+{
+	switch (hw->mac_type) {
+	case e1000_80003es2lan:
+	case e1000_82546:
+	case e1000_82571:
+		if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
+			return true;
+		/* Fallthrough */
+	default:
+		return false;
+	}
+}
+
+#ifndef CONFIG_E1000_NO_NVM
 /******************************************************************************
  * Reads the adapter's MAC address from the EEPROM and inverts the LSB for the
  * second function of dual function devices
@@ -1105,62 +1159,47 @@ e1000_swfw_sync_acquire(struct e1000_hw *hw, uint16_t mask)
 static int
 e1000_read_mac_addr(struct eth_device *nic)
 {
-#ifndef CONFIG_AP1000
 	struct e1000_hw *hw = nic->priv;
 	uint16_t offset;
 	uint16_t eeprom_data;
+	uint32_t reg_data = 0;
 	int i;
 
 	DEBUGFUNC();
 
 	for (i = 0; i < NODE_ADDRESS_SIZE; i += 2) {
 		offset = i >> 1;
-		if (e1000_read_eeprom(hw, offset, 1, &eeprom_data) < 0) {
+		if (hw->mac_type == e1000_igb) {
+			/* i210 preloads MAC address into RAL/RAH registers */
+			if (offset == 0)
+				reg_data = E1000_READ_REG_ARRAY(hw, RA, 0);
+			else if (offset == 1)
+				reg_data >>= 16;
+			else if (offset == 2)
+				reg_data = E1000_READ_REG_ARRAY(hw, RA, 1);
+			eeprom_data = reg_data & 0xffff;
+		} else if (e1000_read_eeprom(hw, offset, 1, &eeprom_data) < 0) {
 			DEBUGOUT("EEPROM Read Error\n");
 			return -E1000_ERR_EEPROM;
 		}
 		nic->enetaddr[i] = eeprom_data & 0xff;
 		nic->enetaddr[i + 1] = (eeprom_data >> 8) & 0xff;
 	}
-	if ((hw->mac_type == e1000_82546) &&
-	    (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)) {
-		/* Invert the last bit if this is the second device */
-		nic->enetaddr[5] += 1;
-	}
+
+	/* Invert the last bit if this is the second device */
+	if (e1000_is_second_port(hw))
+		nic->enetaddr[5] ^= 1;
+
 #ifdef CONFIG_E1000_FALLBACK_MAC
-	if ( *(u32*)(nic->enetaddr) == 0 || *(u32*)(nic->enetaddr) == ~0 ) {
+	if (!is_valid_ether_addr(nic->enetaddr)) {
 		unsigned char fb_mac[NODE_ADDRESS_SIZE] = CONFIG_E1000_FALLBACK_MAC;
 
 		memcpy (nic->enetaddr, fb_mac, NODE_ADDRESS_SIZE);
 	}
 #endif
-#else
-	/*
-	 * The AP1000's e1000 has no eeprom; the MAC address is stored in the
-	 * environment variables.  Currently this does not support the addition
-	 * of a PMC e1000 card, which is certainly a possibility, so this should
-	 * be updated to properly use the env variable only for the onboard e1000
-	 */
-
-	int ii;
-	char *s, *e;
-
-	DEBUGFUNC();
-
-	s = getenv ("ethaddr");
-	if (s == NULL) {
-		return -E1000_ERR_EEPROM;
-	} else {
-		for(ii = 0; ii < 6; ii++) {
-			nic->enetaddr[ii] = s ? simple_strtoul (s, &e, 16) : 0;
-			if (s){
-				s = (*e) ? e + 1 : e;
-			}
-		}
-	}
-#endif
 	return 0;
 }
+#endif
 
 /******************************************************************************
  * Initializes receive address filters.
@@ -1317,6 +1356,9 @@ e1000_set_mac_type(struct e1000_hw *hw)
 	case E1000_DEV_ID_82573L:
 		hw->mac_type = e1000_82573;
 		break;
+	case E1000_DEV_ID_82574L:
+		hw->mac_type = e1000_82574;
+		break;
 	case E1000_DEV_ID_80003ES2LAN_COPPER_SPT:
 	case E1000_DEV_ID_80003ES2LAN_SERDES_SPT:
 	case E1000_DEV_ID_80003ES2LAN_COPPER_DPT:
@@ -1331,6 +1373,13 @@ e1000_set_mac_type(struct e1000_hw *hw)
 	case E1000_DEV_ID_ICH8_IFE_G:
 	case E1000_DEV_ID_ICH8_IGP_M:
 		hw->mac_type = e1000_ich8lan;
+		break;
+	case PCI_DEVICE_ID_INTEL_I210_COPPER:
+	case PCI_DEVICE_ID_INTEL_I210_COPPER_FLASHLESS:
+	case PCI_DEVICE_ID_INTEL_I210_SERDES:
+	case PCI_DEVICE_ID_INTEL_I210_SERDES_FLASHLESS:
+	case PCI_DEVICE_ID_INTEL_I210_1000BASEKX:
+		hw->mac_type = e1000_igb;
 		break;
 	default:
 		/* Should never have loaded on this device */
@@ -1349,9 +1398,9 @@ e1000_reset_hw(struct e1000_hw *hw)
 {
 	uint32_t ctrl;
 	uint32_t ctrl_ext;
-	uint32_t icr;
 	uint32_t manc;
 	uint32_t pba = 0;
+	uint32_t reg;
 
 	DEBUGFUNC();
 
@@ -1370,6 +1419,8 @@ e1000_reset_hw(struct e1000_hw *hw)
 
 	/* Clear interrupt mask to stop board from generating interrupts */
 	DEBUGOUT("Masking off all interrupts\n");
+	if (hw->mac_type == e1000_igb)
+		E1000_WRITE_REG(hw, I210_IAM, 0);
 	E1000_WRITE_REG(hw, IMC, 0xffffffff);
 
 	/* Disable the Transmit and Receive units.  Then delay to allow
@@ -1381,7 +1432,7 @@ e1000_reset_hw(struct e1000_hw *hw)
 	E1000_WRITE_FLUSH(hw);
 
 	/* The tbi_compatibility_on Flag must be cleared when Rctl is cleared. */
-	hw->tbi_compatibility_on = FALSE;
+	hw->tbi_compatibility_on = false;
 
 	/* Delay to allow any outstanding PCI transactions to complete before
 	 * resetting the device
@@ -1399,7 +1450,15 @@ e1000_reset_hw(struct e1000_hw *hw)
 	E1000_WRITE_REG(hw, CTRL, (ctrl | E1000_CTRL_RST));
 
 	/* Force a reload from the EEPROM if necessary */
-	if (hw->mac_type < e1000_82540) {
+	if (hw->mac_type == e1000_igb) {
+		mdelay(20);
+		reg = E1000_READ_REG(hw, STATUS);
+		if (reg & E1000_STATUS_PF_RST_DONE)
+			DEBUGOUT("PF OK\n");
+		reg = E1000_READ_REG(hw, I210_EECD);
+		if (reg & E1000_EECD_AUTO_RD)
+			DEBUGOUT("EEC OK\n");
+	} else if (hw->mac_type < e1000_82540) {
 		/* Wait for reset to complete */
 		udelay(10);
 		ctrl_ext = E1000_READ_REG(hw, CTRL_EXT);
@@ -1419,16 +1478,19 @@ e1000_reset_hw(struct e1000_hw *hw)
 
 	/* Clear interrupt mask to stop board from generating interrupts */
 	DEBUGOUT("Masking off all interrupts\n");
+	if (hw->mac_type == e1000_igb)
+		E1000_WRITE_REG(hw, I210_IAM, 0);
 	E1000_WRITE_REG(hw, IMC, 0xffffffff);
 
 	/* Clear any pending interrupt events. */
-	icr = E1000_READ_REG(hw, ICR);
+	E1000_READ_REG(hw, ICR);
 
 	/* If MWI was previously enabled, reenable it. */
 	if (hw->mac_type == e1000_82542_rev2_0) {
 		pci_write_config_word(hw->pdev, PCI_COMMAND, hw->pci_cmd_word);
 	}
-	E1000_WRITE_REG(hw, PBA, pba);
+	if (hw->mac_type != e1000_igb)
+		E1000_WRITE_REG(hw, PBA, pba);
 }
 
 /******************************************************************************
@@ -1464,6 +1526,10 @@ e1000_initialize_hardware_bits(struct e1000_hw *hw)
 		reg_txdctl1 |= E1000_TXDCTL_COUNT_DESC;
 		E1000_WRITE_REG(hw, TXDCTL1, reg_txdctl1);
 
+	/* IGB is cool */
+	if (hw->mac_type == e1000_igb)
+		return;
+
 		switch (hw->mac_type) {
 		case e1000_82571:
 		case e1000_82572:
@@ -1487,6 +1553,7 @@ e1000_initialize_hardware_bits(struct e1000_hw *hw)
 			E1000_WRITE_REG(hw, TARC1, reg_tarc1);
 			break;
 		case e1000_82573:
+		case e1000_82574:
 			reg_ctrl_ext = E1000_READ_REG(hw, CTRL_EXT);
 			reg_ctrl_ext &= ~(1 << 23);
 			reg_ctrl_ext |= (1 << 22);
@@ -1653,6 +1720,7 @@ e1000_init_hw(struct eth_device *nic)
 	switch (hw->mac_type) {
 	case e1000_82545_rev_3:
 	case e1000_82546_rev_3:
+	case e1000_igb:
 		break;
 	default:
 	/* Workaround for PCI-X problem when BIOS sets MMRBC incorrectly. */
@@ -1682,6 +1750,8 @@ e1000_init_hw(struct eth_device *nic)
 	/* More time needed for PHY to initialize */
 	if (hw->mac_type == e1000_ich8lan)
 		mdelay(15);
+	if (hw->mac_type == e1000_igb)
+		mdelay(15);
 
 	/* Call a subroutine to configure the link and setup flow control. */
 	ret_val = e1000_setup_link(nic);
@@ -1693,6 +1763,15 @@ e1000_init_hw(struct eth_device *nic)
 		    (ctrl & ~E1000_TXDCTL_WTHRESH) |
 		    E1000_TXDCTL_FULL_TX_DESC_WB;
 		E1000_WRITE_REG(hw, TXDCTL, ctrl);
+	}
+
+	/* Set the receive descriptor write back policy */
+	if (hw->mac_type >= e1000_82571) {
+		ctrl = E1000_READ_REG(hw, RXDCTL);
+		ctrl =
+		    (ctrl & ~E1000_RXDCTL_WTHRESH) |
+		    E1000_RXDCTL_FULL_RX_DESC_WB;
+		E1000_WRITE_REG(hw, RXDCTL, ctrl);
 	}
 
 	switch (hw->mac_type) {
@@ -1728,12 +1807,13 @@ e1000_init_hw(struct eth_device *nic)
 			| E1000_TXDCTL_FULL_TX_DESC_WB;
 		E1000_WRITE_REG(hw, TXDCTL1, ctrl);
 		break;
-	}
-
-	if (hw->mac_type == e1000_82573) {
-		uint32_t gcr = E1000_READ_REG(hw, GCR);
-		gcr |= E1000_GCR_L1_ACT_WITHOUT_L0S_RX;
-		E1000_WRITE_REG(hw, GCR, gcr);
+	case e1000_82573:
+	case e1000_82574:
+		reg_data = E1000_READ_REG(hw, GCR);
+		reg_data |= E1000_GCR_L1_ACT_WITHOUT_L0S_RX;
+		E1000_WRITE_REG(hw, GCR, reg_data);
+	case e1000_igb:
+		break;
 	}
 
 #if 0
@@ -1777,9 +1857,11 @@ static int
 e1000_setup_link(struct eth_device *nic)
 {
 	struct e1000_hw *hw = nic->priv;
-	uint32_t ctrl_ext;
 	int32_t ret_val;
+#ifndef CONFIG_E1000_NO_NVM
+	uint32_t ctrl_ext;
 	uint16_t eeprom_data;
+#endif
 
 	DEBUGFUNC();
 
@@ -1788,7 +1870,7 @@ e1000_setup_link(struct eth_device *nic)
 	if (e1000_check_phy_reset_block(hw))
 		return E1000_SUCCESS;
 
-#ifndef CONFIG_AP1000
+#ifndef CONFIG_E1000_NO_NVM
 	/* Read and store word 0x0F of the EEPROM. This word contains bits
 	 * that determine the hardware's default PAUSE (flow control) mode,
 	 * a bit that determines whether the HW defaults to enabling or
@@ -1802,35 +1884,30 @@ e1000_setup_link(struct eth_device *nic)
 		DEBUGOUT("EEPROM Read Error\n");
 		return -E1000_ERR_EEPROM;
 	}
-#else
-	/* we have to hardcode the proper value for our hardware. */
-	/* this value is for the 82540EM pci card used for prototyping, and it works. */
-	eeprom_data = 0xb220;
 #endif
-
 	if (hw->fc == e1000_fc_default) {
 		switch (hw->mac_type) {
 		case e1000_ich8lan:
 		case e1000_82573:
+		case e1000_82574:
+		case e1000_igb:
 			hw->fc = e1000_fc_full;
 			break;
 		default:
-#ifndef CONFIG_AP1000
+#ifndef CONFIG_E1000_NO_NVM
 			ret_val = e1000_read_eeprom(hw,
 				EEPROM_INIT_CONTROL2_REG, 1, &eeprom_data);
 			if (ret_val) {
 				DEBUGOUT("EEPROM Read Error\n");
 				return -E1000_ERR_EEPROM;
 			}
-#else
-			eeprom_data = 0xb220;
-#endif
 			if ((eeprom_data & EEPROM_WORD0F_PAUSE_MASK) == 0)
 				hw->fc = e1000_fc_none;
 			else if ((eeprom_data & EEPROM_WORD0F_PAUSE_MASK) ==
 				    EEPROM_WORD0F_ASM_DIR)
 				hw->fc = e1000_fc_tx_pause;
 			else
+#endif
 				hw->fc = e1000_fc_full;
 			break;
 		}
@@ -1850,6 +1927,7 @@ e1000_setup_link(struct eth_device *nic)
 
 	DEBUGOUT("After fix-ups FlowControl is now = %x\n", hw->fc);
 
+#ifndef CONFIG_E1000_NO_NVM
 	/* Take the 4 bits from EEPROM word 0x0F that determine the initial
 	 * polarity value for the SW controlled pins, and setup the
 	 * Extended Device Control reg with that info.
@@ -1862,6 +1940,7 @@ e1000_setup_link(struct eth_device *nic)
 			    SWDPIO__EXT_SHIFT);
 		E1000_WRITE_REG(hw, CTRL_EXT, ctrl_ext);
 	}
+#endif
 
 	/* Call the necessary subroutine to configure the link. */
 	ret_val = (hw->media_type == e1000_media_type_fiber) ?
@@ -2088,12 +2167,10 @@ e1000_copper_link_preconfig(struct e1000_hw *hw)
 	}
 	DEBUGOUT("Phy ID = %x \n", hw->phy_id);
 
-#ifndef CONFIG_AP1000
 	/* Set PHY to class A mode (if necessary) */
 	ret_val = e1000_set_phy_mode(hw);
 	if (ret_val)
 		return ret_val;
-#endif
 	if ((hw->mac_type == e1000_82545_rev_3) ||
 		(hw->mac_type == e1000_82546_rev_3)) {
 		ret_val = e1000_read_phy_reg(hw, M88E1000_PHY_SPEC_CTRL,
@@ -2107,7 +2184,7 @@ e1000_copper_link_preconfig(struct e1000_hw *hw)
 		hw->mac_type == e1000_82541 || hw->mac_type == e1000_82547 ||
 		hw->mac_type == e1000_82541_rev_2
 		|| hw->mac_type == e1000_82547_rev_2)
-			hw->phy_reset_disable = FALSE;
+			hw->phy_reset_disable = false;
 
 	return E1000_SUCCESS;
 }
@@ -2127,7 +2204,7 @@ e1000_copper_link_preconfig(struct e1000_hw *hw)
  ****************************************************************************/
 
 static int32_t
-e1000_set_d3_lplu_state(struct e1000_hw *hw, boolean_t active)
+e1000_set_d3_lplu_state(struct e1000_hw *hw, bool active)
 {
 	uint32_t phy_ctrl = 0;
 	int32_t ret_val;
@@ -2262,7 +2339,7 @@ e1000_set_d3_lplu_state(struct e1000_hw *hw, boolean_t active)
  ****************************************************************************/
 
 static int32_t
-e1000_set_d0_lplu_state(struct e1000_hw *hw, boolean_t active)
+e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active)
 {
 	uint32_t phy_ctrl = 0;
 	int32_t ret_val;
@@ -2274,6 +2351,8 @@ e1000_set_d0_lplu_state(struct e1000_hw *hw, boolean_t active)
 
 	if (hw->mac_type == e1000_ich8lan) {
 		phy_ctrl = E1000_READ_REG(hw, PHY_CTRL);
+	} else if (hw->mac_type == e1000_igb) {
+		phy_ctrl = E1000_READ_REG(hw, I210_PHY_CTRL);
 	} else {
 		ret_val = e1000_read_phy_reg(hw, IGP02E1000_PHY_POWER_MGMT,
 				&phy_data);
@@ -2285,6 +2364,9 @@ e1000_set_d0_lplu_state(struct e1000_hw *hw, boolean_t active)
 		if (hw->mac_type == e1000_ich8lan) {
 			phy_ctrl &= ~E1000_PHY_CTRL_D0A_LPLU;
 			E1000_WRITE_REG(hw, PHY_CTRL, phy_ctrl);
+		} else if (hw->mac_type == e1000_igb) {
+			phy_ctrl &= ~E1000_PHY_CTRL_D0A_LPLU;
+			E1000_WRITE_REG(hw, I210_PHY_CTRL, phy_ctrl);
 		} else {
 			phy_data &= ~IGP02E1000_PM_D0_LPLU;
 			ret_val = e1000_write_phy_reg(hw,
@@ -2292,6 +2374,9 @@ e1000_set_d0_lplu_state(struct e1000_hw *hw, boolean_t active)
 			if (ret_val)
 				return ret_val;
 		}
+
+		if (hw->mac_type == e1000_igb)
+			return E1000_SUCCESS;
 
 	/* LPLU and SmartSpeed are mutually exclusive.  LPLU is used during
 	 * Dx states where the power conservation is most important.  During
@@ -2327,6 +2412,9 @@ e1000_set_d0_lplu_state(struct e1000_hw *hw, boolean_t active)
 		if (hw->mac_type == e1000_ich8lan) {
 			phy_ctrl |= E1000_PHY_CTRL_D0A_LPLU;
 			E1000_WRITE_REG(hw, PHY_CTRL, phy_ctrl);
+		} else if (hw->mac_type == e1000_igb) {
+			phy_ctrl |= E1000_PHY_CTRL_D0A_LPLU;
+			E1000_WRITE_REG(hw, I210_PHY_CTRL, phy_ctrl);
 		} else {
 			phy_data |= IGP02E1000_PM_D0_LPLU;
 			ret_val = e1000_write_phy_reg(hw,
@@ -2334,6 +2422,9 @@ e1000_set_d0_lplu_state(struct e1000_hw *hw, boolean_t active)
 			if (ret_val)
 				return ret_val;
 		}
+
+		if (hw->mac_type == e1000_igb)
+			return E1000_SUCCESS;
 
 		/* When LPLU is enabled we should disable SmartSpeed */
 		ret_val = e1000_read_phy_reg(hw,
@@ -2387,7 +2478,7 @@ e1000_copper_link_igp_setup(struct e1000_hw *hw)
 	/* The NVM settings will configure LPLU in D3 for IGP2 and IGP3 PHYs */
 	if (hw->phy_type == e1000_phy_igp) {
 		/* disable lplu d3 during driver init */
-		ret_val = e1000_set_d3_lplu_state(hw, FALSE);
+		ret_val = e1000_set_d3_lplu_state(hw, false);
 		if (ret_val) {
 			DEBUGOUT("Error Disabling LPLU D3\n");
 			return ret_val;
@@ -2395,7 +2486,7 @@ e1000_copper_link_igp_setup(struct e1000_hw *hw)
 	}
 
 	/* disable lplu d0 during driver init */
-	ret_val = e1000_set_d0_lplu_state(hw, FALSE);
+	ret_val = e1000_set_d0_lplu_state(hw, false);
 	if (ret_val) {
 		DEBUGOUT("Error Disabling LPLU D0\n");
 		return ret_val;
@@ -2504,9 +2595,9 @@ e1000_copper_link_igp_setup(struct e1000_hw *hw)
 /*****************************************************************************
  * This function checks the mode of the firmware.
  *
- * returns  - TRUE when the mode is IAMT or FALSE.
+ * returns  - true when the mode is IAMT or false.
  ****************************************************************************/
-boolean_t
+bool
 e1000_check_mng_mode(struct e1000_hw *hw)
 {
 	uint32_t fwsm;
@@ -2517,27 +2608,24 @@ e1000_check_mng_mode(struct e1000_hw *hw)
 	if (hw->mac_type == e1000_ich8lan) {
 		if ((fwsm & E1000_FWSM_MODE_MASK) ==
 		    (E1000_MNG_ICH_IAMT_MODE << E1000_FWSM_MODE_SHIFT))
-			return TRUE;
+			return true;
 	} else if ((fwsm & E1000_FWSM_MODE_MASK) ==
 		       (E1000_MNG_IAMT_MODE << E1000_FWSM_MODE_SHIFT))
-			return TRUE;
+			return true;
 
-	return FALSE;
+	return false;
 }
 
 static int32_t
 e1000_write_kmrn_reg(struct e1000_hw *hw, uint32_t reg_addr, uint16_t data)
 {
+	uint16_t swfw = E1000_SWFW_PHY0_SM;
 	uint32_t reg_val;
-	uint16_t swfw;
 	DEBUGFUNC();
 
-	if ((hw->mac_type == e1000_80003es2lan) &&
-		(E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)) {
+	if (e1000_is_second_port(hw))
 		swfw = E1000_SWFW_PHY1_SM;
-	} else {
-		swfw = E1000_SWFW_PHY0_SM;
-	}
+
 	if (e1000_swfw_sync_acquire(hw, swfw))
 		return -E1000_ERR_SWFW_SYNC;
 
@@ -2552,18 +2640,17 @@ e1000_write_kmrn_reg(struct e1000_hw *hw, uint32_t reg_addr, uint16_t data)
 static int32_t
 e1000_read_kmrn_reg(struct e1000_hw *hw, uint32_t reg_addr, uint16_t *data)
 {
+	uint16_t swfw = E1000_SWFW_PHY0_SM;
 	uint32_t reg_val;
-	uint16_t swfw;
 	DEBUGFUNC();
 
-	if ((hw->mac_type == e1000_80003es2lan) &&
-	    (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)) {
+	if (e1000_is_second_port(hw))
 		swfw = E1000_SWFW_PHY1_SM;
-	} else {
-		swfw = E1000_SWFW_PHY0_SM;
-	}
-	if (e1000_swfw_sync_acquire(hw, swfw))
+
+	if (e1000_swfw_sync_acquire(hw, swfw)) {
+		debug("%s[%i]\n", __func__, __LINE__);
 		return -E1000_ERR_SWFW_SYNC;
+	}
 
 	/* Write register address */
 	reg_val = ((reg_addr << E1000_KUMCTRLSTA_OFFSET_SHIFT) &
@@ -2690,7 +2777,7 @@ e1000_copper_link_ggp_setup(struct e1000_hw *hw)
 	 * firmware will have already initialized them.  We only initialize
 	 * them if the HW is not in IAMT mode.
 	 */
-		if (e1000_check_mng_mode(hw) == FALSE) {
+		if (e1000_check_mng_mode(hw) == false) {
 			/* Enable Electrical Idle on the PHY */
 			phy_data |= GG82563_PMCR_ENABLE_ELECTRICAL_IDLE;
 			ret_val = e1000_write_phy_reg(hw,
@@ -2894,7 +2981,7 @@ e1000_copper_link_autoneg(struct e1000_hw *hw)
 		}
 	}
 
-	hw->get_link_status = TRUE;
+	hw->get_link_status = true;
 
 	return E1000_SUCCESS;
 }
@@ -2998,7 +3085,8 @@ e1000_setup_copper_link(struct eth_device *nic)
 		ret_val = e1000_copper_link_igp_setup(hw);
 		if (ret_val)
 			return ret_val;
-	} else if (hw->phy_type == e1000_phy_m88) {
+	} else if (hw->phy_type == e1000_phy_m88 ||
+		hw->phy_type == e1000_phy_igb) {
 		ret_val = e1000_copper_link_mgp_setup(hw);
 		if (ret_val)
 			return ret_val;
@@ -3242,7 +3330,8 @@ e1000_config_mac_to_phy(struct e1000_hw *hw)
 	 */
 	ctrl = E1000_READ_REG(hw, CTRL);
 	ctrl |= (E1000_CTRL_FRCSPD | E1000_CTRL_FRCDPX);
-	ctrl &= ~(E1000_CTRL_SPD_SEL | E1000_CTRL_ILOS);
+	ctrl &= ~(E1000_CTRL_ILOS);
+	ctrl |= (E1000_CTRL_SPD_SEL);
 
 	/* Set up duplex in the Device Control and Transmit Control
 	 * registers depending on negotiated values.
@@ -3613,7 +3702,7 @@ e1000_check_for_link(struct eth_device *nic)
 		}
 
 		if (phy_data & MII_SR_LINK_STATUS) {
-			hw->get_link_status = FALSE;
+			hw->get_link_status = false;
 		} else {
 			/* No link detected */
 			return -E1000_ERR_NOLINK;
@@ -3676,7 +3765,7 @@ e1000_check_for_link(struct eth_device *nic)
 					rctl = E1000_READ_REG(hw, RCTL);
 					rctl &= ~E1000_RCTL_SBP;
 					E1000_WRITE_REG(hw, RCTL, rctl);
-					hw->tbi_compatibility_on = FALSE;
+					hw->tbi_compatibility_on = false;
 				}
 			} else {
 				/* If TBI compatibility is was previously off, turn it on. For
@@ -3685,7 +3774,7 @@ e1000_check_for_link(struct eth_device *nic)
 				 * will look like CRC errors to to the hardware.
 				 */
 				if (!hw->tbi_compatibility_on) {
-					hw->tbi_compatibility_on = TRUE;
+					hw->tbi_compatibility_on = true;
 					rctl = E1000_READ_REG(hw, RCTL);
 					rctl |= E1000_RCTL_SBP;
 					E1000_WRITE_REG(hw, RCTL, rctl);
@@ -4259,18 +4348,25 @@ e1000_get_phy_cfg_done(struct e1000_hw *hw)
 	default:
 		mdelay(10);
 		break;
+
 	case e1000_80003es2lan:
 		/* Separate *_CFG_DONE_* bit for each port */
-		if (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)
+		if (e1000_is_second_port(hw))
 			cfg_mask = E1000_EEPROM_CFG_DONE_PORT_1;
-	/* Fall Through */
+		/* Fall Through */
+
 	case e1000_82571:
 	case e1000_82572:
+	case e1000_igb:
 		while (timeout) {
-			if (E1000_READ_REG(hw, EEMNGCTL) & cfg_mask)
-				break;
-			else
-				mdelay(1);
+			if (hw->mac_type == e1000_igb) {
+				if (E1000_READ_REG(hw, I210_EEMNGCTL) & cfg_mask)
+					break;
+			} else {
+				if (E1000_READ_REG(hw, EEMNGCTL) & cfg_mask)
+					break;
+			}
+			mdelay(1);
 			timeout--;
 		}
 		if (!timeout) {
@@ -4292,10 +4388,10 @@ e1000_get_phy_cfg_done(struct e1000_hw *hw)
 int32_t
 e1000_phy_hw_reset(struct e1000_hw *hw)
 {
+	uint16_t swfw = E1000_SWFW_PHY0_SM;
 	uint32_t ctrl, ctrl_ext;
 	uint32_t led_ctrl;
 	int32_t ret_val;
-	uint16_t swfw;
 
 	DEBUGFUNC();
 
@@ -4308,16 +4404,14 @@ e1000_phy_hw_reset(struct e1000_hw *hw)
 	DEBUGOUT("Resetting Phy...\n");
 
 	if (hw->mac_type > e1000_82543) {
-		if ((hw->mac_type == e1000_80003es2lan) &&
-			(E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)) {
+		if (e1000_is_second_port(hw))
 			swfw = E1000_SWFW_PHY1_SM;
-		} else {
-			swfw = E1000_SWFW_PHY0_SM;
-		}
+
 		if (e1000_swfw_sync_acquire(hw, swfw)) {
 			DEBUGOUT("Unable to acquire swfw sync\n");
 			return -E1000_ERR_SWFW_SYNC;
 		}
+
 		/* Read the device control register and assert the E1000_CTRL_PHY_RST
 		 * bit. Then, take it out of reset.
 		 */
@@ -4431,7 +4525,8 @@ e1000_phy_init_script(struct e1000_hw *hw)
 		mdelay(20);
 
 		/* Now enable the transmitter */
-		e1000_write_phy_reg(hw, 0x2F5B, phy_saved_data);
+		if (!ret_val)
+			e1000_write_phy_reg(hw, 0x2F5B, phy_saved_data);
 
 		if (hw->mac_type == e1000_82547) {
 			uint16_t fused, fine, coarse;
@@ -4500,6 +4595,7 @@ e1000_phy_reset(struct e1000_hw *hw)
 	case e1000_phy_igp_2:
 	case e1000_phy_igp_3:
 	case e1000_phy_ife:
+	case e1000_phy_igb:
 		ret_val = e1000_phy_hw_reset(hw);
 		if (ret_val)
 			return ret_val;
@@ -4544,7 +4640,6 @@ static int e1000_set_phy_type (struct e1000_hw *hw)
 			hw->mac_type == e1000_82547 ||
 			hw->mac_type == e1000_82547_rev_2) {
 			hw->phy_type = e1000_phy_igp;
-			hw->phy_type = e1000_phy_igp;
 			break;
 		}
 	case IGP03E1000_E_PHY_ID:
@@ -4560,6 +4655,12 @@ static int e1000_set_phy_type (struct e1000_hw *hw)
 			hw->phy_type = e1000_phy_gg82563;
 			break;
 		}
+	case BME1000_E_PHY_ID:
+		hw->phy_type = e1000_phy_bm;
+		break;
+	case I210_I_PHY_ID:
+		hw->phy_type = e1000_phy_igb;
+		break;
 		/* Fall Through */
 	default:
 		/* Should never have loaded on this device */
@@ -4580,7 +4681,7 @@ e1000_detect_gig_phy(struct e1000_hw *hw)
 {
 	int32_t phy_init_status, ret_val;
 	uint16_t phy_id_high, phy_id_low;
-	boolean_t match = FALSE;
+	bool match = false;
 
 	DEBUGFUNC();
 
@@ -4620,11 +4721,11 @@ e1000_detect_gig_phy(struct e1000_hw *hw)
 	switch (hw->mac_type) {
 	case e1000_82543:
 		if (hw->phy_id == M88E1000_E_PHY_ID)
-			match = TRUE;
+			match = true;
 		break;
 	case e1000_82544:
 		if (hw->phy_id == M88E1000_I_PHY_ID)
-			match = TRUE;
+			match = true;
 		break;
 	case e1000_82540:
 	case e1000_82545:
@@ -4632,33 +4733,41 @@ e1000_detect_gig_phy(struct e1000_hw *hw)
 	case e1000_82546:
 	case e1000_82546_rev_3:
 		if (hw->phy_id == M88E1011_I_PHY_ID)
-			match = TRUE;
+			match = true;
 		break;
 	case e1000_82541:
 	case e1000_82541_rev_2:
 	case e1000_82547:
 	case e1000_82547_rev_2:
 		if(hw->phy_id == IGP01E1000_I_PHY_ID)
-			match = TRUE;
+			match = true;
 
 		break;
 	case e1000_82573:
 		if (hw->phy_id == M88E1111_I_PHY_ID)
-			match = TRUE;
+			match = true;
+		break;
+	case e1000_82574:
+		if (hw->phy_id == BME1000_E_PHY_ID)
+			match = true;
 		break;
 	case e1000_80003es2lan:
 		if (hw->phy_id == GG82563_E_PHY_ID)
-			match = TRUE;
+			match = true;
 		break;
 	case e1000_ich8lan:
 		if (hw->phy_id == IGP03E1000_E_PHY_ID)
-			match = TRUE;
+			match = true;
 		if (hw->phy_id == IFE_E_PHY_ID)
-			match = TRUE;
+			match = true;
 		if (hw->phy_id == IFE_PLUS_E_PHY_ID)
-			match = TRUE;
+			match = true;
 		if (hw->phy_id == IFE_C_E_PHY_ID)
-			match = TRUE;
+			match = true;
+		break;
+	case e1000_igb:
+		if (hw->phy_id == I210_I_PHY_ID)
+			match = true;
 		break;
 	default:
 		DEBUGOUT("Invalid MAC type %d\n", hw->mac_type);
@@ -4689,7 +4798,7 @@ e1000_set_media_type(struct e1000_hw *hw)
 
 	if (hw->mac_type != e1000_82543) {
 		/* tbi_compatibility is only valid on 82543 */
-		hw->tbi_compatibility_en = FALSE;
+		hw->tbi_compatibility_en = false;
 	}
 
 	switch (hw->device_id) {
@@ -4710,6 +4819,8 @@ e1000_set_media_type(struct e1000_hw *hw)
 			break;
 		case e1000_ich8lan:
 		case e1000_82573:
+		case e1000_82574:
+		case e1000_igb:
 			/* The STATUS_TBIMODE bit is reserved or reused
 			 * for the this device.
 			 */
@@ -4720,7 +4831,7 @@ e1000_set_media_type(struct e1000_hw *hw)
 			if (status & E1000_STATUS_TBIMODE) {
 				hw->media_type = e1000_media_type_fiber;
 				/* tbi_compatibility not valid on fiber */
-				hw->tbi_compatibility_en = FALSE;
+				hw->tbi_compatibility_en = false;
 			} else {
 				hw->media_type = e1000_media_type_copper;
 			}
@@ -4738,7 +4849,7 @@ e1000_set_media_type(struct e1000_hw *hw)
  **/
 
 static int
-e1000_sw_init(struct eth_device *nic, int cardnum)
+e1000_sw_init(struct eth_device *nic)
 {
 	struct e1000_hw *hw = (typeof(hw)) nic->priv;
 	int result;
@@ -4756,7 +4867,7 @@ e1000_sw_init(struct eth_device *nic, int cardnum)
 	/* identify the MAC */
 	result = e1000_set_mac_type(hw);
 	if (result) {
-		E1000_ERR("Unknown MAC Type\n");
+		E1000_ERR(hw->nic, "Unknown MAC Type\n");
 		return result;
 	}
 
@@ -4771,14 +4882,6 @@ e1000_sw_init(struct eth_device *nic, int cardnum)
 		break;
 	}
 
-	/* lan a vs. lan b settings */
-	if (hw->mac_type == e1000_82546)
-		/*this also works w/ multiple 82546 cards */
-		/*but not if they're intermingled /w other e1000s */
-		hw->lan_loc = (cardnum % 2) ? e1000_lan_b : e1000_lan_a;
-	else
-		hw->lan_loc = e1000_lan_a;
-
 	/* flow control settings */
 	hw->fc_high_water = E1000_FC_HIGH_THRESH;
 	hw->fc_low_water = E1000_FC_LOW_THRESH;
@@ -4786,6 +4889,7 @@ e1000_sw_init(struct eth_device *nic, int cardnum)
 	hw->fc_send_xon = 1;
 
 	/* Media type - copper or fiber */
+	hw->tbi_compatibility_en = true;
 	e1000_set_media_type(hw);
 
 	if (hw->mac_type >= e1000_82543) {
@@ -4802,8 +4906,7 @@ e1000_sw_init(struct eth_device *nic, int cardnum)
 		hw->media_type = e1000_media_type_fiber;
 	}
 
-	hw->tbi_compatibility_en = TRUE;
-	hw->wait_autoneg_complete = TRUE;
+	hw->wait_autoneg_complete = true;
 	if (hw->mac_type < e1000_82543)
 		hw->report_tx_early = 0;
 	else
@@ -4816,12 +4919,25 @@ void
 fill_rx(struct e1000_hw *hw)
 {
 	struct e1000_rx_desc *rd;
+	uint32_t flush_start, flush_end;
 
 	rx_last = rx_tail;
 	rd = rx_base + rx_tail;
 	rx_tail = (rx_tail + 1) % 8;
 	memset(rd, 0, 16);
-	rd->buffer_addr = cpu_to_le64((u32) & packet);
+	rd->buffer_addr = cpu_to_le64((u32)packet);
+
+	/*
+	 * Make sure there are no stale data in WB over this area, which
+	 * might get written into the memory while the e1000 also writes
+	 * into the same memory area.
+	 */
+	invalidate_dcache_range((u32)packet, (u32)packet + 4096);
+	/* Dump the DMA descriptor into RAM. */
+	flush_start = ((u32)rd) & ~(ARCH_DMA_MINALIGN - 1);
+	flush_end = flush_start + roundup(sizeof(*rd), ARCH_DMA_MINALIGN);
+	flush_dcache_range(flush_start, flush_end);
+
 	E1000_WRITE_REG(hw, RDT, rx_tail);
 }
 
@@ -4835,16 +4951,9 @@ fill_rx(struct e1000_hw *hw)
 static void
 e1000_configure_tx(struct e1000_hw *hw)
 {
-	unsigned long ptr;
 	unsigned long tctl;
 	unsigned long tipg, tarc;
 	uint32_t ipgr1, ipgr2;
-
-	ptr = (u32) tx_pool;
-	if (ptr & 0xf)
-		ptr = (ptr + 0x10) & (~0xf);
-
-	tx_base = (typeof(tx_base)) ptr;
 
 	E1000_WRITE_REG(hw, TDBAL, (u32) tx_base);
 	E1000_WRITE_REG(hw, TDBAH, 0);
@@ -4914,7 +5023,22 @@ e1000_configure_tx(struct e1000_hw *hw)
 		hw->txd_cmd |= E1000_TXD_CMD_RPS;
 	else
 		hw->txd_cmd |= E1000_TXD_CMD_RS;
+
+
+	if (hw->mac_type == e1000_igb) {
+		E1000_WRITE_REG(hw, TCTL_EXT, 0x42 << 10);
+
+		uint32_t reg_txdctl = E1000_READ_REG(hw, TXDCTL);
+		reg_txdctl |= 1 << 25;
+		E1000_WRITE_REG(hw, TXDCTL, reg_txdctl);
+		mdelay(20);
+	}
+
+
+
 	E1000_WRITE_REG(hw, TCTL, tctl);
+
+
 }
 
 /**
@@ -4954,7 +5078,6 @@ e1000_setup_rctl(struct e1000_hw *hw)
 static void
 e1000_configure_rx(struct e1000_hw *hw)
 {
-	unsigned long ptr;
 	unsigned long rctl, ctrl_ext;
 	rx_tail = 0;
 	/* make sure receives are disabled while setting up the descriptors */
@@ -4976,10 +5099,6 @@ e1000_configure_rx(struct e1000_hw *hw)
 		E1000_WRITE_FLUSH(hw);
 	}
 	/* Setup the Base and Length of the Rx Descriptor Ring */
-	ptr = (u32) rx_pool;
-	if (ptr & 0xf)
-		ptr = (ptr + 0x10) & (~0xf);
-	rx_base = (typeof(rx_base)) ptr;
 	E1000_WRITE_REG(hw, RDBAL, (u32) rx_base);
 	E1000_WRITE_REG(hw, RDBAH, 0);
 
@@ -4990,7 +5109,16 @@ e1000_configure_rx(struct e1000_hw *hw)
 	E1000_WRITE_REG(hw, RDT, 0);
 	/* Enable Receives */
 
+	if (hw->mac_type == e1000_igb) {
+
+		uint32_t reg_rxdctl = E1000_READ_REG(hw, RXDCTL);
+		reg_rxdctl |= 1 << 25;
+		E1000_WRITE_REG(hw, RXDCTL, reg_rxdctl);
+		mdelay(20);
+	}
+
 	E1000_WRITE_REG(hw, RCTL, rctl);
+
 	fill_rx(hw);
 }
 
@@ -5002,12 +5130,25 @@ e1000_poll(struct eth_device *nic)
 {
 	struct e1000_hw *hw = nic->priv;
 	struct e1000_rx_desc *rd;
+	uint32_t inval_start, inval_end;
+	uint32_t len;
+
 	/* return true if there's an ethernet packet ready to read */
 	rd = rx_base + rx_last;
+
+	/* Re-load the descriptor from RAM. */
+	inval_start = ((u32)rd) & ~(ARCH_DMA_MINALIGN - 1);
+	inval_end = inval_start + roundup(sizeof(*rd), ARCH_DMA_MINALIGN);
+	invalidate_dcache_range(inval_start, inval_end);
+
 	if (!(le32_to_cpu(rd->status)) & E1000_RXD_STAT_DD)
 		return 0;
 	/*DEBUGOUT("recv: packet len=%d \n", rd->length); */
-	NetReceive((uchar *)packet, le32_to_cpu(rd->length));
+	/* Packet received, make sure the data are re-loaded from RAM. */
+	len = le32_to_cpu(rd->length);
+	invalidate_dcache_range((u32)packet,
+				(u32)packet + roundup(len, ARCH_DMA_MINALIGN));
+	NetReceive((uchar *)packet, len);
 	fill_rx(hw);
 	return 1;
 }
@@ -5015,23 +5156,36 @@ e1000_poll(struct eth_device *nic)
 /**************************************************************************
 TRANSMIT - Transmit a frame
 ***************************************************************************/
-static int
-e1000_transmit(struct eth_device *nic, volatile void *packet, int length)
+static int e1000_transmit(struct eth_device *nic, void *txpacket, int length)
 {
+	void *nv_packet = (void *)txpacket;
 	struct e1000_hw *hw = nic->priv;
 	struct e1000_tx_desc *txp;
 	int i = 0;
+	uint32_t flush_start, flush_end;
 
 	txp = tx_base + tx_tail;
 	tx_tail = (tx_tail + 1) % 8;
 
-	txp->buffer_addr = cpu_to_le64(virt_to_bus(hw->pdev, packet));
+	txp->buffer_addr = cpu_to_le64(virt_to_bus(hw->pdev, nv_packet));
 	txp->lower.data = cpu_to_le32(hw->txd_cmd | length);
 	txp->upper.data = 0;
+
+	/* Dump the packet into RAM so e1000 can pick them. */
+	flush_dcache_range((u32)nv_packet,
+			   (u32)nv_packet + roundup(length, ARCH_DMA_MINALIGN));
+	/* Dump the descriptor into RAM as well. */
+	flush_start = ((u32)txp) & ~(ARCH_DMA_MINALIGN - 1);
+	flush_end = flush_start + roundup(sizeof(*txp), ARCH_DMA_MINALIGN);
+	flush_dcache_range(flush_start, flush_end);
+
 	E1000_WRITE_REG(hw, TDT, tx_tail);
 
 	E1000_WRITE_FLUSH(hw);
-	while (!(le32_to_cpu(txp->upper.data) & E1000_TXD_STAT_DD)) {
+	while (1) {
+		invalidate_dcache_range(flush_start, flush_end);
+		if (le32_to_cpu(txp->upper.data) & E1000_TXD_STAT_DD)
+			break;
 		if (i++ > TOUT_LOOP) {
 			DEBUGOUT("e1000: tx timeout\n");
 			return 0;
@@ -5095,9 +5249,9 @@ e1000_init(struct eth_device *nic, bd_t * bis)
 	if (ret_val < 0) {
 		if ((ret_val == -E1000_ERR_NOLINK) ||
 		    (ret_val == -E1000_ERR_TIMEOUT)) {
-			E1000_ERR("Valid Link not detected\n");
+			E1000_ERR(hw->nic, "Valid Link not detected\n");
 		} else {
-			E1000_ERR("Hardware Initialization Failed\n");
+			E1000_ERR(hw->nic, "Hardware Initialization Failed\n");
 		}
 		return 0;
 	}
@@ -5124,10 +5278,10 @@ void e1000_get_bus_type(struct e1000_hw *hw)
 	case e1000_82571:
 	case e1000_82572:
 	case e1000_82573:
+	case e1000_82574:
 	case e1000_80003es2lan:
-		hw->bus_type = e1000_bus_type_pci_express;
-		break;
 	case e1000_ich8lan:
+	case e1000_igb:
 		hw->bus_type = e1000_bus_type_pci_express;
 		break;
 	default:
@@ -5138,6 +5292,9 @@ void e1000_get_bus_type(struct e1000_hw *hw)
 	}
 }
 
+/* A list of all registered e1000 devices */
+static LIST_HEAD(e1000_hw_list);
+
 /**************************************************************************
 PROBE - Look for an adapter, this routine's visible to the outside
 You should omit the last argument struct pci_device * for a non-PCI NIC
@@ -5145,94 +5302,176 @@ You should omit the last argument struct pci_device * for a non-PCI NIC
 int
 e1000_initialize(bd_t * bis)
 {
+	unsigned int i;
 	pci_dev_t devno;
-	int card_number = 0;
-	struct eth_device *nic = NULL;
-	struct e1000_hw *hw = NULL;
-	u32 iobase;
-	int idx = 0;
-	u32 PciCommandWord;
 
 	DEBUGFUNC();
 
-	while (1) {		/* Find PCI device(s) */
-		if ((devno = pci_find_devices(supported, idx++)) < 0) {
-			break;
-		}
+	/* Find and probe all the matching PCI devices */
+	for (i = 0; (devno = pci_find_devices(e1000_supported, i)) >= 0; i++) {
+		u32 val;
 
-		pci_read_config_dword(devno, PCI_BASE_ADDRESS_0, &iobase);
-		iobase &= ~0xf;	/* Mask the bits that say "this is an io addr" */
-		DEBUGOUT("e1000#%d: iobase 0x%08x\n", card_number, iobase);
-
-		pci_write_config_dword(devno, PCI_COMMAND,
-				       PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
-		/* Check if I/O accesses and Bus Mastering are enabled. */
-		pci_read_config_dword(devno, PCI_COMMAND, &PciCommandWord);
-		if (!(PciCommandWord & PCI_COMMAND_MEMORY)) {
-			printf("Error: Can not enable MEM access.\n");
-			continue;
-		} else if (!(PciCommandWord & PCI_COMMAND_MASTER)) {
-			printf("Error: Can not enable Bus Mastering.\n");
+		/*
+		 * These will never get freed due to errors, this allows us to
+		 * perform SPI EEPROM programming from U-boot, for example.
+		 */
+		struct eth_device *nic = malloc(sizeof(*nic));
+		struct e1000_hw *hw = malloc(sizeof(*hw));
+		if (!nic || !hw) {
+			printf("e1000#%u: Out of Memory!\n", i);
+			free(nic);
+			free(hw);
 			continue;
 		}
 
-		nic = (struct eth_device *) malloc(sizeof (*nic));
-		hw = (struct e1000_hw *) malloc(sizeof (*hw));
+		/* Make sure all of the fields are initially zeroed */
+		memset(nic, 0, sizeof(*nic));
+		memset(hw, 0, sizeof(*hw));
+
+		/* Assign the passed-in values */
+		hw->cardnum = i;
 		hw->pdev = devno;
+		hw->nic = nic;
 		nic->priv = hw;
 
-		sprintf(nic->name, "e1000#%d", card_number);
+		/* Generate a card name */
+		sprintf(nic->name, "e1000#%u", hw->cardnum);
+
+		/* Print a debug message with the IO base address */
+		pci_read_config_dword(devno, PCI_BASE_ADDRESS_0, &val);
+		E1000_DBG(nic, "iobase 0x%08x\n", val & 0xfffffff0);
+
+		/* Try to enable I/O accesses and bus-mastering */
+		val = PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER;
+		pci_write_config_dword(devno, PCI_COMMAND, val);
+
+		/* Make sure it worked */
+		pci_read_config_dword(devno, PCI_COMMAND, &val);
+		if (!(val & PCI_COMMAND_MEMORY)) {
+			E1000_ERR(nic, "Can't enable I/O memory\n");
+			continue;
+		}
+		if (!(val & PCI_COMMAND_MASTER)) {
+			E1000_ERR(nic, "Can't enable bus-mastering\n");
+			continue;
+		}
 
 		/* Are these variables needed? */
 		hw->fc = e1000_fc_default;
 		hw->original_fc = e1000_fc_default;
 		hw->autoneg_failed = 0;
 		hw->autoneg = 1;
-		hw->get_link_status = TRUE;
-		hw->hw_addr =
-			pci_map_bar(devno, PCI_BASE_ADDRESS_0, PCI_REGION_MEM);
+		hw->get_link_status = true;
+#ifndef CONFIG_E1000_NO_NVM
+		hw->eeprom_semaphore_present = true;
+#endif
+		hw->hw_addr = pci_map_bar(devno,	PCI_BASE_ADDRESS_0,
+							PCI_REGION_MEM);
 		hw->mac_type = e1000_undefined;
 
 		/* MAC and Phy settings */
-		if (e1000_sw_init(nic, card_number) < 0) {
-			free(hw);
-			free(nic);
-			return 0;
+		if (e1000_sw_init(nic) < 0) {
+			E1000_ERR(nic, "Software init failed\n");
+			continue;
 		}
 		if (e1000_check_phy_reset_block(hw))
-			printf("phy reset block error \n");
+			E1000_ERR(nic, "PHY Reset is blocked!\n");
+
+		/* Basic init was OK, reset the hardware and allow SPI access */
 		e1000_reset_hw(hw);
-#if !(defined(CONFIG_AP1000) || defined(CONFIG_MVBC_1G))
+		list_add_tail(&hw->list_node, &e1000_hw_list);
+
+#ifndef CONFIG_E1000_NO_NVM
+		/* Validate the EEPROM and get chipset information */
+#if !defined(CONFIG_MVBC_1G)
 		if (e1000_init_eeprom_params(hw)) {
-			printf("The EEPROM Checksum Is Not Valid\n");
-			free(hw);
-			free(nic);
-			return 0;
+			E1000_ERR(nic, "EEPROM is invalid!\n");
+			continue;
 		}
-		if (e1000_validate_eeprom_checksum(nic) < 0) {
-			printf("The EEPROM Checksum Is Not Valid\n");
-			free(hw);
-			free(nic);
-			return 0;
-		}
+		if ((E1000_READ_REG(hw, I210_EECD) & E1000_EECD_FLUPD) &&
+		    e1000_validate_eeprom_checksum(hw))
+			continue;
 #endif
 		e1000_read_mac_addr(nic);
-
-		/* get the bus type information */
+#endif
 		e1000_get_bus_type(hw);
 
-		printf("e1000: %02x:%02x:%02x:%02x:%02x:%02x\n",
+#ifndef CONFIG_E1000_NO_NVM
+		printf("e1000: %02x:%02x:%02x:%02x:%02x:%02x\n       ",
 		       nic->enetaddr[0], nic->enetaddr[1], nic->enetaddr[2],
 		       nic->enetaddr[3], nic->enetaddr[4], nic->enetaddr[5]);
+#else
+		memset(nic->enetaddr, 0, 6);
+		printf("e1000: no NVM\n");
+#endif
 
+		/* Set up the function pointers and register the device */
 		nic->init = e1000_init;
 		nic->recv = e1000_poll;
 		nic->send = e1000_transmit;
 		nic->halt = e1000_disable;
-
 		eth_register(nic);
-
-		card_number++;
 	}
-	return card_number;
+
+	return i;
 }
+
+struct e1000_hw *e1000_find_card(unsigned int cardnum)
+{
+	struct e1000_hw *hw;
+
+	list_for_each_entry(hw, &e1000_hw_list, list_node)
+		if (hw->cardnum == cardnum)
+			return hw;
+
+	return NULL;
+}
+
+#ifdef CONFIG_CMD_E1000
+static int do_e1000(cmd_tbl_t *cmdtp, int flag,
+		int argc, char * const argv[])
+{
+	struct e1000_hw *hw;
+
+	if (argc < 3) {
+		cmd_usage(cmdtp);
+		return 1;
+	}
+
+	/* Make sure we can find the requested e1000 card */
+	hw = e1000_find_card(simple_strtoul(argv[1], NULL, 10));
+	if (!hw) {
+		printf("e1000: ERROR: No such device: e1000#%s\n", argv[1]);
+		return 1;
+	}
+
+	if (!strcmp(argv[2], "print-mac-address")) {
+		unsigned char *mac = hw->nic->enetaddr;
+		printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		return 0;
+	}
+
+#ifdef CONFIG_E1000_SPI
+	/* Handle the "SPI" subcommand */
+	if (!strcmp(argv[2], "spi"))
+		return do_e1000_spi(cmdtp, hw, argc - 3, argv + 3);
+#endif
+
+	cmd_usage(cmdtp);
+	return 1;
+}
+
+U_BOOT_CMD(
+	e1000, 7, 0, do_e1000,
+	"Intel e1000 controller management",
+	/*  */"<card#> print-mac-address\n"
+#ifdef CONFIG_E1000_SPI
+	"e1000 <card#> spi show [<offset> [<length>]]\n"
+	"e1000 <card#> spi dump <addr> <offset> <length>\n"
+	"e1000 <card#> spi program <addr> <offset> <length>\n"
+	"e1000 <card#> spi checksum [update]\n"
+#endif
+	"       - Manage the Intel E1000 PCI device"
+);
+#endif /* not CONFIG_CMD_E1000 */

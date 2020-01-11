@@ -13,23 +13,7 @@
  * (C) Copyright 2009
  * Ilya Yanok, Emcraft Systems Ltd, <yanok@emcraft.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -43,8 +27,10 @@
 #define GPTCR_CLKSOURCE_32	(4 << 1)	/* Clock source		*/
 #define GPTCR_TEN		1		/* Timer enable		*/
 
-static ulong timestamp;
-static ulong lastinc;
+DECLARE_GLOBAL_DATA_PTR;
+
+#define timestamp	(gd->arch.tbl)
+#define lastinc		(gd->arch.lastinc)
 
 /*
  * "time" is measured in 1 / CONFIG_SYS_HZ seconds,
@@ -122,21 +108,7 @@ int timer_init(void)
 	return 0;
 }
 
-void reset_timer_masked(void)
-{
-	struct gpt_regs *regs = (struct gpt_regs *)IMX_TIM1_BASE;
-	/* reset time */
-	/* capture current incrementer value time */
-	lastinc = readl(&regs->gpt_tcn);
-	timestamp = 0; /* start "advancing" time stamp from 0 */
-}
-
-void reset_timer(void)
-{
-	reset_timer_masked();
-}
-
-unsigned long long get_ticks (void)
+unsigned long long get_ticks(void)
 {
 	struct gpt_regs *regs = (struct gpt_regs *)IMX_TIM1_BASE;
 	ulong now = readl(&regs->gpt_tcn); /* current tick value */
@@ -155,7 +127,7 @@ unsigned long long get_ticks (void)
 	return timestamp;
 }
 
-ulong get_timer_masked (void)
+ulong get_timer_masked(void)
 {
 	/*
 	 * get_ticks() returns a long long (64 bit), it wraps in
@@ -166,18 +138,13 @@ ulong get_timer_masked (void)
 	return tick_to_time(get_ticks());
 }
 
-ulong get_timer (ulong base)
+ulong get_timer(ulong base)
 {
-	return get_timer_masked () - base;
-}
-
-void set_timer (ulong t)
-{
-	timestamp = time_to_tick(t);
+	return get_timer_masked() - base;
 }
 
 /* delay x useconds AND preserve advance timstamp value */
-void __udelay (unsigned long usec)
+void __udelay(unsigned long usec)
 {
 	unsigned long long tmp;
 	ulong tmo;
@@ -187,4 +154,9 @@ void __udelay (unsigned long usec)
 
 	while (get_ticks() < tmp)	/* loop till event */
 		 /*NOP*/;
+}
+
+ulong get_tbclk(void)
+{
+	return CONFIG_MX27_CLK32;
 }

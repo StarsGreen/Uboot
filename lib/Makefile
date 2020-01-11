@@ -2,67 +2,71 @@
 # (C) Copyright 2000-2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# See file CREDITS for list of people who contributed to this
-# project.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of
-# the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-# MA 02111-1307 USA
+# SPDX-License-Identifier:	GPL-2.0+
 #
 
-include $(TOPDIR)/config.mk
+ifndef CONFIG_SPL_BUILD
 
-LIB	= $(obj)libgeneric.a
+obj-$(CONFIG_RSA) += rsa/
+obj-$(CONFIG_LZMA) += lzma/
+obj-$(CONFIG_LZO) += lzo/
+obj-$(CONFIG_ZLIB) += zlib/
+obj-$(CONFIG_TIZEN) += tizen/
 
-COBJS-$(CONFIG_ADDR_MAP) += addr_map.o
-COBJS-$(CONFIG_BZIP2) += bzlib.o
-COBJS-$(CONFIG_BZIP2) += bzlib_crctable.o
-COBJS-$(CONFIG_BZIP2) += bzlib_decompress.o
-COBJS-$(CONFIG_BZIP2) += bzlib_randtable.o
-COBJS-$(CONFIG_BZIP2) += bzlib_huffman.o
-COBJS-$(CONFIG_USB_TTY) += circbuf.o
-COBJS-y += crc16.o
-COBJS-y += crc32.o
-COBJS-y += ctype.o
-COBJS-y += display_options.o
-COBJS-y += div64.o
-COBJS-$(CONFIG_GZIP) += gunzip.o
-COBJS-$(CONFIG_LMB) += lmb.o
-COBJS-y += ldiv.o
-COBJS-$(CONFIG_MD5) += md5.o
-COBJS-y += net_utils.o
-COBJS-$(CONFIG_SHA1) += sha1.o
-COBJS-$(CONFIG_SHA256) += sha256.o
-COBJS-y += string.o
-COBJS-y	+= strmhz.o
-COBJS-y += time.o
-COBJS-y += vsprintf.o
-COBJS-$(CONFIG_ZLIB) += zlib.o
-COBJS-$(CONFIG_RBTREE)	+= rbtree.o
+obj-$(CONFIG_AES) += aes.o
+obj-$(CONFIG_BZIP2) += bzlib.o
+obj-$(CONFIG_BZIP2) += bzlib_crctable.o
+obj-$(CONFIG_BZIP2) += bzlib_decompress.o
+obj-$(CONFIG_BZIP2) += bzlib_randtable.o
+obj-$(CONFIG_BZIP2) += bzlib_huffman.o
+obj-$(CONFIG_USB_TTY) += circbuf.o
+obj-y += crc7.o
+obj-y += crc8.o
+obj-y += crc16.o
+obj-$(CONFIG_FIT) += fdtdec_common.o
+obj-$(CONFIG_OF_CONTROL) += fdtdec_common.o
+obj-$(CONFIG_OF_CONTROL) += fdtdec.o
+obj-$(CONFIG_TEST_FDTDEC) += fdtdec_test.o
+obj-$(CONFIG_GZIP) += gunzip.o
+obj-$(CONFIG_GZIP_COMPRESSED) += gzip.o
+obj-y += initcall.o
+obj-$(CONFIG_LMB) += lmb.o
+obj-y += ldiv.o
+obj-$(CONFIG_MD5) += md5.o
+obj-y += net_utils.o
+obj-$(CONFIG_PHYSMEM) += physmem.o
+obj-y += qsort.o
+obj-$(CONFIG_SHA1) += sha1.o
+obj-$(CONFIG_SUPPORT_EMMC_RPMB) += sha256.o
+obj-$(CONFIG_SHA256) += sha256.o
+obj-y	+= strmhz.o
+obj-$(CONFIG_TPM) += tpm.o
+obj-$(CONFIG_RBTREE)	+= rbtree.o
+obj-$(CONFIG_BITREVERSE) += bitrev.o
+obj-y += list_sort.o
+endif
 
-COBJS	:= $(COBJS-y)
-SRCS	:= $(COBJS:.o=.c)
-OBJS	:= $(addprefix $(obj),$(COBJS))
+ifdef CONFIG_SPL_BUILD
+obj-$(CONFIG_SPL_YMODEM_SUPPORT) += crc16.o
+obj-$(CONFIG_SPL_NET_SUPPORT) += net_utils.o
+endif
+obj-$(CONFIG_ADDR_MAP) += addr_map.o
+obj-y += hashtable.o
+obj-y += errno.o
+obj-y += display_options.o
+obj-$(CONFIG_BCH) += bch.o
+obj-y += crc32.o
+obj-y += ctype.o
+obj-y += div64.o
+obj-y += hang.o
+obj-y += linux_compat.o
+obj-y += linux_string.o
+obj-$(CONFIG_REGEX) += slre.o
+obj-y += string.o
+obj-y += time.o
+obj-$(CONFIG_TRACE) += trace.o
+obj-$(CONFIG_LIB_UUID) += uuid.o
+obj-y += vsprintf.o
+obj-$(CONFIG_LIB_RAND) += rand.o
 
-$(LIB):	$(obj).depend $(OBJS)
-	$(AR) $(ARFLAGS) $@ $(OBJS)
-
-#########################################################################
-
-# defines $(obj).depend target
-include $(SRCTREE)/rules.mk
-
-sinclude $(obj).depend
-
-#########################################################################
+subdir-ccflags-$(CONFIG_CC_OPTIMIZE_LIBS_FOR_SPEED) += -O2

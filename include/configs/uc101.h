@@ -2,23 +2,7 @@
  * (C) Copyright 2003-2009
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_H
@@ -31,6 +15,11 @@
 
 #define CONFIG_UC101		1	/* UC101 board		*/
 #define CONFIG_HOSTNAME		uc101
+
+#ifndef CONFIG_SYS_TEXT_BASE
+#define CONFIG_SYS_TEXT_BASE	0xFFF00000
+#endif
+#define CONFIG_SYS_LDSCRIPT	"arch/powerpc/cpu/mpc5xxx/u-boot-customlayout.lds"
 
 #include "manroland/common.h"
 #include "manroland/mpc5200-common.h"
@@ -65,9 +54,7 @@
 #define CONFIG_SYS_IB_EPLD		0xc0500000	/* CS 7 */
 
 /* SRAM */
-#define SRAM_BASE		CONFIG_SYS_SRAM_BASE
-#define SRAM_LEN		0x1fffff
-#define SRAM_END		(SRAM_BASE + SRAM_LEN)
+#define CONFIG_SYS_SRAM_SIZE	0x200000
 
 /*
  * GPIO configuration

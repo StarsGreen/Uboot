@@ -3,31 +3,17 @@
  * Marvell Semiconductor <www.marvell.com>
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <netdev.h>
 #include <asm/cache.h>
 #include <u-boot/md5.h>
+#include <asm/io.h>
+#include <asm/arch/cpu.h>
 #include <asm/arch/kirkwood.h>
-#include <hush.h>
+#include <mvebu_mmc.h>
 
 #define BUFLEN	16
 
@@ -54,10 +40,11 @@ unsigned char get_random_hex(void)
 	u8 outbuf[BUFLEN];
 
 	/*
-	 * in case of 88F6281/88F6192 A0,
+	 * in case of 88F6281/88F6282/88F6192 A0,
 	 * Bit7 need to reset to generate random values in KW_REG_UNDOC_0x1470
-	 * Soc reg offsets KW_REG_UNDOC_0x1470 and KW_REG_UNDOC_0x1478 are reserved regs and
-	 * Does not have names at this moment (no errata available)
+	 * Soc reg offsets KW_REG_UNDOC_0x1470 and KW_REG_UNDOC_0x1478 are
+	 * reserved regs and does not have names at this moment
+	 * (no errata available)
 	 */
 	writel(readl(KW_REG_UNDOC_0x1478) & ~(1 << 7), KW_REG_UNDOC_0x1478);
 	for (i = 0; i < BUFLEN; i++) {
@@ -223,13 +210,8 @@ static void kw_sysrst_action(void)
 	}
 
 	debug("Starting %s process...\n", __FUNCTION__);
-#if !defined(CONFIG_SYS_HUSH_PARSER)
-	ret = run_command (s, 0);
-#else
-	ret = parse_string_outer(s, FLAG_PARSE_SEMICOLON
-				  | FLAG_EXIT_FROM_LOOP);
-#endif
-	if (ret < 0)
+	ret = run_command(s, 0);
+	if (ret != 0)
 		debug("Error.. %s failed\n", __FUNCTION__);
 	else
 		debug("%s process finished\n", __FUNCTION__);
@@ -271,20 +253,31 @@ static void kw_sysrst_check(void)
 #if defined(CONFIG_DISPLAY_CPUINFO)
 int print_cpuinfo(void)
 {
-	char *name = "Unknown";
+	char *rev;
+	u16 devid = (readl(KW_REG_PCIE_DEVID) >> 16) & 0xffff;
+	u8 revid = readl(KW_REG_PCIE_REVID) & 0xff;
 
-	switch (readl(KW_REG_DEVICE_ID) & 0x03) {
-	case 1:
-		name = "88F6192_A0";
-		break;
-	case 2:
-		name = "88F6281_A0";
-		break;
-	default:
-		printf("SoC:   Unsupported Kirkwood\n");
+	if ((readl(KW_REG_DEVICE_ID) & 0x03) > 2) {
+		printf("Error.. %s:Unsupported Kirkwood SoC 88F%04x\n", __FUNCTION__, devid);
 		return -1;
 	}
-	printf("SoC:   Kirkwood %s\n", name);
+
+	switch (revid) {
+	case 0:
+		rev = "Z0";
+		break;
+	case 2:
+		rev = "A0";
+		break;
+	case 3:
+		rev = "A1";
+		break;
+	default:
+		rev = "??";
+		break;
+	}
+
+	printf("SoC:   Kirkwood 88F%04x_%s\n", devid, rev);
 	return 0;
 }
 #endif /* CONFIG_DISPLAY_CPUINFO */
@@ -309,7 +302,7 @@ int arch_cpu_init(void)
 	/*
 	 * Configures the I/O voltage of the pads connected to Egigabit
 	 * Ethernet interface to 1.8V
-	 * By defult it is set to 3.3V
+	 * By default it is set to 3.3V
 	 */
 	reg = readl(KW_REG_MPP_OUT_DRV_REG);
 	reg |= (1 << 7);
@@ -385,3 +378,11 @@ int cpu_eth_init(bd_t *bis)
 	return 0;
 }
 #endif
+
+#ifdef CONFIG_MVEBU_MMC
+int board_mmc_init(bd_t *bis)
+{
+	mvebu_mmc_init(bis);
+	return 0;
+}
+#endif /* CONFIG_MVEBU_MMC */

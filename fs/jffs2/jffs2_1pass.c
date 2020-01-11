@@ -114,12 +114,13 @@
 #include <common.h>
 #include <config.h>
 #include <malloc.h>
+#include <div64.h>
 #include <linux/stat.h>
 #include <linux/time.h>
 #include <watchdog.h>
 #include <jffs2/jffs2.h>
 #include <jffs2/jffs2_1pass.h>
-#include <linux/mtd/compat.h>
+#include <linux/compat.h>
 #include <asm/errno.h>
 
 #include "jffs2_private.h"
@@ -696,7 +697,6 @@ jffs2_1pass_read_inode(struct b_lists *pL, u32 inode, char *dest)
 	u32 latestVersion = 0;
 	uchar *lDest;
 	uchar *src;
-	long ret;
 	int i;
 	u32 counter = 0;
 #ifdef CONFIG_SYS_JFFS2_SORT_FRAGMENTS
@@ -724,7 +724,7 @@ jffs2_1pass_read_inode(struct b_lists *pL, u32 inode, char *dest)
 	for (b = pL->frag.listHead; b != NULL; b = b->next) {
 		jNode = (struct jffs2_raw_inode *) get_node_mem(b->offset,
 								pL->readbuf);
-		if ((inode == jNode->ino)) {
+		if (inode == jNode->ino) {
 #if 0
 			putLabeledWord("\r\n\r\nread_inode: totlen = ", jNode->totlen);
 			putLabeledWord("read_inode: inode = ", jNode->ino);
@@ -768,33 +768,30 @@ jffs2_1pass_read_inode(struct b_lists *pL, u32 inode, char *dest)
 #endif
 				switch (jNode->compr) {
 				case JFFS2_COMPR_NONE:
-					ret = (unsigned long) ldr_memcpy(lDest, src, jNode->dsize);
+					ldr_memcpy(lDest, src, jNode->dsize);
 					break;
 				case JFFS2_COMPR_ZERO:
-					ret = 0;
 					for (i = 0; i < jNode->dsize; i++)
 						*(lDest++) = 0;
 					break;
 				case JFFS2_COMPR_RTIME:
-					ret = 0;
 					rtime_decompress(src, lDest, jNode->csize, jNode->dsize);
 					break;
 				case JFFS2_COMPR_DYNRUBIN:
 					/* this is slow but it works */
-					ret = 0;
 					dynrubin_decompress(src, lDest, jNode->csize, jNode->dsize);
 					break;
 				case JFFS2_COMPR_ZLIB:
-					ret = zlib_decompress(src, lDest, jNode->csize, jNode->dsize);
+					zlib_decompress(src, lDest, jNode->csize, jNode->dsize);
 					break;
 #if defined(CONFIG_JFFS2_LZO)
 				case JFFS2_COMPR_LZO:
-					ret = lzo_decompress(src, lDest, jNode->csize, jNode->dsize);
+					lzo_decompress(src, lDest, jNode->csize, jNode->dsize);
 					break;
 #endif
 				default:
 					/* unknown */
-					putLabeledWord("UNKOWN COMPRESSION METHOD = ", jNode->compr);
+					putLabeledWord("UNKNOWN COMPRESSION METHOD = ", jNode->compr);
 					put_fl_mem(jNode, pL->readbuf);
 					return -1;
 					break;
@@ -803,7 +800,6 @@ jffs2_1pass_read_inode(struct b_lists *pL, u32 inode, char *dest)
 
 #if 0
 			putLabeledWord("read_inode: totalSize = ", totalSize);
-			putLabeledWord("read_inode: compr ret = ", ret);
 #endif
 		}
 		counter++;
@@ -1443,7 +1439,7 @@ jffs2_1pass_build_lists(struct part_info * part)
 {
 	struct b_lists *pL;
 	struct jffs2_unknown_node *node;
-	u32 nr_sectors = part->size/part->sector_size;
+	u32 nr_sectors;
 	u32 i;
 	u32 counter4 = 0;
 	u32 counterF = 0;
@@ -1452,6 +1448,7 @@ jffs2_1pass_build_lists(struct part_info * part)
 	u32 buf_size = DEFAULT_EMPTY_SCAN_SIZE;
 	char *buf;
 
+	nr_sectors = lldiv(part->size, part->sector_size);
 	/* turn off the lcd.  Refreshing the lcd adds 50% overhead to the */
 	/* jffs2 list building enterprise nope.  in newer versions the overhead is */
 	/* only about 5 %.  not enough to inconvenience people for. */
@@ -1575,9 +1572,8 @@ jffs2_1pass_build_lists(struct part_info * part)
 
 			if (*(uint32_t *)(&buf[ofs-buf_ofs]) == 0xffffffff) {
 				uint32_t inbuf_ofs;
-				uint32_t empty_start, scan_end;
+				uint32_t scan_end;
 
-				empty_start = ofs;
 				ofs += 4;
 				scan_end = min_t(uint32_t, EMPTY_SCAN_SIZE(
 							part->sector_size)/8,

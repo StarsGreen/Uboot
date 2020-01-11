@@ -5,23 +5,7 @@
  * (C) Copyright 2004
  * Mark Jonas, Freescale Semiconductor, mark.jonas@freescale.com.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_H
@@ -40,14 +24,20 @@
  * (easy to change)
  */
 
-#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
-#define CONFIG_MPC5200		1	/* (more precisely a MPC5200 CPU) */
+#define CONFIG_MPC5200		1	/* This is a MPC5200 CPU */
 #define CONFIG_TOTAL5200	1	/* ... on Total5200 board */
 
-#define CONFIG_SYS_MPC5XXX_CLKIN	33000000 /* ... running at 33.000000MHz */
+/*
+ * Valid values for CONFIG_SYS_TEXT_BASE are:
+ * 0xFFF00000	boot high (standard configuration)
+ * 0xFE000000	boot low
+ * 0x00100000	boot from RAM (for testing only)
+ */
+#ifndef CONFIG_SYS_TEXT_BASE
+#define	CONFIG_SYS_TEXT_BASE	0xFFF00000
+#endif
 
-#define BOOTFLAG_COLD		0x01	/* Normal Power-On: Boot from FLASH  */
-#define BOOTFLAG_WARM		0x02	/* Software reboot	     */
+#define CONFIG_SYS_MPC5XXX_CLKIN	33000000 /* ... running at 33.000000MHz */
 
 #define CONFIG_HIGH_BATS	1	/* High BATs supported */
 
@@ -92,7 +82,6 @@
 #define CONFIG_PCI_IO_PHYS	CONFIG_PCI_IO_BUS
 #define CONFIG_PCI_IO_SIZE	0x01000000
 
-#define CONFIG_NET_MULTI	1
 #define CONFIG_MII		1
 #define CONFIG_EEPRO100		1
 #define CONFIG_SYS_RX_ETH_BUFFER	8  /* use 8 rx buffer on eepro100  */
@@ -132,7 +121,7 @@
 #define CONFIG_CMD_USB
 
 
-#if (TEXT_BASE == 0xFE000000)		/* Boot low */
+#if (CONFIG_SYS_TEXT_BASE == 0xFE000000)		/* Boot low */
 #   define CONFIG_SYS_LOWBOOT		1
 #endif
 
@@ -239,13 +228,12 @@
 
 /* Use SRAM until RAM will be available */
 #define CONFIG_SYS_INIT_RAM_ADDR	MPC5XXX_SRAM
-#define CONFIG_SYS_INIT_RAM_END	MPC5XXX_SRAM_SIZE	/* End of used area in DPRAM */
+#define CONFIG_SYS_INIT_RAM_SIZE	MPC5XXX_SRAM_SIZE	/* Size of used area in DPRAM */
 
-#define CONFIG_SYS_GBL_DATA_SIZE	128	/* size in bytes reserved for initial data */
-#define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_END - CONFIG_SYS_GBL_DATA_SIZE)
+#define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
 
-#define CONFIG_SYS_MONITOR_BASE    TEXT_BASE
+#define CONFIG_SYS_MONITOR_BASE    CONFIG_SYS_TEXT_BASE
 #if (CONFIG_SYS_MONITOR_BASE < CONFIG_SYS_FLASH_BASE)
 #   define CONFIG_SYS_RAMBOOT		1
 #endif
@@ -290,7 +278,6 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory	    */
-#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt   */
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size  */
 #else
@@ -304,8 +291,6 @@
 #define CONFIG_SYS_MEMTEST_END		0x00f00000	/* 1 ... 15 MB in DRAM	*/
 
 #define CONFIG_SYS_LOAD_ADDR		0x100000	/* default load address */
-
-#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
 
 #define CONFIG_SYS_CACHELINE_SIZE	32	/* For MPC5xxx CPUs */
 #if defined(CONFIG_CMD_KGDB)

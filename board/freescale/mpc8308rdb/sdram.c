@@ -9,23 +9,7 @@
  * This files is  mostly identical to the original from
  * board\freescale\mpc8315erdb\sdram.c
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS for A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -37,20 +21,6 @@
 #include <asm/processor.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-static void resume_from_sleep(void)
-{
-	u32 magic = *(u32 *)0;
-
-	typedef void (*func_t)(void);
-	func_t resume = *(func_t *)4;
-
-	if (magic == 0xf5153ae5)
-		resume();
-
-	gd->flags &= ~GD_FLG_SILENT;
-	puts("\nResume from sleep failed: bad magic word\n");
-}
 
 /* Fixed sdram init -- doesn't use serial presence detect.
  *
@@ -68,12 +38,6 @@ static long fixed_sdram(void)
 	out_be32(&im->sysconf.ddrlaw[0].ar, LBLAWAR_EN | (msize_log2 - 1));
 	out_be32(&im->sysconf.ddrcdr, CONFIG_SYS_DDRCDR_VALUE);
 
-	/*
-	 * Erratum DDR3 requires a 50ms delay after clearing DDRCDR[DDR_cfg],
-	 * or the DDR2 controller may fail to initialize correctly.
-	 */
-	udelay(50000);
-
 	out_be32(&im->ddr.csbnds[0].csbnds, (msize - 1) >> 24);
 	out_be32(&im->ddr.cs_config[0], CONFIG_SYS_DDR_CS0_CONFIG);
 
@@ -86,13 +50,7 @@ static long fixed_sdram(void)
 	out_be32(&im->ddr.timing_cfg_2, CONFIG_SYS_DDR_TIMING_2);
 	out_be32(&im->ddr.timing_cfg_0, CONFIG_SYS_DDR_TIMING_0);
 
-	if (in_be32(&im->pmc.pmccr1) & PMCCR1_POWER_OFF) {
-		out_be32(&im->ddr.sdram_cfg,
-			CONFIG_SYS_DDR_SDRAM_CFG | SDRAM_CFG_BI);
-	} else {
-		out_be32(&im->ddr.sdram_cfg, CONFIG_SYS_DDR_SDRAM_CFG);
-	}
-
+	out_be32(&im->ddr.sdram_cfg, CONFIG_SYS_DDR_SDRAM_CFG);
 	out_be32(&im->ddr.sdram_cfg2, CONFIG_SYS_DDR_SDRAM_CFG2);
 	out_be32(&im->ddr.sdram_mode, CONFIG_SYS_DDR_MODE);
 	out_be32(&im->ddr.sdram_mode2, CONFIG_SYS_DDR_MODE2);
@@ -117,9 +75,6 @@ phys_size_t initdram(int board_type)
 
 	/* DDR SDRAM */
 	msize = fixed_sdram();
-
-	if (in_be32(&im->pmc.pmccr1) & PMCCR1_POWER_OFF)
-		resume_from_sleep();
 
 	/* return total bus SDRAM size(bytes)  -- DDR */
 	return msize;

@@ -2,23 +2,7 @@
  * Copyright (C) 2004-2008 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -35,7 +19,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(CONFIG_CMD_NET) && defined(CONFIG_NET_MULTI)
+#if defined(CONFIG_CMD_NET)
 #undef MII_DEBUG
 #undef ET_DEBUG
 
@@ -171,7 +155,7 @@ int mii_discover_phy(struct eth_device *dev)
 
 		for (phyno = 0; phyno < 32 && phyaddr < 0; ++phyno) {
 
-			phytype = mii_send(mk_mii_read(phyno, PHY_PHYIDR1));
+			phytype = mii_send(mk_mii_read(phyno, MII_PHYSID1));
 #ifdef ET_DEBUG
 			printf("PHY type 0x%x pass %d type\n", phytype, pass);
 #endif
@@ -180,13 +164,13 @@ int mii_discover_phy(struct eth_device *dev)
 			phyaddr = phyno;
 			phytype <<= 16;
 			phytype |=
-			    mii_send(mk_mii_read(phyno, PHY_PHYIDR2));
+			    mii_send(mk_mii_read(phyno, MII_PHYSID2));
 
 #ifdef ET_DEBUG
 			printf("PHY @ 0x%x pass %d\n", phyno, pass);
 #endif
 
-			for (i = 0; (i < (sizeof(phyinfo) / sizeof(phy_info_t)))
+			for (i = 0; (i < ARRAY_SIZE(phyinfo))
 				&& (phyinfo[i].phyid != 0); i++) {
 				if (phyinfo[i].phyid == phytype) {
 #ifdef ET_DEBUG
@@ -256,18 +240,18 @@ void __mii_init(void)
 		status = 0;
 		i++;
 		/* Read PHY control register */
-		miiphy_read(dev->name, info->phy_addr, PHY_BMCR, &status);
+		miiphy_read(dev->name, info->phy_addr, MII_BMCR, &status);
 
 		/* If phy set to autonegotiate, wait for autonegotiation done,
 		 * if phy is not autonegotiating, just wait for link up.
 		 */
-		if ((status & PHY_BMCR_AUTON) == PHY_BMCR_AUTON) {
-			linkgood = (PHY_BMSR_AUTN_COMP | PHY_BMSR_LS);
+		if ((status & BMCR_ANENABLE) == BMCR_ANENABLE) {
+			linkgood = (BMSR_ANEGCOMPLETE | BMSR_LSTATUS);
 		} else {
-			linkgood = PHY_BMSR_LS;
+			linkgood = BMSR_LSTATUS;
 		}
 		/* Read PHY status register */
-		miiphy_read(dev->name, info->phy_addr, PHY_BMSR, &status);
+		miiphy_read(dev->name, info->phy_addr, MII_BMSR, &status);
 		if ((status & linkgood) == linkgood)
 			break;
 
@@ -315,13 +299,11 @@ int mcffec_miiphy_read(const char *devname, unsigned char addr, unsigned char re
 int mcffec_miiphy_write(const char *devname, unsigned char addr, unsigned char reg,
 			unsigned short value)
 {
-	short rdreg;		/* register working value */
-
 #ifdef MII_DEBUG
 	printf("miiphy_write(0x%x) @ 0x%x = ", reg, addr);
 #endif
 
-	rdreg = mii_send(mk_mii_write(addr, reg, value));
+	mii_send(mk_mii_write(addr, reg, value));
 
 #ifdef MII_DEBUG
 	printf("0x%04x\n", value);
@@ -330,4 +312,4 @@ int mcffec_miiphy_write(const char *devname, unsigned char addr, unsigned char r
 	return 0;
 }
 
-#endif				/* CONFIG_CMD_NET, FEC_ENET & NET_MULTI */
+#endif				/* CONFIG_CMD_NET */

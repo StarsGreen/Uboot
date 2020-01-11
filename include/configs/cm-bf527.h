@@ -68,7 +68,6 @@
 #define CONFIG_BFIN_NFC_CTL_VAL	0x0033
 #define CONFIG_SYS_NAND_BASE		0 /* not actually used */
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
-#define NAND_MAX_CHIPS		1
 #define CONFIG_CMD_NAND
 #endif
 
@@ -82,12 +81,11 @@
 #define CONFIG_BFIN_MAC
 #define CONFIG_RMII
 #define CONFIG_NETCONSOLE	1
-#define CONFIG_NET_MULTI	1
 #endif
 #define CONFIG_HOSTNAME		cm-bf527
 /* Uncomment next line to use fixed MAC address */
 /* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
-
+#define CONFIG_LIB_RAND
 
 /*
  * Flash Settings
@@ -130,7 +128,6 @@
 #define FLASHBOOT_ENV_SETTINGS \
 	"flashboot=flread 20040000 1000000 300000;" \
 	"bootm 0x1000000\0"
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

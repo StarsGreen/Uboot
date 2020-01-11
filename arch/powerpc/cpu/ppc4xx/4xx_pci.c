@@ -1,26 +1,5 @@
-/*-----------------------------------------------------------------------------+
- *       This source code is dual-licensed.  You may use it under the terms of
- *       the GNU General Public license version 2, or under the license below.
- *
- *       This source code has been made available to you by IBM on an AS-IS
- *       basis.  Anyone receiving this source is licensed under IBM
- *       copyrights to use it in any way he or she deems fit, including
- *       copying it, modifying it, compiling it, and redistributing it either
- *       with or without modifications.  No license under IBM patents or
- *       patent applications is to be implied by the copyright license.
- *
- *       Any user of this software should understand that IBM cannot provide
- *       technical support for this software and will not be responsible for
- *       any consequences resulting from the use of this software.
- *
- *       Any person who transfers this source code or any derivative work
- *       must include the IBM copyright notice, this paragraph, and the
- *       preceding two paragraphs in the transferred software.
- *
- *       COPYRIGHT   I B M   CORPORATION 1995
- *       LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
- *-----------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------+
+/*
+ * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
  *
  *  File Name:   405gp_pci.c
  *
@@ -164,14 +143,14 @@ void pci_405gp_init(struct pci_controller *hose)
 	ptmla_str = getenv("ptm1la");
 	ptmms_str = getenv("ptm1ms");
 	if(NULL != ptmla_str && NULL != ptmms_str ) {
-	        ptmla[0] = simple_strtoul (ptmla_str, NULL, 16);
+		ptmla[0] = simple_strtoul (ptmla_str, NULL, 16);
 		ptmms[0] = simple_strtoul (ptmms_str, NULL, 16);
 	}
 
 	ptmla_str = getenv("ptm2la");
 	ptmms_str = getenv("ptm2ms");
 	if(NULL != ptmla_str && NULL != ptmms_str ) {
-	        ptmla[1] = simple_strtoul (ptmla_str, NULL, 16);
+		ptmla[1] = simple_strtoul (ptmla_str, NULL, 16);
 		ptmms[1] = simple_strtoul (ptmms_str, NULL, 16);
 	}
 #endif
@@ -594,35 +573,35 @@ int __pci_pre_init(struct pci_controller *hose)
 	 * Set priority for all PLB3 devices to 0.
 	 * Set PLB3 arbiter to fair mode.
 	 */
-	mfsdr(SD0_AMP1, reg);
-	mtsdr(SD0_AMP1, (reg & 0x000000FF) | 0x0000FF00);
-	reg = mfdcr(PLB3_ACR);
-	mtdcr(PLB3_ACR, reg | 0x80000000);
+	mfsdr(SDR0_AMP1, reg);
+	mtsdr(SDR0_AMP1, (reg & 0x000000FF) | 0x0000FF00);
+	reg = mfdcr(PLB3A0_ACR);
+	mtdcr(PLB3A0_ACR, reg | 0x80000000);
 
 	/*
 	 * Set priority for all PLB4 devices to 0.
 	 */
-	mfsdr(SD0_AMP0, reg);
-	mtsdr(SD0_AMP0, (reg & 0x000000FF) | 0x0000FF00);
-	reg = mfdcr(PLB4_ACR) | 0xa0000000;
-	mtdcr(PLB4_ACR, reg);
+	mfsdr(SDR0_AMP0, reg);
+	mtsdr(SDR0_AMP0, (reg & 0x000000FF) | 0x0000FF00);
+	reg = mfdcr(PLB4A0_ACR) | 0xa0000000;
+	mtdcr(PLB4A0_ACR, reg);
 
 	/*
 	 * Set Nebula PLB4 arbiter to fair mode.
 	 */
 	/* Segment0 */
-	reg = (mfdcr(PLB0_ACR) & ~PLB0_ACR_PPM_MASK) | PLB0_ACR_PPM_FAIR;
-	reg = (reg & ~PLB0_ACR_HBU_MASK) | PLB0_ACR_HBU_ENABLED;
-	reg = (reg & ~PLB0_ACR_RDP_MASK) | PLB0_ACR_RDP_4DEEP;
-	reg = (reg & ~PLB0_ACR_WRP_MASK) | PLB0_ACR_WRP_2DEEP;
-	mtdcr(PLB0_ACR, reg);
+	reg = (mfdcr(PLB4A0_ACR) & ~PLB4Ax_ACR_PPM_MASK) | PLB4Ax_ACR_PPM_FAIR;
+	reg = (reg & ~PLB4Ax_ACR_HBU_MASK) | PLB4Ax_ACR_HBU_ENABLED;
+	reg = (reg & ~PLB4Ax_ACR_RDP_MASK) | PLB4Ax_ACR_RDP_4DEEP;
+	reg = (reg & ~PLB4Ax_ACR_WRP_MASK) | PLB4Ax_ACR_WRP_2DEEP;
+	mtdcr(PLB4A0_ACR, reg);
 
 	/* Segment1 */
-	reg = (mfdcr(PLB1_ACR) & ~PLB1_ACR_PPM_MASK) | PLB1_ACR_PPM_FAIR;
-	reg = (reg & ~PLB1_ACR_HBU_MASK) | PLB1_ACR_HBU_ENABLED;
-	reg = (reg & ~PLB1_ACR_RDP_MASK) | PLB1_ACR_RDP_4DEEP;
-	reg = (reg & ~PLB1_ACR_WRP_MASK) | PLB1_ACR_WRP_2DEEP;
-	mtdcr(PLB1_ACR, reg);
+	reg = (mfdcr(PLB4A1_ACR) & ~PLB4Ax_ACR_PPM_MASK) | PLB4Ax_ACR_PPM_FAIR;
+	reg = (reg & ~PLB4Ax_ACR_HBU_MASK) | PLB4Ax_ACR_HBU_ENABLED;
+	reg = (reg & ~PLB4Ax_ACR_RDP_MASK) | PLB4Ax_ACR_RDP_4DEEP;
+	reg = (reg & ~PLB4Ax_ACR_WRP_MASK) | PLB4Ax_ACR_WRP_2DEEP;
+	mtdcr(PLB4A1_ACR, reg);
 
 #if defined(CONFIG_SYS_PCI_BOARD_FIXUP_IRQ)
 	hose->fixup_irq = board_pci_fixup_irq;
@@ -707,7 +686,7 @@ void pci_master_init(struct pci_controller *hose)
 #endif /* CONFIG_SYS_PCI_MASTER_INIT */
 
 #if defined(CONFIG_SYS_PCI_MASTER_INIT) || defined(CONFIG_SYS_PCI_TARGET_INIT)
-int pci_440_init (struct pci_controller *hose)
+static int pci_440_init (struct pci_controller *hose)
 {
 	int reg_num = 0;
 
@@ -859,7 +838,9 @@ void pci_init_board(void)
 	 * is selected.
 	 */
 #if defined(CONFIG_SYS_PCI_MASTER_INIT) || defined(CONFIG_SYS_PCI_TARGET_INIT)
-	busno = pci_440_init (&ppc440_hose);
+	busno = pci_440_init(&ppc440_hose);
+	if (busno < 0)
+		return;
 #endif
 #if (defined(CONFIG_440SPE) || \
     defined(CONFIG_460EX) || defined(CONFIG_460GT)) && \

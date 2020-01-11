@@ -14,7 +14,6 @@
 #define CONFIG_BFIN_CPU             bf533-0.3
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
 
-
 /*
  * Clock Settings
  *	CCLK = (CLKIN * VCO_MULT) / CCLK_DIV
@@ -38,7 +37,6 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			6 /* note: 1.2 boards can go faster */
 
-
 /*
  * Memory Settings
  */
@@ -60,7 +58,6 @@
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
-#define CONFIG_NET_MULTI
 #define CONFIG_SMC91111	1
 #define CONFIG_SMC91111_BASE	0x20300300
 #define SMC91111_EEPROM_INIT() \
@@ -75,6 +72,17 @@
 /* #define CONFIG_ETHADDR	02:80:ad:20:31:b8 */
 
 
+/* I2C */
+#define CONFIG_SYS_I2C
+#define CONFIG_SYS_I2C_SOFT		/* I2C bit-banged */
+#define CONFIG_SYS_I2C_SOFT_SPEED	50000
+#define CONFIG_SYS_I2C_SOFT_SLAVE	0
+/*
+ * Software (bit-bang) I2C driver configuration
+ */
+#define CONFIG_SOFT_I2C_GPIO_SCL	GPIO_PF3
+#define CONFIG_SOFT_I2C_GPIO_SDA	GPIO_PF2
+
 /*
  * Flash Settings
  */
@@ -85,19 +93,16 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	67
 
-
 /*
  * SPI Settings
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ	30000000
+/*
 #define CONFIG_SF_DEFAULT_SPEED	30000000
 #define CONFIG_SPI_FLASH
-#define CONFIG_SPI_FLASH_ATMEL
-#define CONFIG_SPI_FLASH_SPANSION
-#define CONFIG_SPI_FLASH_STMICRO
-#define CONFIG_SPI_FLASH_WINBOND
-
+#define CONFIG_SPI_FLASH_ALL
+*/
 
 /*
  * Env Storage Settings
@@ -126,23 +131,25 @@
  * it linked after the configuration sector.
  */
 # define LDS_BOARD_TEXT \
-	arch/blackfin/cpu/traps.o		(.text .text.*); \
-	arch/blackfin/cpu/interrupt.o	(.text .text.*); \
-	arch/blackfin/cpu/serial.o		(.text .text.*); \
-	common/dlmalloc.o		(.text .text.*); \
-	lib/crc32.o		(.text .text.*); \
+	arch/blackfin/lib/built-in.o (.text*); \
+	arch/blackfin/cpu/built-in.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
-	common/env_embedded.o		(.text .text.*);
+	common/env_embedded.o (.text*);
 #endif
 
 
 /*
  * I2C Settings
  */
-#define CONFIG_SOFT_I2C
+#define CONFIG_SYS_I2C_SOFT
+#ifdef CONFIG_SYS_I2C_SOFT
+#define CONFIG_SYS_I2C
 #define CONFIG_SOFT_I2C_GPIO_SCL GPIO_PF3
 #define CONFIG_SOFT_I2C_GPIO_SDA GPIO_PF2
-
+#define I2C_DELAY		udelay(5)	/* 1/4 I2C clock duration */
+#define CONFIG_SYS_I2C_SOFT_SPEED	50000
+#define CONFIG_SYS_I2C_SOFT_SLAVE	0
+#endif
 
 /*
  * Compact Flash / IDE / ATA Settings

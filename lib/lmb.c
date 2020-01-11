@@ -4,10 +4,7 @@
  * Peter Bergner, IBM Corp.	June 2001.
  * Copyright (C) 2001 Peter Bergner.
  *
- *      This program is free software; you can redistribute it and/or
- *      modify it under the terms of the GNU General Public License
- *      as published by the Free Software Foundation; either version
- *      2 of the License, or (at your option) any later version.
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -298,7 +295,10 @@ phys_addr_t __lmb_alloc_base(struct lmb *lmb, phys_size_t size, ulong align, phy
 		if (max_addr == LMB_ALLOC_ANYWHERE)
 			base = lmb_align_down(lmbbase + lmbsize - size, align);
 		else if (lmbbase < max_addr) {
-			base = min(lmbbase + lmbsize, max_addr);
+			base = lmbbase + lmbsize;
+			if (base < lmbbase)
+				base = -1;
+			base = min(base, max_addr);
 			base = lmb_align_down(base - size, align);
 		} else
 			continue;
@@ -335,14 +335,12 @@ int lmb_is_reserved(struct lmb *lmb, phys_addr_t addr)
 	return 0;
 }
 
-void __board_lmb_reserve(struct lmb *lmb)
+__weak void board_lmb_reserve(struct lmb *lmb)
 {
 	/* please define platform specific board_lmb_reserve() */
 }
-void board_lmb_reserve(struct lmb *lmb) __attribute__((weak, alias("__board_lmb_reserve")));
 
-void __arch_lmb_reserve(struct lmb *lmb)
+__weak void arch_lmb_reserve(struct lmb *lmb)
 {
 	/* please define platform specific arch_lmb_reserve() */
 }
-void arch_lmb_reserve(struct lmb *lmb) __attribute__((weak, alias("__arch_lmb_reserve")));

@@ -1,41 +1,24 @@
 /*
  * (C) Copyright 2007-2008
- * Stelian Pop <stelian.pop@leadtechdesign.com>
+ * Stelian Pop <stelian@popies.net>
  * Lead Tech Design <www.leadtechdesign.com>
  * Copyright (C) 2008 Ronetix Ilko Iliev (www.ronetix.at)
  * Copyright (C) 2009 Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
-#include <asm/sizes.h>
-#include <asm/arch/at91sam9263.h>
+#include <linux/sizes.h>
+#include <asm/io.h>
+#include <asm/gpio.h>
 #include <asm/arch/at91sam9_smc.h>
 #include <asm/arch/at91_common.h>
 #include <asm/arch/at91_pmc.h>
 #include <asm/arch/at91_rstc.h>
 #include <asm/arch/at91_matrix.h>
-#include <asm/arch/at91_pio.h>
 #include <asm/arch/clk.h>
-#include <asm/arch/io.h>
-#include <asm/arch/hardware.h>
+#include <asm/arch/gpio.h>
 #include <lcd.h>
 #include <atmel_lcdc.h>
 #include <dataflash.h>
@@ -55,8 +38,8 @@ DECLARE_GLOBAL_DATA_PTR;
 static void pm9263_nand_hw_init(void)
 {
 	unsigned long csa;
-	at91_smc_t 	*smc 	= (at91_smc_t *) AT91_SMC0_BASE;
-	at91_matrix_t 	*matrix = (at91_matrix_t *) AT91_MATRIX_BASE;
+	struct at91_smc *smc = (struct at91_smc *)ATMEL_BASE_SMC0;
+	struct at91_matrix *matrix = (struct at91_matrix *)ATMEL_BASE_MATRIX;
 
 	/* Enable CS3 */
 	csa = readl(&matrix->csa[0]) | AT91_MATRIX_CSA_EBI_CS3A;
@@ -85,18 +68,17 @@ static void pm9263_nand_hw_init(void)
 		&smc->cs[3].mode);
 
 	/* Configure RDY/BSY */
-	at91_set_pio_input(CONFIG_SYS_NAND_READY_PIN, 1);
+	gpio_direction_input(CONFIG_SYS_NAND_READY_PIN);
 
 	/* Enable NandFlash */
-	at91_set_pio_output(CONFIG_SYS_NAND_ENABLE_PIN, 1);
+	gpio_direction_output(CONFIG_SYS_NAND_ENABLE_PIN, 1);
 }
 #endif
 
 #ifdef CONFIG_MACB
 static void pm9263_macb_hw_init(void)
 {
-	at91_pmc_t	*pmc	= (at91_pmc_t *) AT91_PMC_BASE;
-	at91_pio_t	*pio	= (at91_pio_t *) AT91_PIO_BASE;
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
 
 	/*
 	 * PB27 enables the 50MHz oscillator for Ethernet PHY
@@ -107,7 +89,7 @@ static void pm9263_macb_hw_init(void)
 	at91_set_pio_value(AT91_PIO_PORTB, 27, 1); /* 1- enable, 0 - disable */
 
 	/* Enable clock */
-	writel(1 << AT91SAM9263_ID_EMAC, &pmc->pcer);
+	writel(1 << ATMEL_ID_EMAC, &pmc->pcer);
 
 	/*
 	 * Disable pull-up on:
@@ -133,20 +115,20 @@ static void pm9263_macb_hw_init(void)
 
 #ifdef CONFIG_LCD
 vidinfo_t panel_info = {
-	vl_col:		240,
-	vl_row:		320,
-	vl_clk:		4965000,
-	vl_sync:	ATMEL_LCDC_INVLINE_INVERTED |
-			ATMEL_LCDC_INVFRAME_INVERTED,
-	vl_bpix:	3,
-	vl_tft:		1,
-	vl_hsync_len:	5,
-	vl_left_margin:	1,
-	vl_right_margin:33,
-	vl_vsync_len:	1,
-	vl_upper_margin:1,
-	vl_lower_margin:0,
-	mmio:		AT91SAM9263_LCDC_BASE,
+	.vl_col =		240,
+	.vl_row =		320,
+	.vl_clk =		4965000,
+	.vl_sync =		ATMEL_LCDC_INVLINE_INVERTED |
+					ATMEL_LCDC_INVFRAME_INVERTED,
+	.vl_bpix =		3,
+	.vl_tft =		1,
+	.vl_hsync_len =		5,
+	.vl_left_margin =	1,
+	.vl_right_margin =	33,
+	.vl_vsync_len =		1,
+	.vl_upper_margin =	1,
+	.vl_lower_margin =	0,
+	.mmio =			ATMEL_BASE_LCDC,
 };
 
 void lcd_enable(void)
@@ -167,10 +149,9 @@ void lcd_disable(void)
 /* Initialize the PSRAM memory */
 static int pm9263_lcd_hw_psram_init(void)
 {
-	volatile uint16_t x;
 	unsigned long csa;
-	at91_smc_t 	*smc 	= (at91_smc_t *) AT91_SMC1_BASE;
-	at91_matrix_t 	*matrix = (at91_matrix_t *) AT91_MATRIX_BASE;
+	struct at91_smc *smc = (struct at91_smc *)ATMEL_BASE_SMC1;
+	struct at91_matrix *matrix = (struct at91_matrix *)ATMEL_BASE_MATRIX;
 
 	/* Enable CS3  3.3v, no pull-ups */
 	csa = readl(&matrix->csa[1]) | AT91_MATRIX_CSA_DBPUC |
@@ -199,14 +180,14 @@ static int pm9263_lcd_hw_psram_init(void)
 	at91_set_pio_value(PSRAM_CRE_PIN, 0);	/* set PSRAM_CRE_PIN to '0' */
 
 	/* PSRAM: write BCR */
-	x = readw(PSRAM_CTRL_REG);
-	x = readw(PSRAM_CTRL_REG);
+	readw(PSRAM_CTRL_REG);
+	readw(PSRAM_CTRL_REG);
 	writew(1, PSRAM_CTRL_REG);	/* 0 - RCR,1 - BCR */
 	writew(0x9d4f, PSRAM_CTRL_REG);	/* write the BCR */
 
 	/* write RCR of the PSRAM */
-	x = readw(PSRAM_CTRL_REG);
-	x = readw(PSRAM_CTRL_REG);
+	readw(PSRAM_CTRL_REG);
+	readw(PSRAM_CTRL_REG);
 	writew(0, PSRAM_CTRL_REG);	/* 0 - RCR,1 - BCR */
 	/* set RCR; 0x10-async mode,0x90-page mode */
 	writew(0x90, PSRAM_CTRL_REG);
@@ -225,8 +206,8 @@ static int pm9263_lcd_hw_psram_init(void)
 		at91_set_pio_value(PSRAM_CRE_PIN, 1); /* set PSRAM_CRE_PIN to '1' */
 
 		/* write RCR of the PSRAM */
-		x = readw(PSRAM_CTRL_REG);
-		x = readw(PSRAM_CTRL_REG);
+		readw(PSRAM_CTRL_REG);
+		readw(PSRAM_CTRL_REG);
 		writew(0, PSRAM_CTRL_REG);	/* 0 - RCR,1 - BCR */
 		/* set RCR;0x10-async mode,0x90-page mode */
 		writew(0x90, PSRAM_CTRL_REG);
@@ -250,7 +231,7 @@ static int pm9263_lcd_hw_psram_init(void)
 
 static void pm9263_lcd_hw_init(void)
 {
-	at91_pmc_t	*pmc	= (at91_pmc_t *) AT91_PMC_BASE;
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
 
 	at91_set_a_periph(AT91_PIO_PORTC, 0, 0);	/* LCDVSYNC */
 	at91_set_a_periph(AT91_PIO_PORTC, 1, 0);	/* LCDHSYNC */
@@ -276,7 +257,7 @@ static void pm9263_lcd_hw_init(void)
 	at91_set_a_periph(AT91_PIO_PORTC, 26, 0);	/* LCDD22 */
 	at91_set_a_periph(AT91_PIO_PORTC, 27, 0);	/* LCDD23 */
 
-	writel(1 << AT91SAM9263_ID_LCDC, &pmc->pcer);
+	writel(1 << ATMEL_ID_LCDC, &pmc->pcer);
 
 	/* Power Control */
 	at91_set_pio_output(AT91_PIO_PORTA, 22, 1);
@@ -286,9 +267,9 @@ static void pm9263_lcd_hw_init(void)
 	/* initialize te PSRAM */
 	int stat = pm9263_lcd_hw_psram_init();
 
-	gd->fb_base = (stat == 0) ? PHYS_PSRAM : AT91SAM9263_SRAM0_BASE;
+	gd->fb_base = (stat == 0) ? PHYS_PSRAM : ATMEL_BASE_SRAM0;
 #else
-	gd->fb_base = AT91SAM9263_SRAM0_BASE;
+	gd->fb_base = ATMEL_BASE_SRAM0;
 #endif
 
 }
@@ -340,25 +321,28 @@ void lcd_show_board_info(void)
 
 #endif /* CONFIG_LCD */
 
-int board_init(void)
+int board_early_init_f(void)
 {
-	at91_pmc_t	*pmc	= (at91_pmc_t *) AT91_PMC_BASE;
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
 
-	/* Enable Ctrlc */
-	console_init_f();
-
-	writel((1 << AT91SAM9263_ID_PIOA) |
-		(1 << AT91SAM9263_ID_PIOCDE) |
-		(1 << AT91SAM9263_ID_PIOB),
+	/* Enable clocks for all PIOs */
+	writel((1 << ATMEL_ID_PIOA) | (1 << ATMEL_ID_PIOB) |
+		(1 << ATMEL_ID_PIOCDE),
 		&pmc->pcer);
 
+	at91_seriald_hw_init();
+
+	return 0;
+}
+
+int board_init(void)
+{
 	/* arch number of AT91SAM9263EK-Board */
 	gd->bd->bi_arch_number = MACH_TYPE_PM9263;
 
 	/* adress of boot parameters */
 	gd->bd->bi_boot_params = PHYS_SDRAM + 0x100;
 
-	at91_serial_hw_init();
 #ifdef CONFIG_CMD_NAND
 	pm9263_nand_hw_init();
 #endif
@@ -379,9 +363,16 @@ int board_init(void)
 
 int dram_init(void)
 {
+	/* dram_init must store complete ramsize in gd->ram_size */
+	gd->ram_size = get_ram_size((void *)PHYS_SDRAM,
+				PHYS_SDRAM_SIZE);
+	return 0;
+}
+
+void dram_init_banksize(void)
+{
 	gd->bd->bi_dram[0].start = PHYS_SDRAM;
 	gd->bd->bi_dram[0].size = PHYS_SDRAM_SIZE;
-	return 0;
 }
 
 #ifdef CONFIG_RESET_PHY_R
@@ -394,7 +385,7 @@ int board_eth_init(bd_t *bis)
 {
 	int rc = 0;
 #ifdef CONFIG_MACB
-	rc = macb_eth_initialize(0, (void *)AT91_EMAC_BASE, 0x01);
+	rc = macb_eth_initialize(0, (void *)ATMEL_BASE_EMAC, 0x01);
 #endif
 	return rc;
 }
@@ -411,7 +402,7 @@ int checkboard (void)
 		ss = "(PSRAM)";
 		break;
 
-	case AT91SAM9263_SRAM0_BASE:
+	case ATMEL_BASE_SRAM0:
 		ss = "(Internal SRAM)";
 		break;
 

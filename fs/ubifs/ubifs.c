@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2006-2008 Nokia Corporation.
  *
- * (C) Copyright 2008-2009
+ * (C) Copyright 2008-2010
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,6 +26,9 @@
 #include "ubifs.h"
 #include <u-boot/zlib.h>
 
+#include <linux/err.h>
+#include <linux/lzo.h>
+
 DECLARE_GLOBAL_DATA_PTR;
 
 /* compress.c */
@@ -37,27 +40,34 @@ DECLARE_GLOBAL_DATA_PTR;
 static int gzip_decompress(const unsigned char *in, size_t in_len,
 			   unsigned char *out, size_t *out_len)
 {
-	unsigned long len = in_len;
-	return zunzip(out, *out_len, (unsigned char *)in, &len, 0, 0);
+	return zunzip(out, *out_len, (unsigned char *)in,
+		      (unsigned long *)out_len, 0, 0);
 }
 
 /* Fake description object for the "none" compressor */
 static struct ubifs_compressor none_compr = {
 	.compr_type = UBIFS_COMPR_NONE,
-	.name = "no compression",
+	.name = "none",
 	.capi_name = "",
 	.decompress = NULL,
 };
 
 static struct ubifs_compressor lzo_compr = {
 	.compr_type = UBIFS_COMPR_LZO,
-	.name = "LZO",
+#ifndef __UBOOT__
+	.comp_mutex = &lzo_mutex,
+#endif
+	.name = "lzo",
 	.capi_name = "lzo",
 	.decompress = lzo1x_decompress_safe,
 };
 
 static struct ubifs_compressor zlib_compr = {
 	.compr_type = UBIFS_COMPR_ZLIB,
+#ifndef __UBOOT__
+	.comp_mutex = &deflate_mutex,
+	.decomp_mutex = &inflate_mutex,
+#endif
 	.name = "zlib",
 	.capi_name = "deflate",
 	.decompress = gzip_decompress,
@@ -65,6 +75,82 @@ static struct ubifs_compressor zlib_compr = {
 
 /* All UBIFS compressors */
 struct ubifs_compressor *ubifs_compressors[UBIFS_COMPR_TYPES_CNT];
+
+
+#ifdef __UBOOT__
+/* from mm/util.c */
+
+/**
+ * kmemdup - duplicate region of memory
+ *
+ * @src: memory region to duplicate
+ * @len: memory region length
+ * @gfp: GFP mask to use
+ */
+void *kmemdup(const void *src, size_t len, gfp_t gfp)
+{
+	void *p;
+
+	p = kmalloc(len, gfp);
+	if (p)
+		memcpy(p, src, len);
+	return p;
+}
+
+struct crypto_comp {
+	int compressor;
+};
+
+static inline struct crypto_comp *crypto_alloc_comp(const char *alg_name,
+						u32 type, u32 mask)
+{
+	struct ubifs_compressor *comp;
+	struct crypto_comp *ptr;
+	int i = 0;
+
+	ptr = malloc(sizeof(struct crypto_comp));
+	while (i < UBIFS_COMPR_TYPES_CNT) {
+		comp = ubifs_compressors[i];
+		if (!comp) {
+			i++;
+			continue;
+		}
+		if (strncmp(alg_name, comp->capi_name, strlen(alg_name)) == 0) {
+			ptr->compressor = i;
+			return ptr;
+		}
+		i++;
+	}
+	if (i >= UBIFS_COMPR_TYPES_CNT) {
+		ubifs_err("invalid compression type %s", alg_name);
+		free (ptr);
+		return NULL;
+	}
+	return ptr;
+}
+static inline int crypto_comp_decompress(struct crypto_comp *tfm,
+				const u8 *src, unsigned int slen,
+				u8 *dst, unsigned int *dlen)
+{
+	struct ubifs_compressor *compr = ubifs_compressors[tfm->compressor];
+	int err;
+
+	if (compr->compr_type == UBIFS_COMPR_NONE) {
+		memcpy(dst, src, slen);
+		*dlen = slen;
+		return 0;
+	}
+
+	err = compr->decompress(src, slen, dst, (size_t *)dlen);
+	if (err)
+		ubifs_err("cannot decompress %d bytes, compressor %s, "
+			  "error %d", slen, compr->name, err);
+
+	return err;
+
+	return 0;
+}
+#endif
 
 /**
  * ubifs_decompress - decompress data.
@@ -102,10 +188,15 @@ int ubifs_decompress(const void *in_buf, int in_len, void *out_buf,
 		return 0;
 	}
 
-	err = compr->decompress(in_buf, in_len, out_buf, (size_t *)out_len);
+	if (compr->decomp_mutex)
+		mutex_lock(compr->decomp_mutex);
+	err = crypto_comp_decompress(compr->cc, in_buf, in_len, out_buf,
+				     (unsigned int *)out_len);
+	if (compr->decomp_mutex)
+		mutex_unlock(compr->decomp_mutex);
 	if (err)
-		ubifs_err("cannot decompress %d bytes, compressor %s, "
-			  "error %d", in_len, compr->name, err);
+		ubifs_err("cannot decompress %d bytes, compressor %s, error %d",
+			  in_len, compr->name, err);
 
 	return err;
 }
@@ -121,11 +212,20 @@ static int __init compr_init(struct ubifs_compressor *compr)
 {
 	ubifs_compressors[compr->compr_type] = compr;
 
-#ifndef CONFIG_RELOC_FIXUP_WORKS
+#ifdef CONFIG_NEEDS_MANUAL_RELOC
 	ubifs_compressors[compr->compr_type]->name += gd->reloc_off;
 	ubifs_compressors[compr->compr_type]->capi_name += gd->reloc_off;
 	ubifs_compressors[compr->compr_type]->decompress += gd->reloc_off;
 #endif
+
+	if (compr->capi_name) {
+		compr->cc = crypto_alloc_comp(compr->capi_name, 0, 0);
+		if (IS_ERR(compr->cc)) {
+			ubifs_err("cannot initialize compressor %s, error %ld",
+				  compr->name, PTR_ERR(compr->cc));
+			return PTR_ERR(compr->cc);
+		}
+	}
 
 	return 0;
 }
@@ -188,7 +288,9 @@ static int filldir(struct ubifs_info *c, const char *name, int namlen,
 	}
 	ctime_r((time_t *)&inode->i_mtime, filetime);
 	printf("%9lld  %24.24s  ", inode->i_size, filetime);
+#ifndef __UBOOT__
 	ubifs_iput(inode);
+#endif
 
 	printf("%s\n", name);
 
@@ -295,6 +397,7 @@ static int ubifs_finddir(struct super_block *sb, char *dirname,
 	struct file *file;
 	struct dentry *dentry;
 	struct inode *dir;
+	int ret = 0;
 
 	file = kzalloc(sizeof(struct file), 0);
 	dentry = kzalloc(sizeof(struct dentry), 0);
@@ -336,7 +439,8 @@ static int ubifs_finddir(struct super_block *sb, char *dirname,
 		if ((strncmp(dirname, (char *)dent->name, nm.len) == 0) &&
 		    (strlen(dirname) == nm.len)) {
 			*inum = le64_to_cpu(dent->inum);
-			return 1;
+			ret = 1;
+			goto out_free;
 		}
 
 		/* Switch to the next entry */
@@ -355,11 +459,12 @@ static int ubifs_finddir(struct super_block *sb, char *dirname,
 	}
 
 out:
-	if (err != -ENOENT) {
+	if (err != -ENOENT)
 		ubifs_err("cannot find next direntry, error %d", err);
-		return err;
-	}
 
+out_free:
+	if (file->private_data)
+		kfree(file->private_data);
 	if (file)
 		free(file);
 	if (dentry)
@@ -367,11 +472,7 @@ out:
 	if (dir)
 		free(dir);
 
-	if (file->private_data)
-		kfree(file->private_data);
-	file->private_data = NULL;
-	file->f_pos = 2;
-	return 0;
+	return ret;
 }
 
 static unsigned long ubifs_findfile(struct super_block *sb, char *filename)
@@ -384,6 +485,7 @@ static unsigned long ubifs_findfile(struct super_block *sb, char *filename)
 	unsigned long root_inum = 1;
 	unsigned long inum;
 	int symlink_count = 0; /* Don't allow symlink recursion */
+	char link_name[64];
 
 	strcpy(fpath, filename);
 
@@ -420,7 +522,6 @@ static unsigned long ubifs_findfile(struct super_block *sb, char *filename)
 		ui = ubifs_inode(inode);
 
 		if ((inode->i_mode & S_IFMT) == S_IFLNK) {
-			char link_name[64];
 			char buf[128];
 
 			/* We have some sort of symlink recursion, bail out */
@@ -563,11 +664,12 @@ static int read_block(struct inode *inode, void *addr, unsigned int block,
 dump:
 	ubifs_err("bad data node (block %u, inode %lu)",
 		  block, inode->i_ino);
-	dbg_dump_node(c, dn);
+	ubifs_dump_node(c, dn);
 	return -EINVAL;
 }
 
-static int do_readpage(struct ubifs_info *c, struct inode *inode, struct page *page)
+static int do_readpage(struct ubifs_info *c, struct inode *inode,
+		       struct page *page, int last_block_size)
 {
 	void *addr;
 	int err = 0, i;
@@ -601,17 +703,54 @@ static int do_readpage(struct ubifs_info *c, struct inode *inode, struct page *p
 			err = -ENOENT;
 			memset(addr, 0, UBIFS_BLOCK_SIZE);
 		} else {
-			ret = read_block(inode, addr, block, dn);
-			if (ret) {
-				err = ret;
-				if (err != -ENOENT)
-					break;
-			} else if (block + 1 == beyond) {
-				int dlen = le32_to_cpu(dn->size);
-				int ilen = i_size & (UBIFS_BLOCK_SIZE - 1);
+			/*
+			 * Reading last block? Make sure to not write beyond
+			 * the requested size in the destination buffer.
+			 */
+			if (((block + 1) == beyond) || last_block_size) {
+				void *buff;
+				int dlen;
 
-				if (ilen && ilen < dlen)
-					memset(addr + ilen, 0, dlen - ilen);
+				/*
+				 * We need to buffer the data locally for the
+				 * last block. This is to not pad the
+				 * destination area to a multiple of
+				 * UBIFS_BLOCK_SIZE.
+				 */
+				buff = malloc(UBIFS_BLOCK_SIZE);
+				if (!buff) {
+					printf("%s: Error, malloc fails!\n",
+					       __func__);
+					err = -ENOMEM;
+					break;
+				}
+
+				/* Read block-size into temp buffer */
+				ret = read_block(inode, buff, block, dn);
+				if (ret) {
+					err = ret;
+					if (err != -ENOENT) {
+						free(buff);
+						break;
+					}
+				}
+
+				if (last_block_size)
+					dlen = last_block_size;
+				else
+					dlen = le32_to_cpu(dn->size);
+
+				/* Now copy required size back to dest */
+				memcpy(addr, buff, dlen);
+
+				free(buff);
+			} else {
+				ret = read_block(inode, addr, block, dn);
+				if (ret) {
+					err = ret;
+					if (err != -ENOENT)
+						break;
+				}
 			}
 		}
 		if (++i >= UBIFS_BLOCKS_PER_PAGE)
@@ -649,6 +788,7 @@ int ubifs_load(char *filename, u32 addr, u32 size)
 	int err = 0;
 	int i;
 	int count;
+	int last_block_size = 0;
 
 	c->ubi = ubi_open_volume(c->vi.ubi_num, c->vi.vol_id, UBI_READONLY);
 	/* ubifs_findfile will resolve symlinks, so we know that we get
@@ -684,7 +824,13 @@ int ubifs_load(char *filename, u32 addr, u32 size)
 	page.index = 0;
 	page.inode = inode;
 	for (i = 0; i < count; i++) {
-		err = do_readpage(c, inode, &page);
+		/*
+		 * Make sure to not read beyond the requested size
+		 */
+		if (((i + 1) == count) && (size < inode->i_size))
+			last_block_size = size - (i * PAGE_SIZE);
+
+		err = do_readpage(c, inode, &page, last_block_size);
 		if (err)
 			break;
 
@@ -694,8 +840,10 @@ int ubifs_load(char *filename, u32 addr, u32 size)
 
 	if (err)
 		printf("Error reading file '%s'\n", filename);
-	else
+	else {
+		setenv_hex("filesize", size);
 		printf("Done\n");
+	}
 
 	ubifs_iput(inode);
 

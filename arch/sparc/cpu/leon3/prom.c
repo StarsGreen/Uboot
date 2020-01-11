@@ -4,24 +4,7 @@
  * Copyright (C) 2004 Stefan Holst <mail@s-holst.de>
  * Copyright (C) 2007 Daniel Hellstrom <daniel@gaisler.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
- *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -54,9 +37,9 @@ extern int __prom_start;
 #define PROM_SIZE_MASK (PROM_OFFS-1)
 #define __va(x) ( \
 	(void *)( ((unsigned long)(x))-PROM_OFFS+ \
-	(CONFIG_SYS_PROM_OFFSET-phys_base)+PAGE_OFFSET-TEXT_BASE ) \
+	(CONFIG_SYS_PROM_OFFSET-phys_base)+PAGE_OFFSET-CONFIG_SYS_TEXT_BASE ) \
 	)
-#define __phy(x) ((void *)(((unsigned long)(x))-PROM_OFFS+CONFIG_SYS_PROM_OFFSET-TEXT_BASE))
+#define __phy(x) ((void *)(((unsigned long)(x))-PROM_OFFS+CONFIG_SYS_PROM_OFFSET-CONFIG_SYS_TEXT_BASE))
 
 struct property {
 	char *name;

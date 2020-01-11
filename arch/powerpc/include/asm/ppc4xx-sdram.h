@@ -2,23 +2,7 @@
  * (C) Copyright 2008
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _PPC4xx_SDRAM_H_
@@ -365,7 +349,7 @@
 /*
  * Memory controller registers
  */
-#ifdef CONFIG_405EX
+#if defined(CONFIG_405EX)
 #define SDRAM_BESR	0x00	/* PLB bus error status (read/clear)         */
 #define SDRAM_BESRT	0x01	/* PLB bus error status (test/set)           */
 #define SDRAM_BEARL	0x02	/* PLB bus error address low                 */
@@ -423,12 +407,12 @@
 #define SDRAM_MEMODE	0x89	/* memory extended mode                      */
 #define SDRAM_ECCES	0x98	/* ECC error status                          */
 #define SDRAM_CID	0xA4	/* core ID                                   */
-#ifndef CONFIG_405EX
+#if !defined(CONFIG_405EX)
 #define SDRAM_RID	0xA8	/* revision ID                               */
 #endif
 #define SDRAM_FCSR	0xB0	/* feedback calibration status               */
 #define SDRAM_RTSR	0xB1	/* run time status tracking                  */
-#ifdef CONFIG_405EX
+#if  defined(CONFIG_405EX)
 #define SDRAM_RID	0xF8	/* revision ID                               */
 #endif
 
@@ -951,8 +935,6 @@
 #define SDRAM_RTSR_TRK1SM_ATPLS1	0x80000000	/* atpls1 state		*/
 #define SDRAM_RTSR_TRK1SM_RESET		0xC0000000	/* reset  state		*/
 
-#define SDR0_MFR_FIXD			0x10000000	/* Workaround for PCI/DMA */
-
 #endif /* CONFIG_SDRAM_PPC4xx_IBM_DDR2 */
 
 #if defined(CONFIG_SDRAM_PPC4xx_DENALI_DDR2)
@@ -1406,7 +1388,7 @@ struct sdram_timing {
 /*
  * Prototypes
  */
-inline void ppc4xx_ibm_ddr2_register_dump(void);
+void ppc4xx_ibm_ddr2_register_dump(void);
 u32 mfdcr_any(u32);
 void mtdcr_any(u32, u32);
 u32 ddr_wrdtr(u32);

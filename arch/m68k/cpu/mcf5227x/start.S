@@ -2,27 +2,11 @@
  * Copyright (C) 2003	Josef Baumgartner <josef.baumgartner@telex.de>
  * Based on code from Bernhard Kuhn <bkuhn@metrowerks.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <asm-offsets.h>
 #include <config.h>
-#include <timestamp.h>
 #include "version.h"
 #include <asm/cache.h>
 
@@ -44,8 +28,8 @@
 	rte;
 
 #if defined(CONFIG_CF_SBF)
-#define ASM_DRAMINIT	(asm_dram_init - TEXT_BASE + CONFIG_SYS_INIT_RAM_ADDR)
-#define ASM_SBF_IMG_HDR	(asm_sbf_img_hdr - TEXT_BASE + CONFIG_SYS_INIT_RAM_ADDR)
+#define ASM_DRAMINIT	(asm_dram_init - CONFIG_SYS_TEXT_BASE + CONFIG_SYS_INIT_RAM_ADDR)
+#define ASM_SBF_IMG_HDR	(asm_sbf_img_hdr - CONFIG_SYS_TEXT_BASE + CONFIG_SYS_INIT_RAM_ADDR)
 #endif
 
 .text
@@ -138,7 +122,7 @@ vector192_255:
 asm_sbf_img_hdr:
 	.long	0x00000000	/* checksum, not yet implemented */
 	.long	0x00020000	/* image length */
-	.long	TEXT_BASE	/* image to be relocated at */
+	.long	CONFIG_SYS_TEXT_BASE	/* image to be relocated at */
 
 asm_dram_init:
 	move.l	#(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_RAM_CTRL), %d0
@@ -330,7 +314,7 @@ asm_dspi_rd_loop2:
 	jsr	asm_dspi_rd_status
 
 	/* jump to memory and execute */
-	move.l	#(TEXT_BASE + 0x400), %a0
+	move.l	#(CONFIG_SYS_TEXT_BASE + 0x400), %a0
 	move.l	%a0, (%a1)
 	jmp	(%a0)
 
@@ -364,7 +348,7 @@ _start:
 
 	/* Set vector base register at the beginning of the Flash */
 #if defined(CONFIG_CF_SBF)
-	move.l	#TEXT_BASE, %d0
+	move.l	#CONFIG_SYS_TEXT_BASE, %d0
 	movec	%d0, %VBR
 #else
 	move.l	#CONFIG_SYS_FLASH_BASE, %d0
@@ -485,7 +469,7 @@ clear_bss:
 /* exception code */
 	.globl _fault
 _fault:
-	jmp _fault
+	bra _fault
 	.globl	_exc_handler
 
 _exc_handler:
@@ -507,7 +491,5 @@ _int_handler:
 
 	.globl	version_string
 version_string:
-	.ascii U_BOOT_VERSION
-	.ascii " (", U_BOOT_DATE, " - ", U_BOOT_TIME, ")"
-	.ascii CONFIG_IDENT_STRING, "\0"
+	.ascii U_BOOT_VERSION_STRING, "\0"
 	.align 4

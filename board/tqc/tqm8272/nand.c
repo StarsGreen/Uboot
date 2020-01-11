@@ -2,23 +2,7 @@
  * (C) Copyright 2008
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -204,6 +188,7 @@ static void tqm8272_write_buf(struct mtd_info *mtdinfo, const uint8_t *buf, int 
 		*base = buf[i];
 }
 
+#if defined(CONFIG_MTD_NAND_VERIFY_WRITE)
 static int tqm8272_verify_buf(struct mtd_info *mtdinfo, const uint8_t *buf, int len)
 {
 	struct nand_chip *this = mtdinfo->priv;
@@ -215,6 +200,7 @@ static int tqm8272_verify_buf(struct mtd_info *mtdinfo, const uint8_t *buf, int 
 			return -1;
 	return 0;
 }
+#endif
 #endif /* #ifndef CONFIG_NAND_SPL */
 
 void board_nand_select_device(struct nand_chip *nand, int chip)
@@ -263,7 +249,9 @@ int board_nand_init(struct nand_chip *nand)
 #ifndef CONFIG_NAND_SPL
 	nand->write_buf	 = tqm8272_write_buf;
 	nand->read_buf	 = tqm8272_read_buf;
+#if defined(CONFIG_MTD_NAND_VERIFY_WRITE)
 	nand->verify_buf = tqm8272_verify_buf;
+#endif
 #endif
 
 	/*

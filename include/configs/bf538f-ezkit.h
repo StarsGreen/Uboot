@@ -60,7 +60,6 @@
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
-#define CONFIG_NET_MULTI
 #define CONFIG_SMC91111	1
 #define CONFIG_SMC91111_BASE	0x20310300
 #define CONFIG_HOSTNAME		bf538f-ezkit
@@ -84,13 +83,11 @@
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ	30000000
+/*
 #define CONFIG_SF_DEFAULT_SPEED	30000000
 #define CONFIG_SPI_FLASH
-#define CONFIG_SPI_FLASH_ATMEL
-#define CONFIG_SPI_FLASH_SPANSION
-#define CONFIG_SPI_FLASH_STMICRO
-#define CONFIG_SPI_FLASH_WINBOND
-
+#define CONFIG_SPI_FLASH_ALL
+*/
 
 /*
  * Env Storage Settings
@@ -119,13 +116,10 @@
  * it linked after the configuration sector.
  */
 # define LDS_BOARD_TEXT \
-	arch/blackfin/cpu/traps.o		(.text .text.*); \
-	arch/blackfin/cpu/interrupt.o	(.text .text.*); \
-	arch/blackfin/cpu/serial.o		(.text .text.*); \
-	common/dlmalloc.o		(.text .text.*); \
-	lib/crc32.o		(.text .text.*); \
+	arch/blackfin/lib/built-in.o (.text*); \
+	arch/blackfin/cpu/built-in.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
-	common/env_embedded.o		(.text .text.*);
+	common/env_embedded.o (.text*);
 #endif
 
 
@@ -141,7 +135,6 @@
  */
 #define CONFIG_RTC_BFIN
 #define CONFIG_UART_CONSOLE	0
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

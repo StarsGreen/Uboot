@@ -3,20 +3,7 @@
  *    Bruno Hars (Bruno.Hars@netstal.com)
  *    Niklaus Giger (Niklaus.Giger@netstal.com)
  *
- *    This source code is free software; you can redistribute it
- *    and/or modify it in source code form under the terms of the GNU
- *    General Public License as published by the Free Software
- *    Foundation; either version 2 of the License, or (at your option)
- *    any later version.
- *
- *    This program is distributed in the hope that it will be useful,
- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
- *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *    GNU General Public License for more details.
- *
- *    You should have received a copy of the GNU General Public License
- *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -28,7 +15,7 @@
 #include <asm/processor.h>
 #include <asm/io.h>
 #include <asm/ppc4xx-uic.h>
-#include <ppc4xx_enet.h>
+#include <asm/ppc4xx-emac.h>
 
 enum REGISTER_TYPE {
 	IDCR1,	/* Indirectly Accessed DCR via SDRAM0_CFGADDR/SDRAM0_CFGDATA */
@@ -108,9 +95,9 @@ const struct cpu_register ppc4xx_reg[] = {
 	{"SDR0_SDSTP3",		IDCR6,	SDR0_SDSTP3},
 	{"SDR0_CUST0",		IDCR6,	SDR0_CUST0},
 	{"SDR0_CUST1",		IDCR6,	SDR0_CUST1},
-	{"SDR0_EBC0",		IDCR6,	SDR0_EBC0},
-	{"SDR0_AMP0",		IDCR6,	SD0_AMP0},
-	{"SDR0_AMP1",		IDCR6,	SD0_AMP1},
+	{"SDR0_EBC",		IDCR6,	SDR0_EBC},
+	{"SDR0_AMP0",		IDCR6,	SDR0_AMP0},
+	{"SDR0_AMP1",		IDCR6,	SDR0_AMP1},
 	{"SDR0_CP440",		IDCR6,	SDR0_CP440},
 	{"SDR0_CRYP0",		IDCR6,	SDR0_CRYP0},
 	{"SDR0_DDRCFG",		IDCR6,	SDR0_DDRCFG},

@@ -9,23 +9,7 @@
  *
  * (C) Copyright 2002 Scott McNutt <smcnutt@artesyncp.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 
@@ -34,13 +18,11 @@
 #include <asm/processor.h>
 #include <asm/mmu.h>
 #include <asm/immap_85xx.h>
-#include <asm/fsl_ddr_sdram.h>
+#include <fsl_ddr_sdram.h>
 #include <ioports.h>
 #include <asm/io.h>
 #include <spd_sdram.h>
 #include <miiphy.h>
-
-long int fixed_sdram (void);
 
 /*
  * I/O Port configuration table
@@ -242,10 +224,10 @@ reset_phy(void)
 	miiphy_reset("FCC1", 0x0);
 
 	/* change PHY address to 0x02 */
-	bb_miiphy_write(NULL, 0, PHY_MIPSCR, 0xf028);
+	bb_miiphy_write(NULL, 0, MII_MIPSCR, 0xf028);
 
-	bb_miiphy_write(NULL, 0x02, PHY_BMCR,
-			PHY_BMCR_AUTON | PHY_BMCR_RST_NEG);
+	bb_miiphy_write(NULL, 0x02, MII_BMCR,
+			BMCR_ANENABLE | BMCR_ANRESTART);
 #endif /* CONFIG_MII */
 #endif
 }
@@ -275,36 +257,6 @@ show_activity(int flag)
 	*blatch = (0xc0 | led_bit);
 	eieio();
 	next_led_update += (get_tbclk() / 4);
-}
-
-phys_size_t
-initdram (int board_type)
-{
-	long dram_size = 0;
-
-#if defined(CONFIG_DDR_DLL)
-	{
-		volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
-		uint temp_ddrdll = 0;
-
-		/* Work around to stabilize DDR DLL */
-		temp_ddrdll = gur->ddrdllcr;
-		gur->ddrdllcr = ((temp_ddrdll & 0xff) << 16) | 0x80000000;
-		asm("sync;isync;msync");
-	}
-#endif
-
-	dram_size = fsl_ddr_sdram();
-	dram_size = setup_ddr_tlbs(dram_size / 0x100000);
-	dram_size *= 0x100000;
-
-#if defined(CONFIG_DDR_ECC)
-	/* Initialize and enable DDR ECC.
-	*/
-	ddr_enable_ecc(dram_size);
-#endif
-
-	return dram_size;
 }
 
 

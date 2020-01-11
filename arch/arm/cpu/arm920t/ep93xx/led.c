@@ -1,23 +1,7 @@
 /*
  * Copyright (C) 2010, 2009 Matthias Kaehlcke <matthias@kaehlcke.net>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <asm/io.h>
@@ -45,22 +29,22 @@ inline void switch_LED_off(uint8_t led)
 	saved_state[led] = STATUS_LED_OFF;
 }
 
-void red_LED_on(void)
+void red_led_on(void)
 {
 	switch_LED_on(STATUS_LED_RED);
 }
 
-void red_LED_off(void)
+void red_led_off(void)
 {
 	switch_LED_off(STATUS_LED_RED);
 }
 
-void green_LED_on(void)
+void green_led_on(void)
 {
 	switch_LED_on(STATUS_LED_GREEN);
 }
 
-void green_LED_off(void)
+void green_led_off(void)
 {
 	switch_LED_off(STATUS_LED_GREEN);
 }
@@ -74,14 +58,14 @@ void __led_toggle(led_id_t mask)
 {
 	if (STATUS_LED_RED == mask) {
 		if (STATUS_LED_ON == saved_state[STATUS_LED_RED])
-			red_LED_off();
+			red_led_off();
 		else
-			red_LED_on();
+			red_led_on();
 	} else if (STATUS_LED_GREEN == mask) {
 		if (STATUS_LED_ON == saved_state[STATUS_LED_GREEN])
-			green_LED_off();
+			green_led_off();
 		else
-			green_LED_on();
+			green_led_on();
 	}
 }
 
@@ -89,13 +73,13 @@ void __led_set(led_id_t mask, int state)
 {
 	if (STATUS_LED_RED == mask) {
 		if (STATUS_LED_ON == state)
-			red_LED_on();
+			red_led_on();
 		else
-			red_LED_off();
+			red_led_off();
 	} else if (STATUS_LED_GREEN == mask) {
 		if (STATUS_LED_ON == state)
-			green_LED_on();
+			green_led_on();
 		else
-			green_LED_off();
+			green_led_off();
 	}
 }

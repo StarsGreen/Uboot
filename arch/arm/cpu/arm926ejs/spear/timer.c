@@ -2,23 +2,7 @@
  * (C) Copyright 2009
  * Vipin Kumar, ST Micoelectronics, vipin.kumar@st.com.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -36,8 +20,10 @@ static struct gpt_regs *const gpt_regs_p =
 static struct misc_regs *const misc_regs_p =
     (struct misc_regs *)CONFIG_SPEAR_MISCBASE;
 
-static ulong timestamp;
-static ulong lastdec;
+DECLARE_GLOBAL_DATA_PTR;
+
+#define timestamp gd->arch.tbl
+#define lastdec gd->arch.lastinc
 
 int timer_init(void)
 {
@@ -66,7 +52,9 @@ int timer_init(void)
 	/* auto reload, start timer */
 	writel(readl(&gpt_regs_p->control) | GPT_ENABLE, &gpt_regs_p->control);
 
-	reset_timer_masked();
+	/* Reset the timer */
+	lastdec = READ_TIMER();
+	timestamp = 0;
 
 	return 0;
 }
@@ -74,20 +62,9 @@ int timer_init(void)
 /*
  * timer without interrupts
  */
-
-void reset_timer(void)
-{
-	reset_timer_masked();
-}
-
 ulong get_timer(ulong base)
 {
 	return (get_timer_masked() / GPT_RESOLUTION) - base;
-}
-
-void set_timer(ulong t)
-{
-	timestamp = t;
 }
 
 void __udelay(unsigned long usec)
@@ -104,13 +81,6 @@ void __udelay(unsigned long usec)
 
 	while ((ulong) (get_timer_masked() - start) < tmo)
 		;
-}
-
-void reset_timer_masked(void)
-{
-	/* reset time */
-	lastdec = READ_TIMER();
-	timestamp = 0;
 }
 
 ulong get_timer_masked(void)

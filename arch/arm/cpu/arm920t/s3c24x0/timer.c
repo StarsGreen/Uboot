@@ -10,23 +10,7 @@
  * (C) Copyright 2002
  * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -35,19 +19,7 @@
 #include <asm/io.h>
 #include <asm/arch/s3c24x0_cpu.h>
 
-int timer_load_val = 0;
-static ulong timer_clk;
-
-/* macro to read the 16 bit timer */
-static inline ulong READ_TIMER(void)
-{
-	struct s3c24x0_timers *timers = s3c24x0_get_base_timers();
-
-	return readl(&timers->TCNTO4) & 0xffff;
-}
-
-static ulong timestamp;
-static ulong lastdec;
+DECLARE_GLOBAL_DATA_PTR;
 
 int timer_init(void)
 {
@@ -56,47 +28,36 @@ int timer_init(void)
 
 	/* use PWM Timer 4 because it has no output */
 	/* prescaler for Timer 4 is 16 */
-	writel(0x0f00, &timers->TCFG0);
-	if (timer_load_val == 0) {
+	writel(0x0f00, &timers->tcfg0);
+	if (gd->arch.tbu == 0) {
 		/*
 		 * for 10 ms clock period @ PCLK with 4 bit divider = 1/2
 		 * (default) and prescaler = 16. Should be 10390
 		 * @33.25MHz and 15625 @ 50 MHz
 		 */
-		timer_load_val = get_PCLK() / (2 * 16 * 100);
-		timer_clk = get_PCLK() / (2 * 16);
+		gd->arch.tbu = get_PCLK() / (2 * 16 * 100);
+		gd->arch.timer_rate_hz = get_PCLK() / (2 * 16);
 	}
 	/* load value for 10 ms timeout */
-	lastdec = timer_load_val;
-	writel(timer_load_val, &timers->TCNTB4);
-	/* auto load, manual update of Timer 4 */
-	tmr = (readl(&timers->TCON) & ~0x0700000) | 0x0600000;
-	writel(tmr, &timers->TCON);
-	/* auto load, start Timer 4 */
+	writel(gd->arch.tbu, &timers->tcntb4);
+	/* auto load, manual update of timer 4 */
+	tmr = (readl(&timers->tcon) & ~0x0700000) | 0x0600000;
+	writel(tmr, &timers->tcon);
+	/* auto load, start timer 4 */
 	tmr = (tmr & ~0x0700000) | 0x0500000;
-	writel(tmr, &timers->TCON);
-	timestamp = 0;
+	writel(tmr, &timers->tcon);
+	gd->arch.lastinc = 0;
+	gd->arch.tbl = 0;
 
-	return (0);
+	return 0;
 }
 
 /*
  * timer without interrupts
  */
-
-void reset_timer(void)
-{
-	reset_timer_masked();
-}
-
 ulong get_timer(ulong base)
 {
 	return get_timer_masked() - base;
-}
-
-void set_timer(ulong t)
-{
-	timestamp = t;
 }
 
 void __udelay (unsigned long usec)
@@ -105,25 +66,18 @@ void __udelay (unsigned long usec)
 	ulong start = get_ticks();
 
 	tmo = usec / 1000;
-	tmo *= (timer_load_val * 100);
+	tmo *= (gd->arch.tbu * 100);
 	tmo /= 1000;
 
 	while ((ulong) (get_ticks() - start) < tmo)
 		/*NOP*/;
 }
 
-void reset_timer_masked(void)
-{
-	/* reset time */
-	lastdec = READ_TIMER();
-	timestamp = 0;
-}
-
 ulong get_timer_masked(void)
 {
 	ulong tmr = get_ticks();
 
-	return tmr / (timer_clk / CONFIG_SYS_HZ);
+	return tmr / (gd->arch.timer_rate_hz / CONFIG_SYS_HZ);
 }
 
 void udelay_masked(unsigned long usec)
@@ -134,10 +88,10 @@ void udelay_masked(unsigned long usec)
 
 	if (usec >= 1000) {
 		tmo = usec / 1000;
-		tmo *= (timer_load_val * 100);
+		tmo *= (gd->arch.tbu * 100);
 		tmo /= 1000;
 	} else {
-		tmo = usec * (timer_load_val * 100);
+		tmo = usec * (gd->arch.tbu * 100);
 		tmo /= (1000 * 1000);
 	}
 
@@ -155,18 +109,19 @@ void udelay_masked(unsigned long usec)
  */
 unsigned long long get_ticks(void)
 {
-	ulong now = READ_TIMER();
+	struct s3c24x0_timers *timers = s3c24x0_get_base_timers();
+	ulong now = readl(&timers->tcnto4) & 0xffff;
 
-	if (lastdec >= now) {
+	if (gd->arch.lastinc >= now) {
 		/* normal mode */
-		timestamp += lastdec - now;
+		gd->arch.tbl += gd->arch.lastinc - now;
 	} else {
 		/* we have an overflow ... */
-		timestamp += lastdec + timer_load_val - now;
+		gd->arch.tbl += gd->arch.lastinc + gd->arch.tbu - now;
 	}
-	lastdec = now;
+	gd->arch.lastinc = now;
 
-	return timestamp;
+	return gd->arch.tbl;
 }
 
 /*
@@ -175,19 +130,7 @@ unsigned long long get_ticks(void)
  */
 ulong get_tbclk(void)
 {
-	ulong tbclk;
-
-#if defined(CONFIG_SMDK2400) || defined(CONFIG_TRAB)
-	tbclk = timer_load_val * 100;
-#elif defined(CONFIG_SBC2410X) || \
-      defined(CONFIG_SMDK2410) || \
-      defined(CONFIG_VCMA9)
-	tbclk = CONFIG_SYS_HZ;
-#else
-#	error "tbclk not configured"
-#endif
-
-	return tbclk;
+	return CONFIG_SYS_HZ;
 }
 
 /*
@@ -197,22 +140,16 @@ void reset_cpu(ulong ignored)
 {
 	struct s3c24x0_watchdog *watchdog;
 
-#ifdef CONFIG_TRAB
-	extern void disable_vfd(void);
-
-	disable_vfd();
-#endif
-
 	watchdog = s3c24x0_get_base_watchdog();
 
 	/* Disable watchdog */
-	writel(0x0000, &watchdog->WTCON);
+	writel(0x0000, &watchdog->wtcon);
 
 	/* Initialize watchdog timer count register */
-	writel(0x0001, &watchdog->WTCNT);
+	writel(0x0001, &watchdog->wtcnt);
 
 	/* Enable watchdog timer; assert reset at timer timeout */
-	writel(0x0021, &watchdog->WTCON);
+	writel(0x0021, &watchdog->wtcon);
 
 	while (1)
 		/* loop forever and wait for reset to happen */;

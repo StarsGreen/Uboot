@@ -2,23 +2,7 @@
  * (C) Copyright 2000-2008
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -106,31 +90,33 @@ const uint sdram_table[] =
 
 int checkboard (void)
 {
-	char *s = getenv ("serial#");
+	char buf[64];
+	int i;
+	int l = getenv_f("serial#", buf, sizeof(buf));
 
 	puts ("Board: ");
 
-	if (!s || strncmp (s, "TQM8", 4)) {
+	if (l < 0 || strncmp(buf, "TQM8", 4)) {
 		puts ("### No HW ID - assuming TQM8xxL\n");
 		return (0);
 	}
 
-	if ((*(s + 6) == 'L')) {	/* a TQM8xxL type */
+	if ((buf[6] == 'L')) {	/* a TQM8xxL type */
 		gd->board_type = 'L';
 	}
 
-	if ((*(s + 6) == 'M')) {	/* a TQM8xxM type */
+	if ((buf[6] == 'M')) {	/* a TQM8xxM type */
 		gd->board_type = 'M';
 	}
 
-	if ((*(s + 6) == 'D')) {	/* a TQM885D type */
+	if ((buf[6] == 'D')) {	/* a TQM885D type */
 		gd->board_type = 'D';
 	}
 
-	for (; *s; ++s) {
-		if (*s == ' ')
+	for (i = 0; i < l; ++i) {
+		if (buf[i] == ' ')
 			break;
-		putc (*s);
+		putc (buf[i]);
 	}
 #ifdef CONFIG_VIRTLAB2
 	puts (" (Virtlab2)");
@@ -430,29 +416,6 @@ static long int dram_size (long int mamr_value, long int *base, long int maxsize
 
 /* ------------------------------------------------------------------------- */
 
-#ifdef CONFIG_PS2MULT
-
-#ifdef CONFIG_HMI10
-#define BASE_BAUD ( 1843200 / 16 )
-struct serial_state rs_table[] = {
-	{ BASE_BAUD, 4,  (void*)0xec140000 },
-	{ BASE_BAUD, 2,  (void*)0xec150000 },
-	{ BASE_BAUD, 6,  (void*)0xec160000 },
-	{ BASE_BAUD, 10, (void*)0xec170000 },
-};
-
-#ifdef CONFIG_BOARD_EARLY_INIT_R
-int board_early_init_r (void)
-{
-	ps2mult_early_init();
-	return (0);
-}
-#endif
-#endif /* CONFIG_HMI10 */
-
-#endif /* CONFIG_PS2MULT */
-
-
 #ifdef CONFIG_MISC_INIT_R
 extern void load_sernum_ethaddr(void);
 int misc_init_r (void)
@@ -745,15 +708,15 @@ int last_stage_init(void)
 		return 0;
 
 	for (i = 0; i < 2; i++) {
-		ret = miiphy_read("FEC", phy[i], PHY_BMCR, &reg);
+		ret = miiphy_read("FEC", phy[i], MII_BMCR, &reg);
 		if (ret) {
 			printf("Cannot read BMCR on PHY %d\n", phy[i]);
 			return 0;
 		}
 		/* Auto-negotiation off, hard set full duplex, 100Mbps */
 		ret = miiphy_write("FEC", phy[i],
-				   PHY_BMCR, (reg | PHY_BMCR_100MB |
-					      PHY_BMCR_DPLX) & ~PHY_BMCR_AUTON);
+				   MII_BMCR, (reg | BMCR_SPEED100 |
+					      BMCR_FULLDPLX) & ~BMCR_ANENABLE);
 		if (ret) {
 			printf("Cannot write BMCR on PHY %d\n", phy[i]);
 			return 0;

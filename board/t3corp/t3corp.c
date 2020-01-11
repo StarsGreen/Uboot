@@ -2,32 +2,20 @@
  * (C) Copyright 2010
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
-#include <ppc440.h>
+#include <asm/ppc440.h>
 #include <libfdt.h>
 #include <fdt_support.h>
 #include <i2c.h>
+#include <mtd/cfi_flash.h>
 #include <asm/processor.h>
 #include <asm/io.h>
 #include <asm/mmu.h>
 #include <asm/4xx_pcie.h>
-#include <asm/gpio.h>
+#include <asm/ppc4xx-gpio.h>
 
 int board_early_init_f(void)
 {
@@ -88,13 +76,14 @@ int board_early_init_f(void)
 
 int checkboard(void)
 {
-	char *s = getenv("serial#");
+	char buf[64];
+	int i = getenv_f("serial#", buf, sizeof(buf));
 
 	printf("Board: T3CORP");
 
-	if (s != NULL) {
+	if (i > 0) {
 		puts(", serial# ");
-		puts(s);
+		puts(buf);
 	}
 	putc('\n');
 
@@ -190,4 +179,41 @@ static struct sdram_timing board_scan_options[] = {
 struct sdram_timing *ddr_scan_option(struct sdram_timing *default_val)
 {
 	return board_scan_options;
+}
+
+/*
+ * Accessor functions replacing the "weak" functions in
+ * drivers/mtd/cfi_flash.c
+ *
+ * The NOR flash devices "behind" the FPGA's (Xilinx DS617)
+ * can only be read correctly in 16bit mode. We need to emulate
+ * 8bit and 32bit reads here in the board specific code.
+ */
+u8 flash_read8(void *addr)
+{
+	u16 val = __raw_readw((void *)((u32)addr & ~1));
+
+	if ((u32)addr & 1)
+		return val;
+
+	return val >> 8;
+}
+
+u32 flash_read32(void *addr)
+{
+	return (__raw_readw(addr) << 16) | __raw_readw((void *)((u32)addr + 2));
+}
+
+void flash_cmd_reset(flash_info_t *info)
+{
+	/*
+	 * FLASH at address CONFIG_SYS_FLASH_BASE is a Spansion chip and
+	 * needs the Spansion type reset commands. The other flash chip
+	 * is located behind a FPGA (Xilinx DS617) and needs the Intel type
+	 * reset command.
+	 */
+	if (info->start[0] == CONFIG_SYS_FLASH_BASE)
+		flash_write_cmd(info, 0, 0, AMD_CMD_RESET);
+	else
+		flash_write_cmd(info, 0, 0, FLASH_CMD_RESET);
 }

@@ -3,29 +3,10 @@
  * Marvell Semiconductor <www.marvell.com>
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
-/* Required to obtain the getline prototype from stdio.h */
-#define _GNU_SOURCE
-
-#include "mkimage.h"
+#include "imagetool.h"
 #include <image.h>
 #include "kwbimage.h"
 
@@ -33,7 +14,7 @@
  * Supported commands for configuration file
  */
 static table_entry_t kwbimage_cmds[] = {
-	{CMD_BOOT_FROM,		"BOOT_FROM",		"boot comand",	},
+	{CMD_BOOT_FROM,		"BOOT_FROM",		"boot command",	},
 	{CMD_NAND_ECC_MODE,	"NAND_ECC_MODE",	"NAND mode",	},
 	{CMD_NAND_PAGE_SIZE,	"NAND_PAGE_SIZE",	"NAND size",	},
 	{CMD_SATA_PIO_MODE,	"SATA_PIO_MODE",	"SATA mode",	},
@@ -73,7 +54,7 @@ static int lineno = -1;
 /*
  * Report Error if xflag is set in addition to default
  */
-static int kwbimage_check_params (struct mkimage_params *params)
+static int kwbimage_check_params(struct image_tool_params *params)
 {
 	if (!strlen (params->imagename)) {
 		printf ("Error:%s - Configuration file not specified, "
@@ -307,7 +288,7 @@ INVL_CMD:
 }
 
 static void kwbimage_set_header (void *ptr, struct stat *sbuf, int ifd,
-				struct mkimage_params *params)
+				struct image_tool_params *params)
 {
 	struct kwb_header *hdr = (struct kwb_header *)ptr;
 	bhr_t *mhdr = &hdr->kwb_hdr;
@@ -341,7 +322,7 @@ static void kwbimage_set_header (void *ptr, struct stat *sbuf, int ifd,
 }
 
 static int kwbimage_verify_header (unsigned char *ptr, int image_size,
-			struct mkimage_params *params)
+			struct image_tool_params *params)
 {
 	struct kwb_header *hdr = (struct kwb_header *)ptr;
 	bhr_t *mhdr = &hdr->kwb_hdr;
@@ -356,7 +337,7 @@ static int kwbimage_verify_header (unsigned char *ptr, int image_size,
 
 	calc_exthdrcsum = kwbimage_checksum8 ((void *)exthdr,
 			sizeof(extbhr_t) - sizeof(uint8_t), 0);
-	if (calc_hdrcsum != mhdr->checkSum)
+	if (calc_exthdrcsum != exthdr->checkSum)
 		return -FDT_ERR_BADSTRUCTURE; /* exthdr csum not matched */
 
 	return 0;
@@ -401,5 +382,5 @@ static struct image_type_params kwbimage_params = {
 
 void init_kwb_image_type (void)
 {
-	mkimage_register (&kwbimage_params);
+	register_image_type(&kwbimage_params);
 }

@@ -5,21 +5,7 @@
  * Copyright (c) 2007,2008 Nobuhiro Iwamatsu
  * Copyright (c) 2008 Yusuke Goda <goda.yusuke@renesas.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
- *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #define	CACHE_OC_NUM_WAYS	1
@@ -272,29 +258,7 @@
 #define	MSTPCR	0xFFC80030
 
 /* Timer Unit */
-#define	TSTR	TSTR0
-#define	TOCR	0xFFD80000
-#define	TSTR0	0xFFD80004
-#define	TCOR0	0xFFD80008
-#define	TCNT0	0xFFD8000C
-#define	TCR0	0xFFD80010
-#define	TCOR1	0xFFD80014
-#define	TCNT1	0xFFD80018
-#define	TCR1	0xFFD8001C
-#define	TCOR2	0xFFD80020
-#define	TCNT2	0xFFD80024
-#define	TCR2	0xFFD80028
-#define	TCPR2	0xFFD8002C
-#define	TSTR1	0xFFDC0004
-#define	TCOR3	0xFFDC0008
-#define	TCNT3	0xFFDC000C
-#define	TCR3	0xFFDC0010
-#define	TCOR4	0xFFDC0014
-#define	TCNT4	0xFFDC0018
-#define	TCR4	0xFFDC001C
-#define	TCOR5	0xFFDC0020
-#define	TCNT5	0xFFDC0024
-#define	TCR5	0xFFDC0028
+#define TMU_BASE    0xFFD80000
 
 /* Timer/Counter */
 #define	CMTCFG	0xFFE30000
@@ -333,27 +297,8 @@
 #define	RYRAR	0xFFE80054
 
 /* Serial Communication	Interface with FIFO */
-#define	SCIF0_BASE SCSMR0
 #define	SCSMR0	0xFFE00000
-#define	SCBRR0	0xFFE00004
-#define	SCSCR0	0xFFE00008
-#define	SCFSR0	0xFFE00010
-#define	SCFCR0	0xFFE00018
-#define	SCTFDR0	0xFFE0001C
-#define	SCRFDR0	0xFFE00020
-#define	SCSPTR0	0xFFE00024
-#define	SCLSR0	0xFFE00028
-#define	SCRER0	0xFFE0002C
-#define	SCSMR1	0xFFE10000
-#define	SCBRR1	0xFFE10004
-#define	SCSCR1	0xFFE10008
-#define	SCFSR1	0xFFE10010
-#define	SCFCR1	0xFFE10018
-#define	SCTFDR1	0xFFE1001C
-#define	SCRFDR1	0xFFE10020
-#define	SCSPTR1	0xFFE10024
-#define	SCLSR1	0xFFE10028
-#define	SCRER1	0xFFE1002C
+#define	SCIF0_BASE SCSMR0
 
 /* Serial I/O with FIFO */
 #define	SIMDR	0xFFE20000

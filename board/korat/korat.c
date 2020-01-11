@@ -9,29 +9,16 @@
  * Jacqueline Pira-Ferriol, AMCC/IBM, jpira-ferriol@fr.ibm.com
  * Alain Saurel,	    AMCC/IBM, alain.saurel@fr.ibm.com
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <fdt_support.h>
 #include <i2c.h>
 #include <libfdt.h>
-#include <ppc440.h>
+#include <asm/ppc440.h>
 #include <asm/bitops.h>
-#include <asm/gpio.h>
+#include <asm/ppc4xx-gpio.h>
 #include <asm/io.h>
 #include <asm/ppc4xx-uic.h>
 #include <asm/processor.h>
@@ -553,8 +540,8 @@ int misc_init_r(void)
 	 * This fix will make the MAL burst disabling patch for the Linux
 	 * EMAC driver obsolete.
 	 */
-	reg = mfdcr(PLB4_ACR) & ~PLB4_ACR_WRP;
-	mtdcr(PLB4_ACR, reg);
+	reg = mfdcr(PLB4A0_ACR) & ~PLB4Ax_ACR_WRP_MASK;
+	mtdcr(PLB4A0_ACR, reg);
 
 	set_serial_number();
 	set_mac_addresses();

@@ -11,32 +11,15 @@
  * (c) 1995, Dionne & Associates
  * (c) 1995, DKG Display Tech.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <config.h>
 #include <asm/blackfin.h>
+#include <asm/mach-common/bits/watchdog.h>
 #include <asm/mach-common/bits/core.h>
-#include <asm/mach-common/bits/dma.h>
 #include <asm/mach-common/bits/pll.h>
-
-#include "serial.h"
+#include <asm/serial.h>
 
 /* It may seem odd that we make calls to functions even though we haven't
  * relocated ourselves yet out of {flash,ram,wherever}.  This is OK because
@@ -52,21 +35,43 @@ ENTRY(_start)
 	sp.l = LO(L1_SRAM_SCRATCH_END - 20);
 	sp.h = HI(L1_SRAM_SCRATCH_END - 20);
 
+	/* Optimization register tricks: keep a base value in the
+	 * reserved P registers so we use the load/store with an
+	 * offset syntax.  R0 = [P5 + <constant>];
+	 *   P4 - system MMR base
+	 *   P5 - core MMR base
+	 */
 #ifdef CONFIG_HW_WATCHDOG
-# ifndef CONFIG_HW_WATCHDOG_TIMEOUT_START
-#  define CONFIG_HW_WATCHDOG_TIMEOUT_START 5000
-# endif
-	/* Program the watchdog with an initial timeout of ~5 seconds.
+	p4.l = 0;
+	p4.h = HI(SYSMMR_BASE);
+#endif
+	p5.l = 0;
+	p5.h = HI(COREMMR_BASE);
+
+#ifdef CONFIG_HW_WATCHDOG
+	/* Program the watchdog with default timeout of ~5 seconds.
 	 * That should be long enough to bootstrap ourselves up and
 	 * then the common u-boot code can take over.
 	 */
-	P0.L = LO(WDOG_CNT);
-	P0.H = HI(WDOG_CNT);
-	R0.L = 0;
-	R0.H = HI(MSEC_TO_SCLK(CONFIG_HW_WATCHDOG_TIMEOUT_START));
-	[P0] = R0;
+	r1 = WDDIS;
+# ifdef __ADSPBF60x__
+	[p4 + (WDOG_CTL - SYSMMR_BASE)] = r1;
+# else
+	W[p4 + (WDOG_CTL - SYSMMR_BASE)] = r1;
+# endif
+	SSYNC;
+	r0 = 0;
+	r0.h = HI(MSEC_TO_SCLK(CONFIG_WATCHDOG_TIMEOUT_MSECS));
+	[p4 + (WDOG_CNT - SYSMMR_BASE)] = r0;
+	SSYNC;
+	r1 = WDEN;
 	/* fire up the watchdog - R0.L above needs to be 0x0000 */
-	W[P0 + (WDOG_CTL - WDOG_CNT)] = R0;
+# ifdef __ADSPBF60x__
+	[p4 + (WDOG_CTL - SYSMMR_BASE)] = r1;
+# else
+	W[p4 + (WDOG_CTL - SYSMMR_BASE)] = r1;
+# endif
+	SSYNC;
 #endif
 
 	/* Turn on the serial for debugging the init process */
@@ -121,6 +126,18 @@ ENTRY(_start)
 	if cc jump .Lnorelocate;
 	r6 = 0 (x);
 
+	/* Turn off caches as they require CPLBs and a CPLB miss requires
+	 * a software exception handler to process it.  But we're about to
+	 * clobber any previous executing software (like U-Boot that just
+	 * launched a new U-Boot via 'go'), so any handler state will be
+	 * unreliable after the memcpy below.
+	 */
+	serial_early_puts("Kill Caches");
+	r0 = 0;
+	[p5 + (IMEM_CONTROL - COREMMR_BASE)] = r0;
+	[p5 + (DMEM_CONTROL - COREMMR_BASE)] = r0;
+	ssync;
+
 	/* In bypass mode, we don't have an LDR with an init block
 	 * so we need to explicitly call it ourselves.  This will
 	 * reprogram our clocks, memory, and setup our async banks.
@@ -173,19 +190,19 @@ ENTRY(_start)
 	call _memcpy_ASM;
 #endif
 
+.Lnorelocate:
 	/* Initialize BSS section ... we know that memset() does not
 	 * use the BSS, so it is safe to call here.  The bootrom LDR
 	 * takes care of clearing things for us.
 	 */
 	serial_early_puts("Zero BSS");
-	r0.l = __bss_vma;
-	r0.h = __bss_vma;
+	r0.l = __bss_start;
+	r0.h = __bss_start;
 	r1 = 0 (x);
 	r2.l = __bss_len;
 	r2.h = __bss_len;
 	call _memset;
 
-.Lnorelocate:
 
 	/* Setup the actual stack in external memory */
 	sp.h = HI(CONFIG_STACKBASE);
@@ -204,17 +221,15 @@ ENTRY(_start)
 	serial_early_puts("Lower to 15");
 	r0 = r7;
 	r1 = r6;
-	p0.l = LO(EVT15);
-	p0.h = HI(EVT15);
 	p1.l = .Lenable_nested;
 	p1.h = .Lenable_nested;
-	[p0] = p1;
+	[p5 + (EVT15 - COREMMR_BASE)] = p1;
 	r7 = EVT_IVG15 (z);
 	sti r7;
 	raise 15;
-	p4.l = .LWAIT_HERE;
-	p4.h = .LWAIT_HERE;
-	reti = p4;
+	p3.l = .LWAIT_HERE;
+	p3.h = .LWAIT_HERE;
+	reti = p3;
 	rti;
 
 	/* Enable nested interrupts before continuing with cpu init */
@@ -236,3 +251,13 @@ LENTRY(_get_pc)
 #endif
 	rts;
 ENDPROC(_get_pc)
+
+ENTRY(_relocate_code)
+	/* Fake relocate code. Setup the new stack only */
+	sp = r0;
+	fp = sp;
+	r0 = p3;
+	r1.h = 0x2000;
+	r1.l = 0x10;
+	jump.l _board_init_r
+ENDPROC(_relocate_code)

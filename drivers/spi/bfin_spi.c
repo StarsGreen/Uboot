@@ -1,9 +1,9 @@
 /*
  * Driver for Blackfin On-Chip SPI device
  *
- * Copyright (c) 2005-2008 Analog Devices Inc.
+ * Copyright (c) 2005-2010 Analog Devices Inc.
  *
- * Licensed under the GPL-2 or later.
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*#define DEBUG*/
@@ -13,6 +13,7 @@
 #include <spi.h>
 
 #include <asm/blackfin.h>
+#include <asm/clock.h>
 #include <asm/gpio.h>
 #include <asm/portmux.h>
 #include <asm/mach-common/bits/spi.h>
@@ -137,60 +138,63 @@ static const unsigned short cs_pins[][7] = {
 #endif
 };
 
-struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
-		unsigned int max_hz, unsigned int mode)
+void spi_set_speed(struct spi_slave *slave, uint hz)
 {
-	struct bfin_spi_slave *bss;
-	ulong sclk;
-	u32 mmr_base;
+	struct bfin_spi_slave *bss = to_bfin_spi_slave(slave);
+	ulong clk;
 	u32 baud;
 
-	if (!spi_cs_is_valid(bus, cs))
-		return NULL;
-
-	if (bus >= ARRAY_SIZE(pins) || pins[bus] == NULL) {
-		debug("%s: invalid bus %u\n", __func__, bus);
-		return NULL;
-	}
-	switch (bus) {
-#ifdef SPI0_CTL
-		case 0: mmr_base = SPI0_CTL; break;
-#endif
-#ifdef SPI1_CTL
-		case 1: mmr_base = SPI1_CTL; break;
-#endif
-#ifdef SPI2_CTL
-		case 2: mmr_base = SPI2_CTL; break;
-#endif
-		default: return NULL;
-	}
-
-	sclk = get_sclk();
-	baud = sclk / (2 * max_hz);
+	clk = get_spi_clk();
 	/* baud should be rounded up */
-	if (sclk % (2 * max_hz))
-		baud += 1;
+	baud = DIV_ROUND_UP(clk, 2 * hz);
 	if (baud < 2)
 		baud = 2;
 	else if (baud > (u16)-1)
 		baud = -1;
+	bss->baud = baud;
+}
 
-	bss = malloc(sizeof(*bss));
+struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
+		unsigned int max_hz, unsigned int mode)
+{
+	struct bfin_spi_slave *bss;
+	u32 mmr_base;
+
+	if (!spi_cs_is_valid(bus, cs))
+		return NULL;
+
+	switch (bus) {
+#ifdef SPI0_CTL
+	case 0:
+		mmr_base = SPI0_CTL; break;
+#endif
+#ifdef SPI1_CTL
+	case 1:
+		mmr_base = SPI1_CTL; break;
+#endif
+#ifdef SPI2_CTL
+	case 2:
+		mmr_base = SPI2_CTL; break;
+#endif
+	default:
+		debug("%s: invalid bus %u\n", __func__, bus);
+		return NULL;
+	}
+
+	bss = spi_alloc_slave(struct bfin_spi_slave, bus, cs);
 	if (!bss)
 		return NULL;
 
-	bss->slave.bus = bus;
-	bss->slave.cs = cs;
 	bss->mmr_base = (void *)mmr_base;
 	bss->ctl = SPE | MSTR | TDBR_CORE;
 	if (mode & SPI_CPHA) bss->ctl |= CPHA;
 	if (mode & SPI_CPOL) bss->ctl |= CPOL;
 	if (mode & SPI_LSB_FIRST) bss->ctl |= LSBF;
-	bss->baud = baud;
 	bss->flg = mode & SPI_CS_HIGH ? 1 : 0;
+	spi_set_speed(&bss->slave, max_hz);
 
 	debug("%s: bus:%i cs:%i mmr:%x ctl:%x baud:%i flg:%i\n", __func__,
-		bus, cs, mmr_base, bss->ctl, baud, bss->flg);
+		bus, cs, mmr_base, bss->ctl, bss->baud, bss->flg);
 
 	return &bss->slave;
 }
@@ -241,6 +245,35 @@ void spi_release_bus(struct spi_slave *slave)
 # define CONFIG_BFIN_SPI_IDLE_VAL 0xff
 #endif
 
+static int spi_pio_xfer(struct bfin_spi_slave *bss, const u8 *tx, u8 *rx,
+			uint bytes)
+{
+	/* discard invalid data and clear RXS */
+	read_SPI_RDBR(bss);
+	/* todo: take advantage of hardware fifos  */
+	while (bytes--) {
+		u8 value = (tx ? *tx++ : CONFIG_BFIN_SPI_IDLE_VAL);
+		debug("%s: tx:%x ", __func__, value);
+		write_SPI_TDBR(bss, value);
+		SSYNC();
+		while ((read_SPI_STAT(bss) & TXS))
+			if (ctrlc())
+				return -1;
+		while (!(read_SPI_STAT(bss) & SPIF))
+			if (ctrlc())
+				return -1;
+		while (!(read_SPI_STAT(bss) & RXS))
+			if (ctrlc())
+				return -1;
+		value = read_SPI_RDBR(bss);
+		if (rx)
+			*rx++ = value;
+		debug("rx:%x\n", value);
+	}
+
+	return 0;
+}
+
 int spi_xfer(struct spi_slave *slave, unsigned int bitlen, const void *dout,
 		void *din, unsigned long flags)
 {
@@ -265,32 +298,7 @@ int spi_xfer(struct spi_slave *slave, unsigned int bitlen, const void *dout,
 	if (flags & SPI_XFER_BEGIN)
 		spi_cs_activate(slave);
 
-	/* todo: take advantage of hardware fifos and setup RX dma */
-	while (bytes--) {
-		u8 value = (tx ? *tx++ : CONFIG_BFIN_SPI_IDLE_VAL);
-		debug("%s: tx:%x ", __func__, value);
-		write_SPI_TDBR(bss, value);
-		SSYNC();
-		while ((read_SPI_STAT(bss) & TXS))
-			if (ctrlc()) {
-				ret = -1;
-				goto done;
-			}
-		while (!(read_SPI_STAT(bss) & SPIF))
-			if (ctrlc()) {
-				ret = -1;
-				goto done;
-			}
-		while (!(read_SPI_STAT(bss) & RXS))
-			if (ctrlc()) {
-				ret = -1;
-				goto done;
-			}
-		value = read_SPI_RDBR(bss);
-		if (rx)
-			*rx++ = value;
-		debug("rx:%x\n", value);
-	}
+	ret = spi_pio_xfer(bss, tx, rx, bytes);
 
  done:
 	if (flags & SPI_XFER_END)

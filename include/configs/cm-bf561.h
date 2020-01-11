@@ -63,7 +63,6 @@
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
-#define CONFIG_NET_MULTI
 #define CONFIG_SMC911X		1
 #define CONFIG_SMC911X_BASE	0x24008000 /* AMS1 */
 #define CONFIG_SMC911X_16_BIT
@@ -100,7 +99,6 @@
 #define CONFIG_UART_CONSOLE	0
 #define CONFIG_BOOTCOMMAND	"run flashboot"
 #define FLASHBOOT_ENV_SETTINGS	"flashboot=bootm 0x20040000\0"
-
 
 /*
  * Pull in common ADI header for remaining command/environment setup

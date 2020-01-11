@@ -4,23 +4,7 @@
  * (C) Copyright 2005
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 
@@ -28,7 +12,7 @@
 #include "ocotea.h"
 #include <asm/processor.h>
 #include <spd_sdram.h>
-#include <ppc4xx_enet.h>
+#include <asm/ppc4xx-emac.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -200,12 +184,13 @@ int board_early_init_f (void)
 
 int checkboard (void)
 {
-	char *s = getenv ("serial#");
+	char buf[64];
+	int i = getenv_f("serial#", buf, sizeof(buf));
 
 	printf ("Board: Ocotea - AMCC PPC440GX Evaluation Board");
-	if (s != NULL) {
-		puts (", serial# ");
-		puts (s);
+	if (i > 0) {
+		puts(", serial# ");
+		puts(buf);
 	}
 	putc ('\n');
 

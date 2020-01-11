@@ -1,28 +1,12 @@
 /*
  * (C) Copyright 2007-2008
- * Stelian Pop <stelian.pop@leadtechdesign.com>
+ * Stelian Pop <stelian@popies.net>
  * Lead Tech Design <www.leadtechdesign.com>
  *
  * (C) Copyright 2010
  * Matthias Weisser, Graf-Syteco <weisserm@arcor.de>
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <div64.h>
@@ -33,8 +17,10 @@
 #define TIMER_LOAD_VAL	0xffffffff
 #define TIMER_FREQ	(CONFIG_MB86R0x_IOCLK  / 256)
 
-static unsigned long long timestamp;
-static ulong lastdec;
+DECLARE_GLOBAL_DATA_PTR;
+
+#define timestamp gd->arch.tbl
+#define lastdec gd->arch.lastinc
 
 static inline unsigned long long tick_to_time(unsigned long long tick)
 {
@@ -66,7 +52,9 @@ int timer_init(void)
 
 	writel(ctrl, &timer->control);
 
-	reset_timer_masked();
+	/* capture current value time */
+	lastdec = readl(&timer->value);
+	timestamp = 0; /* start "advancing" time stamp from 0 */
 
 	return 0;
 }
@@ -92,16 +80,6 @@ unsigned long long get_ticks(void)
 	return timestamp;
 }
 
-void reset_timer_masked(void)
-{
-	struct mb86r0x_timer * timer = (struct mb86r0x_timer *)
-					MB86R0x_TIMER_BASE;
-
-	/* capture current value time */
-	lastdec = readl(&timer->value);
-	timestamp = 0; /* start "advancing" time stamp from 0 */
-}
-
 ulong get_timer_masked(void)
 {
 	return tick_to_time(get_ticks());
@@ -117,11 +95,6 @@ void __udelay(unsigned long usec)
 
 	while ((get_ticks() - tmp) < tmo)	/* loop till event */
 		 /*NOP*/;
-}
-
-void reset_timer(void)
-{
-	reset_timer_masked();
 }
 
 ulong get_timer(ulong base)

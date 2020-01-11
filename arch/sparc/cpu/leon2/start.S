@@ -2,32 +2,16 @@
  * Copyright (C) 2007,
  * Daniel Hellstrom, daniel@gaisler.com
  *
- * See file CREDITS for list of people who contributed to this
- * project.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <asm-offsets.h>
 #include <config.h>
 #include <asm/asmmacro.h>
 #include <asm/winmacro.h>
 #include <asm/psr.h>
 #include <asm/stack.h>
 #include <asm/leon.h>
-#include <timestamp.h>
 #include <version.h>
 
 /* Entry for traps which jump to a programmer-specified trap handler.  */
@@ -199,9 +183,7 @@ _trap_table:
 	.data
 	.globl	version_string
 version_string:
-	.ascii U_BOOT_VERSION
-	.ascii " (", U_BOOT_DATE, " - ", U_BOOT_TIME, ")"
-	.ascii CONFIG_IDENT_STRING, "\0"
+	.ascii U_BOOT_VERSION_STRING, "\0"
 
 	.section	".text"
 	.align 4
@@ -455,7 +437,7 @@ _irq_entry:
 	WRITE_PAUSE
 	mov	%l7, %o0		! irq level
 	set	handler_irq, %o1
-	set	(CONFIG_SYS_RELOC_MONITOR_BASE-TEXT_BASE), %o2
+	set	(CONFIG_SYS_RELOC_MONITOR_BASE-CONFIG_SYS_TEXT_BASE), %o2
 	add	%o1, %o2, %o1
 	call	%o1
 	add	%sp, SF_REGS_SZ, %o1	! pt_regs ptr

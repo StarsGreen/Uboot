@@ -12,11 +12,13 @@ void breakinst(void);
 int
 kgdb_setjmp(long *buf)
 {
-	asm ("mflr 0; stw 0,0(%0);"
-	     "stw 1,4(%0); stw 2,8(%0);"
-	     "mfcr 0; stw 0,12(%0);"
-	     "stmw 13,16(%0)"
-	     : : "r" (buf));
+	unsigned long temp;
+
+	asm volatile("mflr %0; stw %0,0(%1);"
+	     "stw %%r1,4(%1); stw %%r2,8(%1);"
+	     "mfcr %0; stw %0,12(%1);"
+	     "stmw %%r13,16(%1)"
+	     : "=&r"(temp) : "r" (buf));
 	/* XXX should save fp regs as well */
 	return 0;
 }
@@ -24,13 +26,16 @@ kgdb_setjmp(long *buf)
 void
 kgdb_longjmp(long *buf, int val)
 {
+	unsigned long temp;
+
 	if (val == 0)
 		val = 1;
-	asm ("lmw 13,16(%0);"
-	     "lwz 0,12(%0); mtcrf 0x38,0;"
-	     "lwz 0,0(%0); lwz 1,4(%0); lwz 2,8(%0);"
-	     "mtlr 0; mr 3,%1"
-	     : : "r" (buf), "r" (val));
+
+	asm volatile("lmw %%r13,16(%1);"
+	     "lwz %0,12(%1); mtcrf 0x38,%0;"
+	     "lwz %0,0(%1); lwz %%r1,4(%1); lwz %%r2,8(%1);"
+	     "mtlr %0; mr %%r3,%2"
+	     : "=&r"(temp) : "r" (buf), "r" (val));
 }
 
 static inline unsigned long
@@ -154,7 +159,7 @@ kgdb_trap(struct pt_regs *regs)
 
 #define SPACE_REQUIRED	((32*4)+(32*8)+(6*4))
 
-#ifdef CONFIG_8260
+#ifdef CONFIG_MPC8260
 /* store floating double indexed */
 #define STFDI(n,p)	__asm__ __volatile__ ("stfd " #n ",%0" : "=o"(p[2*n]))
 /* store floating double multiple */
@@ -185,7 +190,7 @@ kgdb_getregs(struct pt_regs *regs, char *buf, int max)
 		*ptr++ = regs->gpr[i];
 
 	/* Floating Point Regs */
-#ifdef CONFIG_8260
+#ifdef CONFIG_MPC8260
 	STFDM(ptr);
 	ptr += 32*2;
 #else
@@ -208,7 +213,7 @@ kgdb_getregs(struct pt_regs *regs, char *buf, int max)
 
 /* set the value of the CPU registers */
 
-#ifdef CONFIG_8260
+#ifdef CONFIG_MPC8260
 /* load floating double */
 #define LFD(n,v)	__asm__ __volatile__ ("lfd " #n ",%0" :: "o"(v))
 /* load floating double indexed */
@@ -247,7 +252,7 @@ kgdb_putreg(struct pt_regs *regs, int regno, char *buf, int length)
 		regs->gpr[regno] = *ptr;
 	else switch (regno) {
 
-#ifdef CONFIG_8260
+#ifdef CONFIG_MPC8260
 #define caseF(n) \
 	case (n) + 32:	LFD(n, *ptr);		break;
 
@@ -293,7 +298,7 @@ kgdb_putregs(struct pt_regs *regs, char *buf, int length)
 		regs->gpr[i] = *ptr++;
 
 	/* Floating Point Regs */
-#ifdef CONFIG_8260
+#ifdef CONFIG_MPC8260
 	LFDM(ptr);
 #endif
 	ptr += 32*2;
