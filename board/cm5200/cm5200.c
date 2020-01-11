@@ -16,7 +16,23 @@
  *      - run-time SDRAM controller configuration
  *      - LIBFDT support
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -28,6 +44,7 @@
 
 #ifdef CONFIG_OF_LIBFDT
 #include <libfdt.h>
+#include <libfdt_env.h>
 #include <fdt_support.h>
 #endif /* CONFIG_OF_LIBFDT */
 
@@ -40,7 +57,7 @@ DECLARE_GLOBAL_DATA_PTR;
 static hw_id_t hw_id;
 
 
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 /*
  * Helper function to initialize SDRAM controller.
  */
@@ -70,7 +87,7 @@ static void sdram_start(int hi_addr, mem_conf_t *mem_conf)
 	/* normal operation */
 	*(vu_long *)MPC5XXX_SDRAM_CTRL = mem_conf->control | hi_addr_bit;
 }
-#endif /* CONFIG_SYS_RAMBOOT */
+#endif /* CFG_RAMBOOT */
 
 
 /*
@@ -100,7 +117,7 @@ static mem_conf_t* get_mem_config(int board_type)
 phys_size_t initdram(int board_type)
 {
 	ulong dramsize = 0;
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 	ulong test1, test2;
 	mem_conf_t *mem_conf;
 
@@ -114,9 +131,9 @@ phys_size_t initdram(int board_type)
 	*(vu_long *)MPC5XXX_SDRAM_CONFIG2 = mem_conf->config2;
 
 	sdram_start(0, mem_conf);
-	test1 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test1 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	sdram_start(1, mem_conf);
-	test2 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test2 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	if (test1 > test2) {
 		sdram_start(0, mem_conf);
 		dramsize = test1;
@@ -133,14 +150,14 @@ phys_size_t initdram(int board_type)
 			__builtin_ffs(dramsize >> 20) - 1;
 	} else
 		*(vu_long *)MPC5XXX_SDRAM_CS0CFG = 0; /* disabled */
-#else /* CONFIG_SYS_RAMBOOT */
+#else /* CFG_RAMBOOT */
 	/* retrieve size of memory connected to SDRAM CS0 */
 	dramsize = *(vu_long *)MPC5XXX_SDRAM_CS0CFG & 0xFF;
 	if (dramsize >= 0x13)
 		dramsize = (1 << (dramsize - 0x13)) << 20;
 	else
 		dramsize = 0;
-#endif /* !CONFIG_SYS_RAMBOOT */
+#endif /* !CFG_RAMBOOT */
 
 	/*
 	 * On MPC5200B we need to set the special configuration delay in the
@@ -161,7 +178,7 @@ static void read_hw_id(hw_id_t hw_id)
 {
 	int i;
 	for (i = 0; i < HW_ID_ELEM_COUNT; ++i)
-		if (i2c_read(CONFIG_SYS_I2C_EEPROM,
+		if (i2c_read(CFG_I2C_EEPROM,
 				hw_id_format[i].offset,
 				2,
 				(uchar *)&hw_id[i][0],
@@ -254,6 +271,13 @@ static void ft_blob_update(void *blob, bd_t *bd)
 	if (ret < 0)
 	printf("ft_blob_update(): cannot set /model property err:%s\n",
 		fdt_strerror(ret));
+
+	ret = fdt_fixup_memory(blob, (u64)bd->bi_memstart, (u64)bd->bi_memsize);
+
+	if (ret < 0) {
+		printf("ft_blob_update(): cannot set /memory/reg "
+			"property err:%s\n", fdt_strerror(ret));
+	}
 }
 #endif /* defined(CONFIG_OF_BOARD_SETUP) && defined(CONFIG_OF_LIBFDT) */
 
@@ -274,7 +298,7 @@ int checkboard(void)
 	 * also use a little trick to silence I2C-related output.
 	 */
 	gd->flags |= GD_FLG_SILENT;
-	i2c_init (CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
+	i2c_init (CFG_I2C_SPEED, CFG_I2C_SLAVE);
 	gd->flags &= ~GD_FLG_SILENT;
 
 	read_hw_id(hw_id_tmp);
@@ -306,16 +330,40 @@ int board_early_init_r(void)
 }
 
 
+#ifdef CONFIG_POST
+int post_hotkeys_pressed(void)
+{
+	return 0;
+}
+#endif /* CONFIG_POST */
+
+
+#if defined(CONFIG_POST) || defined(CONFIG_LOGBUFFER)
+void post_word_store(ulong a)
+{
+	vu_long *save_addr = (vu_long *)(MPC5XXX_SRAM + MPC5XXX_SRAM_POST_SIZE);
+	*save_addr = a;
+}
+
+
+ulong post_word_load(void)
+{
+	vu_long *save_addr = (vu_long *)(MPC5XXX_SRAM + MPC5XXX_SRAM_POST_SIZE);
+	return *save_addr;
+}
+#endif /* CONFIG_POST || CONFIG_LOGBUFFER */
+
+
 #ifdef CONFIG_MISC_INIT_R
 int misc_init_r(void)
 {
-#if defined(CONFIG_HARD_I2C) || defined(CONFIG_SYS_I2C_SOFT)
+#if defined(CONFIG_HARD_I2C) || defined(CONFIG_SOFT_I2C)
 	uchar buf[6];
 	char str[18];
 	char hostname[MODULE_NAME_MAXLEN];
 
 	/* Read ethaddr from EEPROM */
-	if (i2c_read(CONFIG_SYS_I2C_EEPROM, CONFIG_MAC_OFFSET, 2, buf, 6) == 0) {
+	if (i2c_read(CFG_I2C_EEPROM, CONFIG_MAC_OFFSET, 2, buf, 6) == 0) {
 		sprintf(str, "%02X:%02X:%02X:%02X:%02X:%02X",
 			buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
 		/* Check if MAC addr is owned by Schindler */
@@ -329,10 +377,10 @@ int misc_init_r(void)
 		}
 	} else {
 		printf(LOG_PREFIX "Warning - Unable to read MAC from I2C"
-			" device at address %02X:%04X\n", CONFIG_SYS_I2C_EEPROM,
+			" device at address %02X:%04X\n", CFG_I2C_EEPROM,
 			CONFIG_MAC_OFFSET);
 	}
-#endif /* defined(CONFIG_HARD_I2C) || defined(CONFIG_SYS_I2C_SOFT) */
+#endif /* defined(CONFIG_HARD_I2C) || defined(CONFIG_SOFT_I2C) */
 	if (!getenv("ethaddr"))
 		printf(LOG_PREFIX "MAC address not set, networking is not "
 					"operational\n");
@@ -359,11 +407,9 @@ int last_stage_init(void)
 
 
 #if defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
 	ft_blob_update(blob, bd);
-
-	return 0;
 }
 #endif /* defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP) */

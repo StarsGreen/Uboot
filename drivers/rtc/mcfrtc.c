@@ -2,12 +2,28 @@
  * Copyright (C) 2004-2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 
-#if defined(CONFIG_CMD_DATE)
+#if defined(CONFIG_MCFRTC) && defined(CONFIG_CMD_DATE)
 
 #include <command.h>
 #include <rtc.h>
@@ -16,7 +32,7 @@
 
 #undef RTC_DEBUG
 
-#ifndef CONFIG_SYS_MCFRTC_BASE
+#ifndef CFG_MCFRTC_BASE
 #error RTC_BASE is not defined!
 #endif
 
@@ -25,7 +41,7 @@
 
 int rtc_get(struct rtc_time *tmp)
 {
-	volatile rtc_t *rtc = (rtc_t *) (CONFIG_SYS_MCFRTC_BASE);
+	volatile rtc_t *rtc = (rtc_t *) (CFG_MCFRTC_BASE);
 
 	int rtc_days, rtc_hrs, rtc_mins;
 	int tim;
@@ -38,7 +54,7 @@ int rtc_get(struct rtc_time *tmp)
 	tim = (tim * 60) + rtc_mins;
 	tim = (tim * 60) + rtc->seconds;
 
-	rtc_to_tm(tim, tmp);
+	to_tm(tim, tmp);
 
 	tmp->tm_yday = 0;
 	tmp->tm_isdst = 0;
@@ -52,9 +68,9 @@ int rtc_get(struct rtc_time *tmp)
 	return 0;
 }
 
-int rtc_set(struct rtc_time *tmp)
+void rtc_set(struct rtc_time *tmp)
 {
-	volatile rtc_t *rtc = (rtc_t *) (CONFIG_SYS_MCFRTC_BASE);
+	volatile rtc_t *rtc = (rtc_t *) (CFG_MCFRTC_BASE);
 
 	static int month_days[12] = {
 		31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
@@ -90,13 +106,11 @@ int rtc_set(struct rtc_time *tmp)
 	rtc->days = days;
 	rtc->hourmin = (tmp->tm_hour << 8) | tmp->tm_min;
 	rtc->seconds = tmp->tm_sec;
-
-	return 0;
 }
 
 void rtc_reset(void)
 {
-	volatile rtc_t *rtc = (rtc_t *) (CONFIG_SYS_MCFRTC_BASE);
+	volatile rtc_t *rtc = (rtc_t *) (CFG_MCFRTC_BASE);
 
 	if ((rtc->cr & RTC_CR_EN) == 0) {
 		printf("real-time-clock was stopped. Now starting...\n");

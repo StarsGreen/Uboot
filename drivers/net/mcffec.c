@@ -5,19 +5,34 @@
  * (C) Copyright 2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <malloc.h>
 
-#include <command.h>
-#include <net.h>
-#include <netdev.h>
-#include <miiphy.h>
-
 #include <asm/fec.h>
 #include <asm/immap.h>
+
+#include <command.h>
+#include <net.h>
+#include <miiphy.h>
 
 #undef	ET_DEBUG
 #undef	MII_DEBUG
@@ -35,12 +50,12 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 struct fec_info_s fec_info[] = {
-#ifdef CONFIG_SYS_FEC0_IOBASE
+#ifdef CFG_FEC0_IOBASE
 	{
 	 0,			/* index */
-	 CONFIG_SYS_FEC0_IOBASE,	/* io base */
-	 CONFIG_SYS_FEC0_PINMUX,	/* gpio pin muxing */
-	 CONFIG_SYS_FEC0_MIIBASE,	/* mii base */
+	 CFG_FEC0_IOBASE,	/* io base */
+	 CFG_FEC0_PINMUX,	/* gpio pin muxing */
+	 CFG_FEC0_MIIBASE,	/* mii base */
 	 -1,			/* phy_addr */
 	 0,			/* duplex and speed */
 	 0,			/* phy name */
@@ -51,38 +66,45 @@ struct fec_info_s fec_info[] = {
 	 0,			/* tx Index */
 	 0,			/* tx buffer */
 	 0,			/* initialized flag */
-	 (struct fec_info_s *)-1,
 	 },
 #endif
-#ifdef CONFIG_SYS_FEC1_IOBASE
+#ifdef CFG_FEC1_IOBASE
 	{
 	 1,			/* index */
-	 CONFIG_SYS_FEC1_IOBASE,	/* io base */
-	 CONFIG_SYS_FEC1_PINMUX,	/* gpio pin muxing */
-	 CONFIG_SYS_FEC1_MIIBASE,	/* mii base */
+	 CFG_FEC1_IOBASE,	/* io base */
+	 CFG_FEC1_PINMUX,	/* gpio pin muxing */
+	 CFG_FEC1_MIIBASE,	/* mii base */
 	 -1,			/* phy_addr */
 	 0,			/* duplex and speed */
 	 0,			/* phy name */
 	 0,			/* phy name init */
-#ifdef CONFIG_SYS_FEC_BUF_USE_SRAM
-	 (cbd_t *)DBUF_LENGTH,	/* RX BD */
-#else
 	 0,			/* RX BD */
-#endif
 	 0,			/* TX BD */
 	 0,			/* rx Index */
 	 0,			/* tx Index */
 	 0,			/* tx buffer */
 	 0,			/* initialized flag */
-	 (struct fec_info_s *)-1,
 	 }
 #endif
 };
 
+int fec_send(struct eth_device *dev, volatile void *packet, int length);
 int fec_recv(struct eth_device *dev);
 int fec_init(struct eth_device *dev, bd_t * bd);
 void fec_halt(struct eth_device *dev);
 void fec_reset(struct eth_device *dev);
+
+extern int fecpin_setclear(struct eth_device *dev, int setclear);
+
+#ifdef CFG_DISCOVER_PHY
+extern void __mii_init(void);
+extern uint mii_send(uint mii_cmd);
+extern int mii_discover_phy(struct eth_device *dev);
+extern int mcffec_miiphy_read(char *devname, unsigned char addr,
+			      unsigned char reg, unsigned short *value);
+extern int mcffec_miiphy_write(char *devname, unsigned char addr,
+			       unsigned char reg, unsigned short value);
+#endif
 
 void setFecDuplexSpeed(volatile fec_t * fecp, bd_t * bd, int dup_spd)
 {
@@ -117,14 +139,14 @@ void setFecDuplexSpeed(volatile fec_t * fecp, bd_t * bd, int dup_spd)
 	}
 }
 
-static int fec_send(struct eth_device *dev, void *packet, int length)
+int fec_send(struct eth_device *dev, volatile void *packet, int length)
 {
 	struct fec_info_s *info = dev->priv;
 	volatile fec_t *fecp = (fec_t *) (info->iobase);
 	int j, rc;
 	u16 phyStatus;
 
-	miiphy_read(dev->name, info->phy_addr, MII_BMSR, &phyStatus);
+	miiphy_read(dev->name, info->phy_addr, PHY_BMSR, &phyStatus);
 
 	/* section 16.9.23.3
 	 * Wait for ready
@@ -146,22 +168,16 @@ static int fec_send(struct eth_device *dev, void *packet, int length)
 	/* Activate transmit Buffer Descriptor polling */
 	fecp->tdar = 0x01000000;	/* Descriptor polling active    */
 
-#ifndef CONFIG_SYS_FEC_BUF_USE_SRAM
-	/*
-	 * FEC unable to initial transmit data packet.
+	/* FEC fix for MCF5275, FEC unable to initial transmit data packet.
 	 * A nop will ensure the descriptor polling active completed.
-	 * CF Internal RAM has shorter cycle access than DRAM. If use
-	 * DRAM as Buffer descriptor and data, a nop is a must.
-	 * Affect only V2 and V3.
 	 */
+#ifdef CONFIG_M5275
 	__asm__ ("nop");
-
 #endif
 
-#ifdef CONFIG_SYS_UNIFY_CACHE
+#ifdef CFG_UNIFY_CACHE
 	icache_invalid();
 #endif
-
 	j = 0;
 	while ((info->txbd[info->txIdx].cbd_sc & BD_ENET_TX_READY) &&
 	       (j < MCFFEC_TOUT_LOOP)) {
@@ -193,9 +209,7 @@ int fec_recv(struct eth_device *dev)
 	int length;
 
 	for (;;) {
-#ifndef CONFIG_SYS_FEC_BUF_USE_SRAM
-#endif
-#ifdef CONFIG_SYS_UNIFY_CACHE
+#ifdef CFG_UNIFY_CACHE
 		icache_invalid();
 #endif
 		/* section 16.9.23.2 */
@@ -219,8 +233,7 @@ int fec_recv(struct eth_device *dev)
 
 			length -= 4;
 			/* Pass the packet up to the protocol layers. */
-			net_process_received_packet(net_rx_packets[info->rxIdx],
-						    length);
+			NetReceive(NetRxPackets[info->rxIdx], length);
 
 			fecp->eir |= FEC_EIR_RXF;
 		}
@@ -400,22 +413,22 @@ int fec_init(struct eth_device *dev, bd_t * bd)
 	struct fec_info_s *info = dev->priv;
 	volatile fec_t *fecp = (fec_t *) (info->iobase);
 	int i;
-	uchar ea[6];
+	u8 *ea = NULL;
 
 	fecpin_setclear(dev, 1);
 
 	fec_reset(dev);
 
 #if defined(CONFIG_CMD_MII) || defined (CONFIG_MII) || \
-	defined (CONFIG_SYS_DISCOVER_PHY)
+	defined (CFG_DISCOVER_PHY)
 
 	mii_init();
 
 	setFecDuplexSpeed(fecp, bd, info->dup_spd);
 #else
-#ifndef CONFIG_SYS_DISCOVER_PHY
+#ifndef CFG_DISCOVER_PHY
 	setFecDuplexSpeed(fecp, bd, (FECDUPLEX << 16) | FECSPEED);
-#endif				/* ifndef CONFIG_SYS_DISCOVER_PHY */
+#endif				/* ifndef CFG_DISCOVER_PHY */
 #endif				/* CONFIG_CMD_MII || CONFIG_MII */
 
 	/* We use strictly polling mode only */
@@ -425,28 +438,28 @@ int fec_init(struct eth_device *dev, bd_t * bd)
 	fecp->eir = 0xffffffff;
 
 	/* Set station address   */
-	if ((u32) fecp == CONFIG_SYS_FEC0_IOBASE) {
-#ifdef CONFIG_SYS_FEC1_IOBASE
-		volatile fec_t *fecp1 = (fec_t *) (CONFIG_SYS_FEC1_IOBASE);
-		eth_getenv_enetaddr("eth1addr", ea);
+	if ((u32) fecp == CFG_FEC0_IOBASE) {
+#ifdef CFG_FEC1_IOBASE
+		volatile fec_t *fecp1 = (fec_t *) (CFG_FEC1_IOBASE);
+		ea = &bd->bi_enet1addr[0];
 		fecp1->palr =
 		    (ea[0] << 24) | (ea[1] << 16) | (ea[2] << 8) | (ea[3]);
 		fecp1->paur = (ea[4] << 24) | (ea[5] << 16);
 #endif
-		eth_getenv_enetaddr("ethaddr", ea);
+		ea = &bd->bi_enetaddr[0];
 		fecp->palr =
 		    (ea[0] << 24) | (ea[1] << 16) | (ea[2] << 8) | (ea[3]);
 		fecp->paur = (ea[4] << 24) | (ea[5] << 16);
 	} else {
-#ifdef CONFIG_SYS_FEC0_IOBASE
-		volatile fec_t *fecp0 = (fec_t *) (CONFIG_SYS_FEC0_IOBASE);
-		eth_getenv_enetaddr("ethaddr", ea);
+#ifdef CFG_FEC0_IOBASE
+		volatile fec_t *fecp0 = (fec_t *) (CFG_FEC0_IOBASE);
+		ea = &bd->bi_enetaddr[0];
 		fecp0->palr =
 		    (ea[0] << 24) | (ea[1] << 16) | (ea[2] << 8) | (ea[3]);
 		fecp0->paur = (ea[4] << 24) | (ea[5] << 16);
 #endif
-#ifdef CONFIG_SYS_FEC1_IOBASE
-		eth_getenv_enetaddr("eth1addr", ea);
+#ifdef CFG_FEC1_IOBASE
+		ea = &bd->bi_enet1addr[0];
 		fecp->palr =
 		    (ea[0] << 24) | (ea[1] << 16) | (ea[2] << 8) | (ea[3]);
 		fecp->paur = (ea[4] << 24) | (ea[5] << 16);
@@ -478,7 +491,7 @@ int fec_init(struct eth_device *dev, bd_t * bd)
 	for (i = 0; i < PKTBUFSRX; i++) {
 		info->rxbd[i].cbd_sc = BD_ENET_RX_EMPTY;
 		info->rxbd[i].cbd_datlen = 0;	/* Reset */
-		info->rxbd[i].cbd_bufaddr = (uint) net_rx_packets[i];
+		info->rxbd[i].cbd_bufaddr = (uint) NetRxPackets[i];
 	}
 	info->rxbd[PKTBUFSRX - 1].cbd_sc |= BD_ENET_RX_WRAP;
 
@@ -540,14 +553,11 @@ int mcffec_initialize(bd_t * bis)
 {
 	struct eth_device *dev;
 	int i;
-#ifdef CONFIG_SYS_FEC_BUF_USE_SRAM
-	u32 tmp = CONFIG_SYS_INIT_RAM_ADDR + 0x1000;
-#endif
 
-	for (i = 0; i < ARRAY_SIZE(fec_info); i++) {
+	for (i = 0; i < sizeof(fec_info) / sizeof(fec_info[0]); i++) {
 
 		dev =
-		    (struct eth_device *)memalign(CONFIG_SYS_CACHELINE_SIZE,
+		    (struct eth_device *)memalign(CFG_CACHELINE_SIZE,
 						  sizeof *dev);
 		if (dev == NULL)
 			hang();
@@ -563,34 +573,20 @@ int mcffec_initialize(bd_t * bis)
 		dev->recv = fec_recv;
 
 		/* setup Receive and Transmit buffer descriptor */
-#ifdef CONFIG_SYS_FEC_BUF_USE_SRAM
-		fec_info[i].rxbd = (cbd_t *)((u32)fec_info[i].rxbd + tmp);
-		tmp = (u32)fec_info[i].rxbd;
-		fec_info[i].txbd =
-		    (cbd_t *)((u32)fec_info[i].txbd + tmp +
-		    (PKTBUFSRX * sizeof(cbd_t)));
-		tmp = (u32)fec_info[i].txbd;
-		fec_info[i].txbuf =
-		    (char *)((u32)fec_info[i].txbuf + tmp +
-		    (CONFIG_SYS_TX_ETH_BUFFER * sizeof(cbd_t)));
-		tmp = (u32)fec_info[i].txbuf;
-#else
 		fec_info[i].rxbd =
-		    (cbd_t *) memalign(CONFIG_SYS_CACHELINE_SIZE,
+		    (cbd_t *) memalign(CFG_CACHELINE_SIZE,
 				       (PKTBUFSRX * sizeof(cbd_t)));
 		fec_info[i].txbd =
-		    (cbd_t *) memalign(CONFIG_SYS_CACHELINE_SIZE,
+		    (cbd_t *) memalign(CFG_CACHELINE_SIZE,
 				       (TX_BUF_CNT * sizeof(cbd_t)));
 		fec_info[i].txbuf =
-		    (char *)memalign(CONFIG_SYS_CACHELINE_SIZE, DBUF_LENGTH);
-#endif
-
+		    (char *)memalign(CFG_CACHELINE_SIZE, DBUF_LENGTH);
 #ifdef ET_DEBUG
 		printf("rxbd %x txbd %x\n",
 		       (int)fec_info[i].rxbd, (int)fec_info[i].txbd);
 #endif
 
-		fec_info[i].phy_name = (char *)memalign(CONFIG_SYS_CACHELINE_SIZE, 32);
+		fec_info[i].phy_name = (char *)memalign(CFG_CACHELINE_SIZE, 32);
 
 		eth_register(dev);
 
@@ -598,13 +594,10 @@ int mcffec_initialize(bd_t * bis)
 		miiphy_register(dev->name,
 				mcffec_miiphy_read, mcffec_miiphy_write);
 #endif
-		if (i > 0)
-			fec_info[i - 1].next = &fec_info[i];
 	}
-	fec_info[i - 1].next = &fec_info[0];
 
 	/* default speed */
 	bis->bi_ethspeed = 10;
 
-	return 0;
+	return 1;
 }

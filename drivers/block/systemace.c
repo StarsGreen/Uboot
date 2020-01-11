@@ -2,12 +2,25 @@
  * Copyright (c) 2004 Picture Elements, Inc.
  *    Stephen Williams (XXXXXXXXXXXXXXXX)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ *    This source code is free software; you can redistribute it
+ *    and/or modify it in source code form under the terms of the GNU
+ *    General Public License as published by the Free Software
+ *    Foundation; either version 2 of the License, or (at your option)
+ *    any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program; if not, write to the Free Software
+ *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
 /*
  * The Xilinx SystemACE chip support is activated by defining
- * CONFIG_SYSTEMACE to turn on support, and CONFIG_SYS_SYSTEMACE_BASE
+ * CONFIG_SYSTEMACE to turn on support, and CFG_SYSTEMACE_BASE
  * to set the base address of the device. This code currently
  * assumes that the chip is connected via a byte-wide bus.
  *
@@ -31,46 +44,36 @@
 #include <part.h>
 #include <asm/io.h>
 
+#ifdef CONFIG_SYSTEMACE
+
 /*
  * The ace_readw and writew functions read/write 16bit words, but the
  * offset value is the BYTE offset as most used in the Xilinx
- * datasheet for the SystemACE chip. The CONFIG_SYS_SYSTEMACE_BASE is defined
+ * datasheet for the SystemACE chip. The CFG_SYSTEMACE_BASE is defined
  * to be the base address for the chip, usually in the local
  * peripheral bus.
  */
-
-static u32 base = CONFIG_SYS_SYSTEMACE_BASE;
-static u32 width = CONFIG_SYS_SYSTEMACE_WIDTH;
-
-static void ace_writew(u16 val, unsigned off)
-{
-	if (width == 8) {
+#if (CFG_SYSTEMACE_WIDTH == 8)
 #if !defined(__BIG_ENDIAN)
-		writeb(val >> 8, base + off);
-		writeb(val, base + off + 1);
+#define ace_readw(off) ((readb(CFG_SYSTEMACE_BASE+off)<<8) | \
+			(readb(CFG_SYSTEMACE_BASE+off+1)))
+#define ace_writew(val, off) {writeb(val>>8, CFG_SYSTEMACE_BASE+off); \
+			      writeb(val, CFG_SYSTEMACE_BASE+off+1);}
 #else
-		writeb(val, base + off);
-		writeb(val >> 8, base + off + 1);
+#define ace_readw(off) ((readb(CFG_SYSTEMACE_BASE+off)) | \
+			(readb(CFG_SYSTEMACE_BASE+off+1)<<8))
+#define ace_writew(val, off) {writeb(val, CFG_SYSTEMACE_BASE+off); \
+			      writeb(val>>8, CFG_SYSTEMACE_BASE+off+1);}
 #endif
-	} else
-		out16(base + off, val);
-}
-
-static u16 ace_readw(unsigned off)
-{
-	if (width == 8) {
-#if !defined(__BIG_ENDIAN)
-		return (readb(base + off) << 8) | readb(base + off + 1);
 #else
-		return readb(base + off) | (readb(base + off + 1) << 8);
+#define ace_readw(off) (in16(CFG_SYSTEMACE_BASE+off))
+#define ace_writew(val, off) (out16(CFG_SYSTEMACE_BASE+off,val))
 #endif
-	}
 
-	return in16(base + off);
-}
+/* */
 
 static unsigned long systemace_read(int dev, unsigned long start,
-					lbaint_t blkcnt, void *buffer);
+				    unsigned long blkcnt, void *buffer);
 
 static block_dev_desc_t systemace_dev = { 0 };
 
@@ -103,7 +106,6 @@ static void release_cf_lock(void)
 	ace_writew((val & 0xffff), 0x18);
 }
 
-#ifdef CONFIG_PARTITIONS
 block_dev_desc_t *systemace_get_dev(int dev)
 {
 	/* The first time through this, the systemace_dev object is
@@ -114,14 +116,13 @@ block_dev_desc_t *systemace_get_dev(int dev)
 		systemace_dev.part_type = PART_TYPE_UNKNOWN;
 		systemace_dev.type = DEV_TYPE_HARDDISK;
 		systemace_dev.blksz = 512;
-		systemace_dev.log2blksz = LOG2(systemace_dev.blksz);
 		systemace_dev.removable = 1;
 		systemace_dev.block_read = systemace_read;
 
 		/*
 		 * Ensure the correct bus mode (8/16 bits) gets enabled
 		 */
-		ace_writew(width == 8 ? 0 : 0x0001, 0);
+		ace_writew(CFG_SYSTEMACE_WIDTH == 8 ? 0 : 0x0001, 0);
 
 		init_part(&systemace_dev);
 
@@ -129,7 +130,6 @@ block_dev_desc_t *systemace_get_dev(int dev)
 
 	return &systemace_dev;
 }
-#endif
 
 /*
  * This function is called (by dereferencing the block_read pointer in
@@ -137,7 +137,7 @@ block_dev_desc_t *systemace_get_dev(int dev)
  * number of blocks read. A zero return indicates an error.
  */
 static unsigned long systemace_read(int dev, unsigned long start,
-					lbaint_t blkcnt, void *buffer)
+				    unsigned long blkcnt, void *buffer)
 {
 	int retry;
 	unsigned blk_countdown;
@@ -255,3 +255,4 @@ static unsigned long systemace_read(int dev, unsigned long start,
 
 	return blkcnt;
 }
+#endif /* CONFIG_SYSTEMACE */

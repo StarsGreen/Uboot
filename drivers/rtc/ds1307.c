@@ -4,12 +4,28 @@
  * Keith Outwater, keith_outwater@mvis.com`
  * Steven Scholz, steven.scholz@imc-berlin.de
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
  * Date & Time support (no alarms) for Dallas Semiconductor (now Maxim)
- * DS1307 and DS1338/9 Real Time Clock (RTC).
+ * DS1307 and DS1338 Real Time Clock (RTC).
  *
  * based on ds1337.c
  */
@@ -19,7 +35,8 @@
 #include <rtc.h>
 #include <i2c.h>
 
-#if defined(CONFIG_CMD_DATE)
+#if (defined(CONFIG_RTC_DS1307) || defined(CONFIG_RTC_DS1338) ) && \
+    defined(CONFIG_CMD_DATE)
 
 /*---------------------------------------------------------------------*/
 #undef DEBUG_RTC
@@ -31,11 +48,11 @@
 #endif
 /*---------------------------------------------------------------------*/
 
-#ifndef CONFIG_SYS_I2C_RTC_ADDR
-# define CONFIG_SYS_I2C_RTC_ADDR	0x68
+#ifndef CFG_I2C_RTC_ADDR
+# define CFG_I2C_RTC_ADDR	0x68
 #endif
 
-#if defined(CONFIG_RTC_DS1307) && (CONFIG_SYS_I2C_SPEED > 100000)
+#if defined(CONFIG_RTC_DS1307) && (CFG_I2C_SPEED > 100000)
 # error The DS1307 is specified only up to 100kHz!
 #endif
 
@@ -58,12 +75,10 @@
 #define RTC_CTL_BIT_SQWE	0x10	/* Square Wave Enable           */
 #define RTC_CTL_BIT_OUT		0x80	/* Output Control               */
 
-/* MCP7941X-specific bits */
-#define MCP7941X_BIT_ST		0x80
-#define MCP7941X_BIT_VBATEN	0x08
-
 static uchar rtc_read (uchar reg);
 static void rtc_write (uchar reg, uchar val);
+static uchar bin2bcd (unsigned int n);
+static unsigned bcd2bin (uchar c);
 
 /*
  * Get the current time from the RTC
@@ -73,9 +88,6 @@ int rtc_get (struct rtc_time *tmp)
 	int rel = 0;
 	uchar sec, min, hour, mday, wday, mon, year;
 
-#ifdef CONFIG_RTC_MCP79411
-read_rtc:
-#endif
 	sec = rtc_read (RTC_SEC_REG_ADDR);
 	min = rtc_read (RTC_MIN_REG_ADDR);
 	hour = rtc_read (RTC_HR_REG_ADDR);
@@ -88,7 +100,6 @@ read_rtc:
 		"hr: %02x min: %02x sec: %02x\n",
 		year, mon, mday, wday, hour, min, sec);
 
-#ifdef CONFIG_RTC_DS1307
 	if (sec & RTC_SEC_BIT_CH) {
 		printf ("### Warning: RTC oscillator has stopped\n");
 		/* clear the CH flag */
@@ -96,23 +107,6 @@ read_rtc:
 			   rtc_read (RTC_SEC_REG_ADDR) & ~RTC_SEC_BIT_CH);
 		rel = -1;
 	}
-#endif
-
-#ifdef CONFIG_RTC_MCP79411
-	/* make sure that the backup battery is enabled */
-	if (!(wday & MCP7941X_BIT_VBATEN)) {
-		rtc_write(RTC_DAY_REG_ADDR,
-			  wday | MCP7941X_BIT_VBATEN);
-	}
-
-	/* clock halted?  turn it on, so clock can tick. */
-	if (!(sec & MCP7941X_BIT_ST)) {
-		rtc_write(RTC_SEC_REG_ADDR, MCP7941X_BIT_ST);
-		printf("Started RTC\n");
-		goto read_rtc;
-	}
-#endif
-
 
 	tmp->tm_sec  = bcd2bin (sec & 0x7F);
 	tmp->tm_min  = bcd2bin (min & 0x7F);
@@ -135,7 +129,7 @@ read_rtc:
 /*
  * Set the RTC
  */
-int rtc_set (struct rtc_time *tmp)
+void rtc_set (struct rtc_time *tmp)
 {
 	DEBUGR ("Set DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
 		tmp->tm_year, tmp->tm_mon, tmp->tm_mday, tmp->tm_wday,
@@ -146,22 +140,11 @@ int rtc_set (struct rtc_time *tmp)
 
 	rtc_write (RTC_YR_REG_ADDR, bin2bcd (tmp->tm_year % 100));
 	rtc_write (RTC_MON_REG_ADDR, bin2bcd (tmp->tm_mon));
-#ifdef CONFIG_RTC_MCP79411
-	rtc_write (RTC_DAY_REG_ADDR,
-		   bin2bcd (tmp->tm_wday + 1) | MCP7941X_BIT_VBATEN);
-#else
 	rtc_write (RTC_DAY_REG_ADDR, bin2bcd (tmp->tm_wday + 1));
-#endif
 	rtc_write (RTC_DATE_REG_ADDR, bin2bcd (tmp->tm_mday));
 	rtc_write (RTC_HR_REG_ADDR, bin2bcd (tmp->tm_hour));
 	rtc_write (RTC_MIN_REG_ADDR, bin2bcd (tmp->tm_min));
-#ifdef CONFIG_RTC_MCP79411
-	rtc_write (RTC_SEC_REG_ADDR, bin2bcd (tmp->tm_sec) | MCP7941X_BIT_ST);
-#else
 	rtc_write (RTC_SEC_REG_ADDR, bin2bcd (tmp->tm_sec));
-#endif
-
-	return 0;
 }
 
 
@@ -203,12 +186,23 @@ void rtc_reset (void)
 static
 uchar rtc_read (uchar reg)
 {
-	return (i2c_reg_read (CONFIG_SYS_I2C_RTC_ADDR, reg));
+	return (i2c_reg_read (CFG_I2C_RTC_ADDR, reg));
 }
 
 
 static void rtc_write (uchar reg, uchar val)
 {
-	i2c_reg_write (CONFIG_SYS_I2C_RTC_ADDR, reg, val);
+	i2c_reg_write (CFG_I2C_RTC_ADDR, reg, val);
 }
+
+static unsigned bcd2bin (uchar n)
+{
+	return ((((n >> 4) & 0x0F) * 10) + (n & 0x0F));
+}
+
+static unsigned char bin2bcd (unsigned int n)
+{
+	return (((n / 10) << 4) | (n % 10));
+}
+
 #endif

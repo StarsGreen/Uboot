@@ -1,10 +1,26 @@
 /* ported from ctfb.c (linux kernel):
- * Created in Jan - July 2000 by Thomas HÃ¶henleitner <th@visuelle-maschinen.de>
+ * Created in Jan - July 2000 by Thomas Höhenleitner <th@visuelle-maschinen.de>
  *
  * Ported to U-Boot:
  * (C) Copyright 2002 Denis Peter, MPL AG Switzerland
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -15,15 +31,15 @@
 #include <video_fb.h>
 #include "videomodes.h"
 
+#ifdef CONFIG_VIDEO_CT69000
+
 /* debug */
 #undef VGA_DEBUG
 #undef VGA_DUMP_REG
 #ifdef VGA_DEBUG
-#undef _DEBUG
-#define _DEBUG  1
+#define	PRINTF(fmt,args...)	printf (fmt ,##args)
 #else
-#undef _DEBUG
-#define _DEBUG  0
+#define PRINTF(fmt,args...)
 #endif
 
 /* Macros */
@@ -256,6 +272,9 @@ struct ctfb_chips_properties {
 
 static const struct ctfb_chips_properties chips[] = {
 	{PCI_DEVICE_ID_CT_69000, 0x200000, 1, 4, -2, 3, 257, 100, 220},
+#ifdef CONFIG_USE_CPCIDVI
+	{PCI_DEVICE_ID_CT_69030, 0x400000, 1, 4, -2, 3, 257, 100, 220},
+#endif
 	{PCI_DEVICE_ID_CT_65555, 0x100000, 16, 4, 0, 1, 255, 48, 220},	/* NOT TESTED */
 	{0, 0, 0, 0, 0, 0, 0, 0, 0}	/* Terminator */
 };
@@ -609,25 +628,25 @@ FindBestPQFittingMN (unsigned int p, unsigned int q, unsigned int mnmin,
 
 /* that is the hardware < 69000 we have to manage
  +---------+  +-------------------+  +----------------------+  +--+
- | REFCLK  |__|NTSC Divisor Select|__|FVCO Reference Divisor|__|Ã·N|__
- | 14.3MHz |  |(NTSCDS) (Ã·1, Ã·5)  |  |Select (RDS) (Ã·1, Ã·4) |  |  |  |
+ | REFCLK  |__|NTSC Divisor Select|__|FVCO Reference Divisor|__|÷N|__
+ | 14.3MHz |  |(NTSCDS) (÷1, ÷5)  |  |Select (RDS) (÷1, ÷4) |  |  |  |
  +---------+  +-------------------+  +----------------------+  +--+  |
   ___________________________________________________________________|
  |
  |                                    fvco                      fout
  | +--------+  +------------+  +-----+     +-------------------+   +----+
  +-| Phase  |__|Charge Pump |__| VCO |_____|Post Divisor (PD)  |___|CLK |--->
- +-| Detect |  |& Filter VCO|  |     |  |  |Ã·1, 2, 4, 8, 16, 32|   |    |
+ +-| Detect |  |& Filter VCO|  |     |  |  |÷1, 2, 4, 8, 16, 32|   |    |
  | +--------+  +------------+  +-----+  |  +-------------------+   +----+
  |                                      |
  |    +--+   +---------------+          |
- |____|Ã·M|___|VCO Loop Divide|__________|
-      |  |   |(VLD)(Ã·4, Ã·16) |
+ |____|÷M|___|VCO Loop Divide|__________|
+      |  |   |(VLD)(÷4, ÷16) |
       +--+   +---------------+
 ****************************************************************************
   that is the hardware >= 69000 we have to manage
  +---------+  +--+
- | REFCLK  |__|Ã·N|__
+ | REFCLK  |__|÷N|__
  | 14.3MHz |  |  |  |
  +---------+  +--+  |
   __________________|
@@ -635,12 +654,12 @@ FindBestPQFittingMN (unsigned int p, unsigned int q, unsigned int mnmin,
  |                                    fvco                      fout
  | +--------+  +------------+  +-----+     +-------------------+   +----+
  +-| Phase  |__|Charge Pump |__| VCO |_____|Post Divisor (PD)  |___|CLK |--->
- +-| Detect |  |& Filter VCO|  |     |  |  |Ã·1, 2, 4, 8, 16, 32|   |    |
+ +-| Detect |  |& Filter VCO|  |     |  |  |÷1, 2, 4, 8, 16, 32|   |    |
  | +--------+  +------------+  +-----+  |  +-------------------+   +----+
  |                                      |
  |    +--+   +---------------+          |
- |____|Ã·M|___|VCO Loop Divide|__________|
-      |  |   |(VLD)(Ã·1, Ã·4)  |
+ |____|÷M|___|VCO Loop Divide|__________|
+      |  |   |(VLD)(÷1, ÷4)  |
       +--+   +---------------+
 
 
@@ -723,7 +742,7 @@ FindAndSetPllParamIntoXrRegs (unsigned int pixelclock,
 	}
 	m += param->mn_diff;
 	n += param->mn_diff;
-	debug("VCO %d, pd %d, m %d n %d vld %d\n", fvco, pd, m, n, vld);
+	PRINTF ("VCO %d, pd %d, m %d n %d vld %d \n", fvco, pd, m, n, vld);
 	xr_cb = ((0x7 & PD) << 4) | (vld == param->vld_set ? 0x04 : 0);
 	/* All four of the registers used for dot clock 2 (XRC8 - XRCB) must be
 	 * written, and in order from XRC8 to XRCB, before the hardware will
@@ -734,7 +753,7 @@ FindAndSetPllParamIntoXrRegs (unsigned int pixelclock,
 	ctWrite_i (CT_XR_O, 0xca, 0);	/* because of a hw bug I guess, but we write */
 	ctWrite_i (CT_XR_O, 0xcb, xr_cb);	/* 0 to it for savety */
 	new_pixclock = ReadPixClckFromXrRegsBack (param);
-	debug("pixelclock.set = %d, pixelclock.real = %d\n",
+	PRINTF ("pixelclock.set = %d, pixelclock.real = %d \n",
 		pixelclock, new_pixclock);
 }
 
@@ -941,6 +960,9 @@ SetDrawingEngine (int bits_per_pixel)
 */
 static struct pci_device_id supported[] = {
 	{PCI_VENDOR_ID_CT, PCI_DEVICE_ID_CT_69000},
+#ifdef CONFIG_USE_CPCIDVI
+	{PCI_VENDOR_ID_CT, PCI_DEVICE_ID_CT_69030},
+#endif
 	{}
 };
 
@@ -1087,7 +1109,7 @@ video_hw_init (void)
 		pGD->gdfIndex = GDF_24BIT_888RGB;
 		break;
 	}
-	pGD->isaBase = CONFIG_SYS_ISA_IO_BASE_ADDRESS;
+	pGD->isaBase = CFG_ISA_IO_BASE_ADDRESS;
 	pGD->pciBase = pci_mem_base;
 	pGD->frameAdrs = pci_mem_base;
 	pGD->memSize = chips_param->max_mem;
@@ -1099,13 +1121,28 @@ video_hw_init (void)
 		pGD->dprBase &= 0xfffff000;
 		pGD->dprBase += 0x00001000;
 	}
-	debug("Cursor Start %x Pattern Start %x\n", pGD->dprBase,
+	PRINTF ("Cursor Start %x Pattern Start %x\n", pGD->dprBase,
 		PATTERN_ADR);
 	pGD->vprBase = pci_mem_base;	/* Dummy */
 	pGD->cprBase = pci_mem_base;	/* Dummy */
 	/* set up Hardware */
 
+#ifdef CONFIG_USE_CPCIDVI
+	if (device_id == PCI_DEVICE_ID_CT_69030) {
+		ctWrite (CT_MSR_W_O, 0x0b);
+		ctWrite (0x3cd, 0x13);
+		ctWrite_i (CT_FP_O, 0x02, 0x00);
+		ctWrite_i (CT_FP_O, 0x05, 0x00);
+		ctWrite_i (CT_FP_O, 0x06, 0x00);
+		ctWrite (0x3c2, 0x0b);
+		ctWrite_i (CT_FP_O, 0x02, 0x10);
+		ctWrite_i (CT_FP_O, 0x01, 0x09);
+	} else {
+		ctWrite (CT_MSR_W_O, 0x01);
+	}
+#else
 	ctWrite (CT_MSR_W_O, 0x01);
+#endif
 
 	/* set the extended Registers */
 	ctLoadRegs (CT_XR_O, xreg);
@@ -1243,4 +1280,7 @@ video_hw_bitblt (unsigned int bpp,	/* bytes per pixel */
 	out32r (pGD->pciBase + BR08_o, (dim_y << 16) + dim_x);	/* start the BITBlt */
 	video_wait_bitblt (pGD->pciBase + BR04_o);
 }
+
+#endif				/* CONFIG_CT69000 */
+
 #endif				/* CONFIG_VIDEO */

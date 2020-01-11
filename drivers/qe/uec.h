@@ -1,18 +1,27 @@
 /*
- * Copyright (C) 2006-2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2006 Freescale Semiconductor, Inc.
  *
  * Dave Liu <daveliu@freescale.com>
  * based on source code of Shlomi Gridish
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __UEC_H__
 #define __UEC_H__
-
-#include "qe.h"
-#include "uccf.h"
-#include <phy.h>
 
 #define MAX_TX_THREADS				8
 #define MAX_RX_THREADS				8
@@ -38,7 +47,6 @@
 #define UPSMR_CAM	0x00000400 /* CAM Address Matching          */
 #define UPSMR_BRO	0x00000200 /* Broadcast Address             */
 #define UPSMR_RES1	0x00002000 /* Reserved feild - must be 1    */
-#define UPSMR_SGMM	0x00000020 /* SGMII mode    */
 
 #define UPSMR_INIT_VALUE	(UPSMR_HSE | UPSMR_RES1)
 
@@ -613,31 +621,6 @@ typedef enum enet_tbi_mii_reg {
 	ENET_TBI_MII_TBICON    = 0x11
 } enet_tbi_mii_reg_e;
 
-/* TBI MDIO register bit fields*/
-#define TBICON_CLK_SELECT	0x0020
-#define TBIANA_ASYMMETRIC_PAUSE	0x0100
-#define TBIANA_SYMMETRIC_PAUSE	0x0080
-#define TBIANA_HALF_DUPLEX	0x0040
-#define TBIANA_FULL_DUPLEX	0x0020
-#define TBICR_PHY_RESET		0x8000
-#define TBICR_ANEG_ENABLE	0x1000
-#define TBICR_RESTART_ANEG	0x0200
-#define TBICR_FULL_DUPLEX	0x0100
-#define TBICR_SPEED1_SET	0x0040
-
-#define TBIANA_SETTINGS ( \
-		TBIANA_ASYMMETRIC_PAUSE \
-		| TBIANA_SYMMETRIC_PAUSE \
-		| TBIANA_FULL_DUPLEX \
-		)
-
-#define TBICR_SETTINGS ( \
-		TBICR_PHY_RESET \
-		| TBICR_ANEG_ENABLE \
-		| TBICR_FULL_DUPLEX \
-		| TBICR_SPEED1_SET \
-		)
-
 /* UEC number of threads
 */
 typedef enum uec_num_of_threads {
@@ -648,38 +631,34 @@ typedef enum uec_num_of_threads {
 	UEC_NUM_OF_THREADS_8  = 0x4   /* 8 */
 } uec_num_of_threads_e;
 
+/* UEC ethernet interface type
+*/
+typedef enum enet_interface {
+	ENET_10_MII,
+	ENET_10_RMII,
+	ENET_10_RGMII,
+	ENET_100_MII,
+	ENET_100_RMII,
+	ENET_100_RGMII,
+	ENET_1000_GMII,
+	ENET_1000_RGMII,
+	ENET_1000_RGMII_RXID,
+	ENET_1000_TBI,
+	ENET_1000_RTBI
+} enet_interface_e;
+
 /* UEC initialization info struct
 */
-#define STD_UEC_INFO(num) \
-{			\
-	.uf_info		= {	\
-		.ucc_num	= CONFIG_SYS_UEC##num##_UCC_NUM,\
-		.rx_clock	= CONFIG_SYS_UEC##num##_RX_CLK,	\
-		.tx_clock	= CONFIG_SYS_UEC##num##_TX_CLK,	\
-		.eth_type	= CONFIG_SYS_UEC##num##_ETH_TYPE,\
-	},	\
-	.num_threads_tx		= UEC_NUM_OF_THREADS_1,	\
-	.num_threads_rx		= UEC_NUM_OF_THREADS_1,	\
-	.risc_tx		= QE_RISC_ALLOCATION_RISC1_AND_RISC2, \
-	.risc_rx		= QE_RISC_ALLOCATION_RISC1_AND_RISC2, \
-	.tx_bd_ring_len		= 16,	\
-	.rx_bd_ring_len		= 16,	\
-	.phy_address		= CONFIG_SYS_UEC##num##_PHY_ADDR, \
-	.enet_interface_type	= CONFIG_SYS_UEC##num##_INTERFACE_TYPE, \
-	.speed			= CONFIG_SYS_UEC##num##_INTERFACE_SPEED, \
-}
-
 typedef struct uec_info {
 	ucc_fast_info_t			uf_info;
 	uec_num_of_threads_e		num_threads_tx;
 	uec_num_of_threads_e		num_threads_rx;
-	unsigned int			risc_tx;
-	unsigned int			risc_rx;
+	qe_risc_allocation_e		riscTx;
+	qe_risc_allocation_e		riscRx;
 	u16				rx_bd_ring_len;
 	u16				tx_bd_ring_len;
 	u8				phy_address;
-	phy_interface_t			enet_interface_type;
-	int				speed;
+	enet_interface_e		enet_interface;
 } uec_info_t;
 
 /* UEC driver initialized info
@@ -736,7 +715,4 @@ typedef struct uec_private {
 	int				oldlink;
 } uec_private_t;
 
-int uec_initialize(bd_t *bis, uec_info_t *uec_info);
-int uec_eth_init(bd_t *bis, uec_info_t *uecs, int num);
-int uec_standard_init(bd_t *bis);
 #endif /* __UEC_H__ */

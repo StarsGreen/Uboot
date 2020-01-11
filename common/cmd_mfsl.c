@@ -3,7 +3,23 @@
  *
  * Michal  SIMEK <monstr@monstr.eu>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -15,20 +31,23 @@
 #include <command.h>
 #include <asm/asm.h>
 
-int do_frd (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
+int do_frd (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 {
 	unsigned int fslnum;
 	unsigned int num;
 	unsigned int blocking;
 
-	if (argc < 2)
-		return CMD_RET_USAGE;
+	if (argc < 2) {
+		printf ("Usage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 
 	fslnum = (unsigned int)simple_strtoul (argv[1], NULL, 16);
 	blocking = (unsigned int)simple_strtoul (argv[2], NULL, 16);
 	if (fslnum < 0 || fslnum >= XILINX_FSL_NUMBER) {
 		puts ("Bad number of FSL\n");
-		return CMD_RET_USAGE;
+		printf ("Usage:\n%s\n", cmdtp->usage);
+		return 1;
 	}
 
 	switch (fslnum) {
@@ -170,20 +189,24 @@ int do_frd (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 	return 0;
 }
 
-int do_fwr (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
+int do_fwr (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 {
 	unsigned int fslnum;
 	unsigned int num;
 	unsigned int blocking;
 
-	if (argc < 3)
-		return CMD_RET_USAGE;
+	if (argc < 3) {
+		printf ("Usage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 
 	fslnum = (unsigned int)simple_strtoul (argv[1], NULL, 16);
 	num = (unsigned int)simple_strtoul (argv[2], NULL, 16);
 	blocking = (unsigned int)simple_strtoul (argv[3], NULL, 16);
-	if (fslnum < 0 || fslnum >= XILINX_FSL_NUMBER)
-		return CMD_RET_USAGE;
+	if (fslnum < 0 || fslnum >= XILINX_FSL_NUMBER) {
+		printf ("Bad number of FSL\nUsage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 
 	switch (fslnum) {
 #if (XILINX_FSL_NUMBER > 0)
@@ -325,14 +348,15 @@ int do_fwr (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 
 }
 
-int do_rspr (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
+int do_rspr (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 {
 	unsigned int reg = 0;
 	unsigned int val = 0;
 
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
+	if (argc < 2) {
+		printf ("Usage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 	reg = (unsigned int)simple_strtoul (argv[1], NULL, 16);
 	val = (unsigned int)simple_strtoul (argv[2], NULL, 16);
 	switch (reg) {
@@ -365,24 +389,25 @@ int do_rspr (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 /***************************************************/
 
 U_BOOT_CMD (frd, 3, 1, do_frd,
-		"read data from FSL",
+		"frd     - read data from FSL\n",
 		"- [fslnum [0|1|2|3]]\n"
 		" 0 - non blocking data read\n"
 		" 1 - non blocking control read\n"
 		" 2 - blocking data read\n"
-		" 3 - blocking control read");
+		" 3 - blocking control read\n");
+
 
 U_BOOT_CMD (fwr, 4, 1, do_fwr,
-		"write data to FSL",
+		"fwr     - write data to FSL\n",
 		"- [fslnum [0|1|2|3]]\n"
 		" 0 - non blocking data write\n"
 		" 1 - non blocking control write\n"
 		" 2 - blocking data write\n"
-		" 3 - blocking control write");
+		" 3 - blocking control write\n");
 
 U_BOOT_CMD (rspr, 3, 1, do_rspr,
-		"read/write special purpose register",
+		"rspr    - read/write special purpose register\n",
 		"- reg_num [write value] read/write special purpose register\n"
 		" 1 - MSR - Machine status register\n"
 		" 3 - EAR - Exception address register\n"
-		" 5 - ESR - Exception status register");
+		" 5 - ESR - Exception status register\n");

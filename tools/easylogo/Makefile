@@ -1,7 +1,8 @@
-#
-# SPDX-License-Identifier:	GPL-2.0+
-#
+CFLAGS += -Wall
 
-hostprogs-y := easylogo
+all: easylogo
 
-always := $(hostprogs-y)
+clean:
+	rm -f easylogo *.o
+
+.PHONY: all clean

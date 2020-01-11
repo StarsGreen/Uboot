@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Gerald Van Baren, Custom IDEAS, vanbaren@cideas.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -18,13 +34,13 @@ typedef struct _MII_reg_desc_t {
 	char * name;
 } MII_reg_desc_t;
 
-static const MII_reg_desc_t reg_0_5_desc_tbl[] = {
-	{ MII_BMCR,      "PHY control register" },
-	{ MII_BMSR,      "PHY status register" },
-	{ MII_PHYSID1,   "PHY ID 1 register" },
-	{ MII_PHYSID2,   "PHY ID 2 register" },
-	{ MII_ADVERTISE, "Autonegotiation advertisement register" },
-	{ MII_LPA,       "Autonegotiation partner abilities register" },
+MII_reg_desc_t reg_0_5_desc_tbl[] = {
+	{ 0,   "PHY control register"                },
+	{ 1,   "PHY status register"                 },
+	{ 2,   "PHY ID 1 register"                   },
+	{ 3,   "PHY ID 2 register"                   },
+	{ 4,   "Autonegotiation advertisement register" },
+	{ 5,   "Autonegotiation partner abilities register" },
 };
 
 typedef struct _MII_field_desc_t {
@@ -34,7 +50,7 @@ typedef struct _MII_field_desc_t {
 	char * name;
 } MII_field_desc_t;
 
-static const MII_field_desc_t reg_0_desc_tbl[] = {
+MII_field_desc_t reg_0_desc_tbl[] = {
 	{ 15, 15, 0x01, "reset"                        },
 	{ 14, 14, 0x01, "loopback"                     },
 	{ 13,  6, 0x81, "speed selection"              }, /* special */
@@ -47,7 +63,7 @@ static const MII_field_desc_t reg_0_desc_tbl[] = {
 	{  5,  0, 0x3f, "(reserved)"                   }
 };
 
-static const MII_field_desc_t reg_1_desc_tbl[] = {
+MII_field_desc_t reg_1_desc_tbl[] = {
 	{ 15, 15, 0x01, "100BASE-T4 able"              },
 	{ 14, 14, 0x01, "100BASE-X  full duplex able"  },
 	{ 13, 13, 0x01, "100BASE-X  half duplex able"  },
@@ -66,21 +82,21 @@ static const MII_field_desc_t reg_1_desc_tbl[] = {
 	{  0,  0, 0x01, "extended capabilities"        },
 };
 
-static const MII_field_desc_t reg_2_desc_tbl[] = {
+MII_field_desc_t reg_2_desc_tbl[] = {
 	{ 15,  0, 0xffff, "OUI portion"                },
 };
 
-static const MII_field_desc_t reg_3_desc_tbl[] = {
+MII_field_desc_t reg_3_desc_tbl[] = {
 	{ 15, 10, 0x3f, "OUI portion"                },
 	{  9,  4, 0x3f, "manufacturer part number"   },
 	{  3,  0, 0x0f, "manufacturer rev. number"   },
 };
 
-static const MII_field_desc_t reg_4_desc_tbl[] = {
+MII_field_desc_t reg_4_desc_tbl[] = {
 	{ 15, 15, 0x01, "next page able"               },
-	{ 14, 14, 0x01, "(reserved)"                   },
+	{ 14, 14, 0x01, "reserved"                     },
 	{ 13, 13, 0x01, "remote fault"                 },
-	{ 12, 12, 0x01, "(reserved)"                   },
+	{ 12, 12, 0x01, "reserved"                     },
 	{ 11, 11, 0x01, "asymmetric pause"             },
 	{ 10, 10, 0x01, "pause enable"                 },
 	{  9,  9, 0x01, "100BASE-T4 able"              },
@@ -91,7 +107,7 @@ static const MII_field_desc_t reg_4_desc_tbl[] = {
 	{  4,  0, 0x1f, "xxx to do"                    },
 };
 
-static const MII_field_desc_t reg_5_desc_tbl[] = {
+MII_field_desc_t reg_5_desc_tbl[] = {
 	{ 15, 15, 0x01, "next page able"               },
 	{ 14, 14, 0x01, "acknowledge"                  },
 	{ 13, 13, 0x01, "remote fault"                 },
@@ -105,31 +121,39 @@ static const MII_field_desc_t reg_5_desc_tbl[] = {
 	{  5,  5, 0x01, "10BASE-T able"                },
 	{  4,  0, 0x1f, "xxx to do"                    },
 };
+
+#define DESC0LEN (sizeof(reg_0_desc_tbl)/sizeof(reg_0_desc_tbl[0]))
+#define DESC1LEN (sizeof(reg_1_desc_tbl)/sizeof(reg_1_desc_tbl[0]))
+#define DESC2LEN (sizeof(reg_2_desc_tbl)/sizeof(reg_2_desc_tbl[0]))
+#define DESC3LEN (sizeof(reg_3_desc_tbl)/sizeof(reg_3_desc_tbl[0]))
+#define DESC4LEN (sizeof(reg_4_desc_tbl)/sizeof(reg_4_desc_tbl[0]))
+#define DESC5LEN (sizeof(reg_5_desc_tbl)/sizeof(reg_5_desc_tbl[0]))
+
 typedef struct _MII_field_desc_and_len_t {
-	const MII_field_desc_t *pdesc;
+	MII_field_desc_t * pdesc;
 	ushort len;
 } MII_field_desc_and_len_t;
 
-static const MII_field_desc_and_len_t desc_and_len_tbl[] = {
-	{ reg_0_desc_tbl, ARRAY_SIZE(reg_0_desc_tbl)   },
-	{ reg_1_desc_tbl, ARRAY_SIZE(reg_1_desc_tbl)   },
-	{ reg_2_desc_tbl, ARRAY_SIZE(reg_2_desc_tbl)   },
-	{ reg_3_desc_tbl, ARRAY_SIZE(reg_3_desc_tbl)   },
-	{ reg_4_desc_tbl, ARRAY_SIZE(reg_4_desc_tbl)   },
-	{ reg_5_desc_tbl, ARRAY_SIZE(reg_5_desc_tbl)   },
+MII_field_desc_and_len_t desc_and_len_tbl[] = {
+	{ reg_0_desc_tbl, DESC0LEN },
+	{ reg_1_desc_tbl, DESC1LEN },
+	{ reg_2_desc_tbl, DESC2LEN },
+	{ reg_3_desc_tbl, DESC3LEN },
+	{ reg_4_desc_tbl, DESC4LEN },
+	{ reg_5_desc_tbl, DESC5LEN },
 };
 
 static void dump_reg(
 	ushort             regval,
-	const MII_reg_desc_t *prd,
-	const MII_field_desc_and_len_t *pdl);
+	MII_reg_desc_t   * prd,
+	MII_field_desc_and_len_t * pdl);
 
 static int special_field(
 	ushort regno,
-	const MII_field_desc_t *pdesc,
+	MII_field_desc_t * pdesc,
 	ushort regval);
 
-static void MII_dump_0_to_5(
+void MII_dump_0_to_5(
 	ushort regvals[6],
 	uchar reglo,
 	uchar reghi)
@@ -145,12 +169,12 @@ static void MII_dump_0_to_5(
 
 static void dump_reg(
 	ushort             regval,
-	const MII_reg_desc_t *prd,
-	const MII_field_desc_and_len_t *pdl)
+	MII_reg_desc_t   * prd,
+	MII_field_desc_and_len_t * pdl)
 {
 	ulong i;
 	ushort mask_in_place;
-	const MII_field_desc_t *pdesc;
+	MII_field_desc_t * pdesc;
 
 	printf("%u.     (%04hx)                 -- %s --\n",
 		prd->regno, regval, prd->name);
@@ -160,10 +184,10 @@ static void dump_reg(
 
 		mask_in_place = pdesc->mask << pdesc->lo;
 
-		printf("  (%04hx:%04x) %u.",
-		       mask_in_place,
-		       regval & mask_in_place,
-		       prd->regno);
+		printf("  (%04hx:%04hx) %u.",
+			mask_in_place,
+			regval & mask_in_place,
+			prd->regno);
 
 		if (special_field(prd->regno, pdesc, regval)) {
 		}
@@ -193,22 +217,23 @@ static void dump_reg(
 
 static int special_field(
 	ushort regno,
-	const MII_field_desc_t *pdesc,
+	MII_field_desc_t * pdesc,
 	ushort regval)
 {
-	if ((regno == MII_BMCR) && (pdesc->lo == 6)) {
-		ushort speed_bits = regval & (BMCR_SPEED1000 | BMCR_SPEED100);
+	if ((regno == 0) && (pdesc->lo == 6)) {
+		ushort speed_bits = regval & PHY_BMCR_SPEED_MASK;
 		printf("%2u,%2u =   b%u%u    speed selection = %s Mbps",
 			6, 13,
 			(regval >>  6) & 1,
 			(regval >> 13) & 1,
-			speed_bits == BMCR_SPEED1000 ? "1000" :
-			speed_bits == BMCR_SPEED100  ? "100" :
-			"10");
+			speed_bits == PHY_BMCR_1000_MBPS ? "1000" :
+			speed_bits == PHY_BMCR_100_MBPS  ? "100" :
+			speed_bits == PHY_BMCR_10_MBPS   ? "10" :
+			"???");
 		return 1;
 	}
 
-	else if ((regno == MII_BMCR) && (pdesc->lo == 8)) {
+	else if ((regno == 0) && (pdesc->lo == 8)) {
 		printf("%2u    = %5u    duplex = %s",
 			pdesc->lo,
 			(regval >>  pdesc->lo) & 1,
@@ -216,7 +241,7 @@ static int special_field(
 		return 1;
 	}
 
-	else if ((regno == MII_ADVERTISE) && (pdesc->lo == 0)) {
+	else if ((regno == 4) && (pdesc->lo == 0)) {
 		ushort sel_bits = (regval >> pdesc->lo) & pdesc->mask;
 		printf("%2u-%2u = %5u    selector = %s",
 			pdesc->hi, pdesc->lo, sel_bits,
@@ -228,7 +253,7 @@ static int special_field(
 		return 1;
 	}
 
-	else if ((regno == MII_LPA) && (pdesc->lo == 0)) {
+	else if ((regno == 5) && (pdesc->lo == 0)) {
 		ushort sel_bits = (regval >> pdesc->lo) & pdesc->mask;
 		printf("%2u-%2u =     %u    selector = %s",
 			pdesc->hi, pdesc->lo, sel_bits,
@@ -243,13 +268,12 @@ static int special_field(
 	return 0;
 }
 
-static char last_op[2];
-static uint last_data;
-static uint last_addr_lo;
-static uint last_addr_hi;
-static uint last_reg_lo;
-static uint last_reg_hi;
-static uint last_mask;
+char last_op[2];
+uint last_data;
+uint last_addr_lo;
+uint last_addr_hi;
+uint last_reg_lo;
+uint last_reg_hi;
 
 static void extract_range(
 	char * input,
@@ -268,17 +292,19 @@ static void extract_range(
 }
 
 /* ---------------------------------------------------------------- */
-static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_mii (cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
 {
 	char		op[2];
 	unsigned char	addrlo, addrhi, reglo, reghi;
 	unsigned char	addr, reg;
-	unsigned short	data, mask;
+	unsigned short	data;
 	int		rcode = 0;
-	const char	*devname;
+	char		*devname;
 
-	if (argc < 2)
-		return CMD_RET_USAGE;
+	if (argc < 2) {
+		printf("Usage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 
 #if defined(CONFIG_MII_INIT)
 	mii_init ();
@@ -295,7 +321,6 @@ static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	reglo  = last_reg_lo;
 	reghi  = last_reg_hi;
 	data   = last_data;
-	mask   = last_mask;
 
 	if ((flag & CMD_FLAG_REPEAT) == 0) {
 		op[0] = argv[1][0];
@@ -309,14 +334,7 @@ static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		if (argc >= 4)
 			extract_range(argv[3], &reglo, &reghi);
 		if (argc >= 5)
-			data = simple_strtoul(argv[4], NULL, 16);
-		if (argc >= 6)
-			mask = simple_strtoul(argv[5], NULL, 16);
-	}
-
-	if (addrhi > 31) {
-		printf("Incorrect PHY address. Range should be 0-31\n");
-		return CMD_RET_USAGE;
+			data = simple_strtoul (argv[4], NULL, 16);
 	}
 
 	/* use current device */
@@ -384,28 +402,6 @@ static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 				}
 			}
 		}
-	} else if (op[0] == 'm') {
-		for (addr = addrlo; addr <= addrhi; addr++) {
-			for (reg = reglo; reg <= reghi; reg++) {
-				unsigned short val = 0;
-				if (miiphy_read(devname, addr,
-						reg, &val)) {
-					printf("Error reading from the PHY");
-					printf(" addr=%02x", addr);
-					printf(" reg=%02x\n", reg);
-					rcode = 1;
-				} else {
-					val = (val & ~mask) | (data & mask);
-					if (miiphy_write(devname, addr,
-							 reg, val)) {
-						printf("Error writing to the PHY");
-						printf(" addr=%02x", addr);
-						printf(" reg=%02x\n", reg);
-						rcode = 1;
-					}
-				}
-			}
-		}
 	} else if (strncmp(op, "du", 2) == 0) {
 		ushort regs[6];
 		int ok = 1;
@@ -435,7 +431,8 @@ static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		else
 			miiphy_set_current_dev (argv[2]);
 	} else {
-		return CMD_RET_USAGE;
+		printf("Usage:\n%s\n", cmdtp->usage);
+		return 1;
 	}
 
 	/*
@@ -448,7 +445,6 @@ static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	last_reg_lo  = reglo;
 	last_reg_hi  = reghi;
 	last_data    = data;
-	last_mask    = mask;
 
 	return rcode;
 }
@@ -456,15 +452,13 @@ static int do_mii(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 /***************************************************/
 
 U_BOOT_CMD(
-	mii, 6, 1, do_mii,
-	"MII utility commands",
-	"device                            - list available devices\n"
-	"mii device <devname>                  - set current device\n"
-	"mii info   <addr>                     - display MII PHY info\n"
-	"mii read   <addr> <reg>               - read  MII PHY <addr> register <reg>\n"
-	"mii write  <addr> <reg> <data>        - write MII PHY <addr> register <reg>\n"
-	"mii modify <addr> <reg> <data> <mask> - modify MII PHY <addr> register <reg>\n"
-	"                                        updating bits identified in <mask>\n"
-	"mii dump   <addr> <reg>               - pretty-print <addr> <reg> (0-5 only)\n"
-	"Addr and/or reg may be ranges, e.g. 2-7."
+	mii,	5,	1,	do_mii,
+	"mii     - MII utility commands\n",
+	"device                     - list available devices\n"
+	"mii device <devname>           - set current device\n"
+	"mii info   <addr>              - display MII PHY info\n"
+	"mii read   <addr> <reg>        - read  MII PHY <addr> register <reg>\n"
+	"mii write  <addr> <reg> <data> - write MII PHY <addr> register <reg>\n"
+	"mii dump   <addr> <reg>        - pretty-print <addr> <reg> (0-5 only)\n"
+	"Addr and/or reg may be ranges, e.g. 2-7.\n"
 );

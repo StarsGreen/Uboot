@@ -1,7 +1,23 @@
 /*
  * Copyright (C) 2006 Atmel Corporation
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #include <common.h>
 
@@ -10,25 +26,8 @@
 #include <asm/arch/clk.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/hmatrix.h>
-#include <asm/arch/mmu.h>
-#include <asm/arch/portmux.h>
-#include <netdev.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-struct mmu_vm_range mmu_vmr_table[CONFIG_SYS_NR_VM_REGIONS] = {
-	{
-		.virt_pgno	= CONFIG_SYS_FLASH_BASE >> MMU_PAGE_SHIFT,
-		.nr_pages	= CONFIG_SYS_FLASH_SIZE >> MMU_PAGE_SHIFT,
-		.phys		= (CONFIG_SYS_FLASH_BASE >> MMU_PAGE_SHIFT)
-					| MMU_VMR_CACHE_NONE,
-	}, {
-		.virt_pgno	= CONFIG_SYS_SDRAM_BASE >> MMU_PAGE_SHIFT,
-		.nr_pages	= EBI_SDRAM_SIZE >> MMU_PAGE_SHIFT,
-		.phys		= (CONFIG_SYS_SDRAM_BASE >> MMU_PAGE_SHIFT)
-					| MMU_VMR_CACHE_WRBACK,
-	},
-};
 
 static const struct sdram_config sdram_config = {
 	.data_bits	= SDRAM_DATA_16BIT,
@@ -51,46 +50,54 @@ int board_early_init_f(void)
 	/* Enable SDRAM in the EBI mux */
 	hmatrix_slave_write(EBI, SFR, HMATRIX_BIT(EBI_SDRAM_ENABLE));
 
-	portmux_enable_ebi(16, 23, 0, PORTMUX_DRIVE_HIGH);
-	sdram_init(uncached(EBI_SDRAM_BASE), &sdram_config);
-
-	portmux_enable_usart1(PORTMUX_DRIVE_MIN);
+	gpio_enable_ebi();
+	gpio_enable_usart1();
 
 #if defined(CONFIG_MACB)
-	portmux_enable_macb0(PORTMUX_MACB_MII, PORTMUX_DRIVE_HIGH);
-	portmux_enable_macb1(PORTMUX_MACB_MII, PORTMUX_DRIVE_HIGH);
+	gpio_enable_macb0();
+	gpio_enable_macb1();
 #endif
 #if defined(CONFIG_MMC)
-	portmux_enable_mmci(0, PORTMUX_MMCI_4BIT, PORTMUX_DRIVE_LOW);
+	gpio_enable_mmci();
 #endif
 #if defined(CONFIG_ATMEL_SPI)
-	portmux_enable_spi0(1 << 0, PORTMUX_DRIVE_LOW);
+	gpio_enable_spi0(1 << 0);
 #endif
 
 	return 0;
 }
 
-int board_early_init_r(void)
+phys_size_t initdram(int board_type)
+{
+	unsigned long expected_size;
+	unsigned long actual_size;
+	void *sdram_base;
+
+	sdram_base = map_physmem(EBI_SDRAM_BASE, EBI_SDRAM_SIZE, MAP_NOCACHE);
+
+	expected_size = sdram_init(sdram_base, &sdram_config);
+	actual_size = get_ram_size(sdram_base, expected_size);
+
+	unmap_physmem(sdram_base, EBI_SDRAM_SIZE);
+
+	if (expected_size != actual_size)
+		printf("Warning: Only %lu of %lu MiB SDRAM is working\n",
+				actual_size >> 20, expected_size >> 20);
+
+	return actual_size;
+}
+
+void board_init_info(void)
 {
 	gd->bd->bi_phy_id[0] = 0x01;
 	gd->bd->bi_phy_id[1] = 0x03;
-	return 0;
 }
-
-#ifdef CONFIG_CMD_NET
-int board_eth_init(bd_t *bi)
-{
-	macb_eth_initialize(0, (void *)ATMEL_BASE_MACB0, bi->bi_phy_id[0]);
-	macb_eth_initialize(1, (void *)ATMEL_BASE_MACB1, bi->bi_phy_id[1]);
-	return 0;
-}
-#endif
 
 /* SPI chip select control */
 #ifdef CONFIG_ATMEL_SPI
 #include <spi.h>
 
-#define ATNGW100_DATAFLASH_CS_PIN	GPIO_PIN_PA(3)
+#define ATNGW100_DATAFLASH_CS_PIN	GPIO_PIN_PA3
 
 int spi_cs_is_valid(unsigned int bus, unsigned int cs)
 {

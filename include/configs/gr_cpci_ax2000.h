@@ -8,20 +8,35 @@
  * (C) Copyright 2008
  * Daniel Hellstrom, Gaisler Research, daniel@gaisler.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
-
-#define CONFIG_SYS_GENERIC_BOARD
-#define CONFIG_DISPLAY_BOARDINFO
 
 /*
  * High Level Configuration Options
  * (easy to change)
  */
 
+#define CONFIG_LEON3		/* This is an LEON3 CPU */
+#define CONFIG_LEON		1	/* This is an LEON CPU */
 #define CONFIG_CPCI_AX2000	1	/* ... on GR-CPCI-AX2000 board */
 
 #define CONFIG_LEON_RAM_SRAM 1
@@ -45,11 +60,14 @@
 /* CPU / AMBA BUS configuration */
 #define CONFIG_SYS_CLK_FREQ	20000000	/* 20MHz */
 
+/* Number of SPARC register windows */
+#define CFG_SPARC_NWINDOWS 8
+
 /*
  * Serial console configuration
  */
 #define CONFIG_BAUDRATE		38400	/* ... at 38400 bps */
-#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200, 230400 }
+#define CFG_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200, 230400 }
 
 /* Partitions */
 #define CONFIG_DOS_PARTITION
@@ -59,7 +77,10 @@
 /*
  * Supported commands
  */
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_REGINFO
+#define CONFIG_CMD_AMBAPP
 #define CONFIG_CMD_PING
 #define CONFIG_CMD_DIAG
 #define CONFIG_CMD_IRQ
@@ -87,7 +108,7 @@
 		"bootm ${kernel_addr}\0"				\
 	"flash_self=run ramargs addip;"					\
 		"bootm ${kernel_addr} ${ramdisk_addr}\0"		\
-	"getkernel=tftpboot $(scratch) $(bootfile)\0" \
+	"getkernel=tftpboot \$\(scratch\)\ \$\(bootfile\)\0" \
 	"bootargs=console=ttyS0,38400 root=/dev/nfs rw nfsroot=192.168.0.20:/export/rootfs ip=192.168.0.206:192.168.0.20:192.168.0.1:255.255.255.0:ax2000:eth0\0"
 
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SRAM
@@ -114,9 +135,9 @@
 #define CONFIG_GATEWAYIP 192.168.0.1
 #define CONFIG_SERVERIP 192.168.0.20
 #define CONFIG_IPADDR 192.168.0.206
-#define CONFIG_ROOTPATH "/export/rootfs"
+#define CONFIG_ROOTPATH /export/rootfs
 #define CONFIG_HOSTNAME  ax2000
-#define CONFIG_BOOTFILE "/uImage"
+#define CONFIG_BOOTFILE  /uImage
 
 #define CONFIG_BOOTCOMMAND	"run flash_self"
 
@@ -171,38 +192,38 @@
  *               0xFF000000 for 16 MB
  *               0xFF800000 for  8 MB
  */
-/*#define CONFIG_SYS_NO_FLASH		1*/
-#define CONFIG_SYS_FLASH_BASE		0x00000000
-#define CONFIG_SYS_FLASH_SIZE		0x00800000
+/*#define CFG_NO_FLASH		1*/
+#define CFG_FLASH_BASE		0x00000000
+#define CFG_FLASH_SIZE		0x00800000
 
 #define PHYS_FLASH_SECT_SIZE	0x00020000	/* 128 KB sectors */
-#define CONFIG_SYS_MAX_FLASH_SECT	64	/* max num of sects on one chip */
-#define CONFIG_SYS_MAX_FLASH_BANKS	1	/* max num of memory banks      */
+#define CFG_MAX_FLASH_SECT	64	/* max num of sects on one chip */
+#define CFG_MAX_FLASH_BANKS	1	/* max num of memory banks      */
 
-#define CONFIG_SYS_FLASH_ERASE_TOUT	240000	/* Flash Erase Timeout (in ms)  */
-#define CONFIG_SYS_FLASH_WRITE_TOUT	500	/* Flash Write Timeout (in ms)  */
-#define CONFIG_SYS_FLASH_LOCK_TOUT	5	/* Timeout for Flash Set Lock Bit (in ms) */
-#define CONFIG_SYS_FLASH_UNLOCK_TOUT	10000	/* Timeout for Flash Clear Lock Bits (in ms) */
-#define CONFIG_SYS_FLASH_PROTECTION	/* "Real" (hardware) sectors protection */
+#define CFG_FLASH_ERASE_TOUT	240000	/* Flash Erase Timeout (in ms)  */
+#define CFG_FLASH_WRITE_TOUT	500	/* Flash Write Timeout (in ms)  */
+#define CFG_FLASH_LOCK_TOUT	5	/* Timeout for Flash Set Lock Bit (in ms) */
+#define CFG_FLASH_UNLOCK_TOUT	10000	/* Timeout for Flash Clear Lock Bits (in ms) */
+#define CFG_FLASH_PROTECTION	/* "Real" (hardware) sectors protection */
 
 /*** CFI CONFIG ***/
-#define CONFIG_SYS_FLASH_CFI_WIDTH	FLASH_CFI_8BIT
-#define CONFIG_FLASH_CFI_DRIVER
-#define CONFIG_SYS_FLASH_CFI
+#define CFG_FLASH_CFI_WIDTH	FLASH_CFI_8BIT
+#define CFG_FLASH_CFI_DRIVER
+#define CFG_FLASH_CFI
 /* Bypass cache when reading regs from flash memory */
-#define CONFIG_SYS_FLASH_CFI_BYPASS_READ
+#define CFG_FLASH_CFI_BYPASS_READ
 /* Buffered writes (32byte/go) instead of single accesses */
-#define CONFIG_SYS_FLASH_USE_BUFFER_WRITE
+#define CFG_FLASH_USE_BUFFER_WRITE
 
 /*
  * Environment settings
  */
-/*#define CONFIG_ENV_IS_NOWHERE 1*/
-#define CONFIG_ENV_IS_IN_FLASH	1
-/* CONFIG_ENV_ADDR need to be at sector boundary */
-#define CONFIG_ENV_SIZE		0x8000
-#define CONFIG_ENV_SECT_SIZE	0x20000
-#define CONFIG_ENV_ADDR		(CONFIG_SYS_FLASH_BASE+CONFIG_SYS_FLASH_SIZE-CONFIG_ENV_SECT_SIZE)
+/*#define CFG_ENV_IS_NOWHERE 1*/
+#define CFG_ENV_IS_IN_FLASH	1
+/* CFG_ENV_ADDR need to be at sector boundary */
+#define CFG_ENV_SIZE		0x8000
+#define CFG_ENV_SECT_SIZE	0x20000
+#define CFG_ENV_ADDR		(CFG_FLASH_BASE+CFG_FLASH_SIZE-CFG_ENV_SECT_SIZE)
 #define CONFIG_ENV_OVERWRITE	1
 
 /*
@@ -214,88 +235,93 @@
  */
 
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SDRAM_NOSRAM
-#define CONFIG_SYS_SDRAM_BASE		0x40000000
+#define CFG_SDRAM_BASE		0x40000000
 #else
-#define CONFIG_SYS_SDRAM_BASE		0x60000000
+#define CFG_SDRAM_BASE		0x60000000
 #endif
 
-#define CONFIG_SYS_SDRAM_SIZE		0x08000000
-#define CONFIG_SYS_SDRAM_END		(CONFIG_SYS_SDRAM_BASE+CONFIG_SYS_SDRAM_SIZE)
+#define CFG_SDRAM_SIZE		0x08000000
+#define CFG_SDRAM_END		(CFG_SDRAM_BASE+CFG_SDRAM_SIZE)
 
 /* 4Mb SRAM available */
 #if CONFIG_LEON_RAM_SELECT != CONFIG_LEON_RAM_SDRAM_NOSRAM
-#define CONFIG_SYS_SRAM_BASE 0x40000000
-#define CONFIG_SYS_SRAM_SIZE 0x400000
-#define CONFIG_SYS_SRAM_END  (CONFIG_SYS_SRAM_BASE+CONFIG_SYS_SRAM_SIZE)
+#define CFG_SRAM_BASE 0x40000000
+#define CFG_SRAM_SIZE 0x400000
+#define CFG_SRAM_END  (CFG_SRAM_BASE+CFG_SRAM_SIZE)
 #endif
 
 /* Select RAM used to run U-BOOT from... */
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SRAM
-#define CONFIG_SYS_RAM_BASE CONFIG_SYS_SRAM_BASE
-#define CONFIG_SYS_RAM_SIZE CONFIG_SYS_SRAM_SIZE
-#define CONFIG_SYS_RAM_END CONFIG_SYS_SRAM_END
+#define CFG_RAM_BASE CFG_SRAM_BASE
+#define CFG_RAM_SIZE CFG_SRAM_SIZE
+#define CFG_RAM_END CFG_SRAM_END
 #else
-#define CONFIG_SYS_RAM_BASE CONFIG_SYS_SDRAM_BASE
-#define CONFIG_SYS_RAM_SIZE CONFIG_SYS_SDRAM_SIZE
-#define CONFIG_SYS_RAM_END CONFIG_SYS_SDRAM_END
+#define CFG_RAM_BASE CFG_SDRAM_BASE
+#define CFG_RAM_SIZE CFG_SDRAM_SIZE
+#define CFG_RAM_END CFG_SDRAM_END
 #endif
 
-#define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_RAM_END - GENERATED_GBL_DATA_SIZE)
+#define CFG_GBL_DATA_SIZE	128	/* size in bytes reserved for initial data */
+#define CFG_GBL_DATA_OFFSET	(CFG_RAM_END - CFG_GBL_DATA_SIZE)
 
-#define CONFIG_SYS_PROM_SIZE		(8192-GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_PROM_OFFSET		(CONFIG_SYS_GBL_DATA_OFFSET-CONFIG_SYS_PROM_SIZE)
+#define CFG_PROM_SIZE		(8192-CFG_GBL_DATA_SIZE)
+#define CFG_PROM_OFFSET		(CFG_GBL_DATA_OFFSET-CFG_PROM_SIZE)
 
-#define CONFIG_SYS_INIT_SP_OFFSET	(CONFIG_SYS_PROM_OFFSET-32)
-#define CONFIG_SYS_STACK_SIZE		(0x10000-32)
+#define CFG_INIT_SP_OFFSET	(CFG_PROM_OFFSET-32)
+#define CFG_STACK_SIZE		(0x10000-32)
 
-#define CONFIG_SYS_MONITOR_BASE    CONFIG_SYS_TEXT_BASE
-#if (CONFIG_SYS_MONITOR_BASE < CONFIG_SYS_FLASH_BASE)
-#   define CONFIG_SYS_RAMBOOT		1
+#define CFG_MONITOR_BASE    TEXT_BASE
+#if (CFG_MONITOR_BASE < CFG_FLASH_BASE)
+#   define CFG_RAMBOOT		1
 #endif
 
-#define CONFIG_SYS_MONITOR_LEN		(256 << 10)	/* Reserve 256 kB for Monitor   */
-#define CONFIG_SYS_MALLOC_LEN		(128 << 10)	/* Reserve 128 kB for malloc()  */
-#define CONFIG_SYS_BOOTMAPSZ		(8 << 20)	/* Initial Memory map for Linux */
+#define CFG_MONITOR_LEN		(256 << 10)	/* Reserve 256 kB for Monitor   */
+#define CFG_MALLOC_LEN		(128 << 10)	/* Reserve 128 kB for malloc()  */
+#define CFG_BOOTMAPSZ		(8 << 20)	/* Initial Memory map for Linux */
 
-#define CONFIG_SYS_MALLOC_END		(CONFIG_SYS_INIT_SP_OFFSET-CONFIG_SYS_STACK_SIZE)
-#define CONFIG_SYS_MALLOC_BASE		(CONFIG_SYS_MALLOC_END-CONFIG_SYS_MALLOC_LEN)
+#define CFG_MALLOC_END		(CFG_INIT_SP_OFFSET-CFG_STACK_SIZE)
+#define CFG_MALLOC_BASE		(CFG_MALLOC_END-CFG_MALLOC_LEN)
 
 /* relocated monitor area */
-#define CONFIG_SYS_RELOC_MONITOR_MAX_END   CONFIG_SYS_MALLOC_BASE
-#define CONFIG_SYS_RELOC_MONITOR_BASE     (CONFIG_SYS_RELOC_MONITOR_MAX_END-CONFIG_SYS_MONITOR_LEN)
+#define CFG_RELOC_MONITOR_MAX_END   CFG_MALLOC_BASE
+#define CFG_RELOC_MONITOR_BASE     (CFG_RELOC_MONITOR_MAX_END-CFG_MONITOR_LEN)
 
 /* make un relocated address from relocated address */
-#define UN_RELOC(address) (address-(CONFIG_SYS_RELOC_MONITOR_BASE-CONFIG_SYS_TEXT_BASE))
+#define UN_RELOC(address) (address-(CFG_RELOC_MONITOR_BASE-TEXT_BASE))
 
 /*
  * Ethernet configuration uses on board SMC91C111
  */
-#define CONFIG_SMC91111          1
+#define CONFIG_DRIVER_SMC91111          1
 #define CONFIG_SMC91111_BASE		0x20000300	/* chip select 3         */
 #define CONFIG_SMC_USE_32_BIT		1	/* 32 bit bus  */
 #undef  CONFIG_SMC_91111_EXT_PHY	/* we use internal phy   */
 /*#define CONFIG_SHOW_ACTIVITY*/
 #define CONFIG_NET_RETRY_COUNT		10	/* # of retries          */
 
+#define CONFIG_ETHADDR   00:00:7a:cc:00:13
 #define CONFIG_PHY_ADDR	 0x00
 
 /*
  * Miscellaneous configurable options
  */
-#define CONFIG_SYS_LONGHELP		/* undef to save memory     */
+#define CFG_LONGHELP		/* undef to save memory     */
+#define CFG_PROMPT		"=> "	/* Monitor Command Prompt   */
 #if defined(CONFIG_CMD_KGDB)
-#define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size  */
+#define CFG_CBSIZE		1024	/* Console I/O Buffer Size  */
 #else
-#define CONFIG_SYS_CBSIZE		256	/* Console I/O Buffer Size  */
+#define CFG_CBSIZE		256	/* Console I/O Buffer Size  */
 #endif
-#define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)	/* Print Buffer Size */
-#define CONFIG_SYS_MAXARGS		16	/* max number of command args   */
-#define CONFIG_SYS_BARGSIZE		CONFIG_SYS_CBSIZE	/* Boot Argument Buffer Size    */
+#define CFG_PBSIZE (CFG_CBSIZE+sizeof(CFG_PROMPT)+16)	/* Print Buffer Size */
+#define CFG_MAXARGS		16	/* max number of command args   */
+#define CFG_BARGSIZE		CFG_CBSIZE	/* Boot Argument Buffer Size    */
 
-#define CONFIG_SYS_MEMTEST_START	0x00100000	/* memtest works on */
-#define CONFIG_SYS_MEMTEST_END		0x00f00000	/* 1 ... 15 MB in DRAM  */
+#define CFG_MEMTEST_START	0x00100000	/* memtest works on */
+#define CFG_MEMTEST_END		0x00f00000	/* 1 ... 15 MB in DRAM  */
 
-#define CONFIG_SYS_LOAD_ADDR		0x100000	/* default load address */
+#define CFG_LOAD_ADDR		0x100000	/* default load address */
+
+#define CFG_HZ			1000	/* decrementer freq: 1 ms ticks */
 
 /*
  * Various low-level settings
@@ -310,41 +336,43 @@
 
 /***** Gaisler GRLIB IP-Cores Config ********/
 
-#define CONFIG_SYS_GRLIB_SDRAM    0
+/* AMBA Plug & Play info display on startup */
+/*#define CFG_AMBAPP_PRINT_ON_STARTUP*/
 
-/* No SDRAM Configuration */
-#undef CONFIG_SYS_GRLIB_GAISLER_SDCTRL1
+#define CFG_GRLIB_SDRAM    0
 
 /* See, GRLIB Docs (grip.pdf) on how to set up
  * These the memory controller registers.
  */
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG1   (0x10f800ff | (1<<11))
+#define CFG_GRLIB_MEMCFG1   (0x10f800ff | (1<<11))
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SDRAM_NOSRAM
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG2   0x82206000
+#define CFG_GRLIB_MEMCFG2   0x82206000
 #else
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG2   0x82205260
+#define CFG_GRLIB_MEMCFG2   0x82205260
 #endif
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG3   0x0809a000
+#define CFG_GRLIB_MEMCFG3   0x0809a000
 
-/* GRLIB FT-MCTRL configuration */
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG1   (0x10f800ff | (1<<11))
+#define CFG_GRLIB_FT_MEMCFG1   (0x10f800ff | (1<<11))
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SDRAM_NOSRAM
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG2   0x82206000
+#define CFG_GRLIB_FT_MEMCFG2   0x82206000
 #else
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG2   0x82205260
+#define CFG_GRLIB_FT_MEMCFG2   0x82205260
 #endif
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG3   0x0809a000
+#define CFG_GRLIB_FT_MEMCFG3   0x0809a000
 
 /* no DDR controller */
-#undef CONFIG_SYS_GRLIB_GAISLER_DDRSPA1
+#define CFG_GRLIB_DDR_CFG   0x00000000
 
 /* no DDR2 Controller */
-#undef CONFIG_SYS_GRLIB_GAISLER_DDR2SPA1
+#define CFG_GRLIB_DDR2_CFG1 0x00000000
+#define CFG_GRLIB_DDR2_CFG3 0x00000000
+
+/* Calculate scaler register value from default baudrate */
+#define CFG_GRLIB_APBUART_SCALER \
+ ((((CONFIG_SYS_CLK_FREQ*10)/(CONFIG_BAUDRATE*8))-5)/10)
 
 /* Identification string */
-#define CONFIG_IDENT_STRING " Gaisler LEON3 GR-CPCI-AX2000"
+#define CONFIG_IDENT_STRING "GAISLER LEON3 GR-CPCI-AX2000"
 
 /* default kernel command line */
 #define CONFIG_DEFAULT_KERNEL_COMMAND_LINE "console=ttyS0,38400\0\0"

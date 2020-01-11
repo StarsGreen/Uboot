@@ -1,13 +1,31 @@
 /*
  * (C) Copyright 2002
- * St√§ubli Faverges - <www.staubli.com>
+ * St‰ubli Faverges - <www.staubli.com>
  * Pierre AUBERT  p.aubert@staubli.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 /* Video support for Epson SED13806 chipset                                  */
 
 #include <common.h>
+
+#ifdef CONFIG_VIDEO_SED13806
 
 #include <video_fb.h>
 #include <sed13806.h>
@@ -18,8 +36,13 @@
 #define writeByte(ptrReg,value) \
     *(volatile unsigned char *)(sed13806.isaBase + ptrReg) = value
 
+#ifdef CONFIG_TOTAL5200
+#define writeWord(ptrReg,value) \
+    (*(volatile unsigned short *)(sed13806.isaBase + ptrReg) = value)
+#else
 #define writeWord(ptrReg,value) \
     (*(volatile unsigned short *)(sed13806.isaBase + ptrReg) = ((value >> 8 ) & 0xff) | ((value << 8) & 0xff00))
+#endif
 
 GraphicDevice sed13806;
 
@@ -283,4 +306,5 @@ void video_init_hw_cursor (int font_width, int font_height)
     /* Select cursor mode                                                    */
     writeByte (LCD_CURSOR_CNTL, 1);
 }
+#endif
 #endif

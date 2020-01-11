@@ -2,7 +2,23 @@
  * (C) Copyright 2007 OpenMoko, Inc.
  * Written by Harald Welte <laforge@openmoko.org>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -10,19 +26,27 @@
  */
 #include <common.h>
 #include <command.h>
-#include <stdio_dev.h>
-#include <serial.h>
+#include <devices.h>
 
-int do_terminal(cmd_tbl_t * cmd, int flag, int argc, char * const argv[])
+#if defined(CONFIG_CMD_TERMINAL)
+
+int do_terminal(cmd_tbl_t * cmd, int flag, int argc, char *argv[])
 {
+	int i, l;
 	int last_tilde = 0;
-	struct stdio_dev *dev = NULL;
+	device_t *dev = NULL;
 
 	if (argc < 1)
 		return -1;
 
 	/* Scan for selected output/input device */
-	dev = stdio_get_by_name(argv[1]);
+	for (i = 1; i <= ListNumItems (devlist); i++) {
+		device_t *tmp = ListGetPtrToItem (devlist, i);
+		if (!strcmp(tmp->name, argv[1])) {
+			dev = tmp;
+			break;
+		}
+	}
 	if (!dev)
 		return -1;
 
@@ -71,6 +95,8 @@ int do_terminal(cmd_tbl_t * cmd, int flag, int argc, char * const argv[])
 
 U_BOOT_CMD(
 	terminal,	3,	1,	do_terminal,
-	"start terminal emulator",
+	"terminal - start terminal emulator\n",
 	""
 );
+
+#endif /* CONFIG_CMD_TERMINAL */

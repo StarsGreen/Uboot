@@ -2,7 +2,24 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
  /****************************************************************************
  * Global routines used for PIP405
@@ -18,7 +35,7 @@ void user_led0(unsigned char on);
 void user_led1(unsigned char on);
 
 
-#define PLD_BASE_ADDRESS		CONFIG_SYS_ISA_IO_BASE_ADDRESS + 0x800
+#define PLD_BASE_ADDRESS		CFG_ISA_IO_BASE_ADDRESS + 0x800
 #define PLD_PART_REG			PLD_BASE_ADDRESS + 0
 #define PLD_VERS_REG			PLD_BASE_ADDRESS + 1
 #define PLD_BOARD_CFG_REG		PLD_BASE_ADDRESS + 2

@@ -3,7 +3,23 @@
  * Martin Winistoerfer, martinwinistoerfer@gmx.ch.
  * Atapted for PATI
  * Denis Peter, d.peter@mpl.ch
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /***********************************************************************************
@@ -29,9 +45,8 @@
  **********************************************************************************/
 
 #include <common.h>
-#include <console.h>
 #include <mpc5xx.h>
-#include <stdio_dev.h>
+#include <devices.h>
 #include <pci_ids.h>
 #define PLX9056_LOC
 #include "plx9056.h"
@@ -129,6 +144,7 @@ const sdram_t sdram_table[] = {
 
 
 extern int mem_test (unsigned long start, unsigned long ramsize, int quiet);
+extern void mem_test_reloc(void);
 
 /*
  * Get RAM size.
@@ -208,7 +224,7 @@ phys_size_t initdram(int board_type)
 	/* rest standard operation programmed write burst length */
 	/* we have a x32 bit bus to the SDRAM, so shift the addr with 2 */
 	lmr<<=2;
-	in32(CONFIG_SYS_SDRAM_BASE + lmr);
+	in32(CFG_SDRAM_BASE + lmr);
 	/* ok, we're done, return SDRAM size */
 	return ((0x400000 << sdram_table[i].sz));		/* log2 value of 4MByte  */
 }
@@ -271,7 +287,7 @@ void show_pld_regs(void)
  ****************************************************************/
  void init_ios(void)
  {
-	volatile immap_t * immr = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t * immr = (immap_t *) CFG_IMMR;
 	volatile sysconf5xx_t *sysconf = &immr->im_siu_conf;
 	unsigned long reg;
 	reg=sysconf->sc_sgpiocr; /* Data direction register */
@@ -288,7 +304,7 @@ void show_pld_regs(void)
 
 void user_led0(int led_on)
 {
-	volatile immap_t * immr = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t * immr = (immap_t *) CFG_IMMR;
 	volatile sysconf5xx_t *sysconf = &immr->im_siu_conf;
 	unsigned long reg;
 	reg=sysconf->sc_sgpiodt2; /* Data register */
@@ -301,7 +317,7 @@ void user_led0(int led_on)
 
 void user_led1(int led_on)
 {
-	volatile immap_t * immr = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t * immr = (immap_t *) CFG_IMMR;
 	volatile sysconf5xx_t *sysconf = &immr->im_siu_conf;
 	unsigned long reg;
 	reg=sysconf->sc_sgpiodt2; /* Data register */
@@ -312,17 +328,13 @@ void user_led1(int led_on)
 	sysconf->sc_sgpiodt2=reg; /* Data register */
 }
 
-int board_early_init_f(void)
-{
-	spi_init_f();
-	return 0;
-}
 
 /****************************************************************
  * Last Stage Init
  ****************************************************************/
 int last_stage_init (void)
 {
+	mem_test_reloc();
 	init_ios();
 	return 0;
 }
@@ -335,15 +347,15 @@ int last_stage_init (void)
 
 int checkboard (void)
 {
-	char s[50];
-	ulong reg;
+	unsigned char s[50];
+	unsigned long reg;
 	char rev;
 	int i;
 
 	puts ("\nBoard: ");
 	reg=in32(PLD_CONFIG_BASE+PLD_BOARD_TIMING);
 	rev=(char)(SYSCNTR_BREV(reg)+'A');
-	i = getenv_f("serial#", s, 32);
+	i = getenv_r ("serial#", s, 32);
 	if ((i == -1)) {
 		puts ("### No HW ID - assuming " BOARD_NAME);
 		printf(" Rev. %c\n",rev);
@@ -358,7 +370,7 @@ int checkboard (void)
 }
 
 
-#ifdef CONFIG_SYS_PCI_CON_DEVICE
+#ifdef CFG_PCI_CON_DEVICE
 /************************************************************************
  * PCI Communication
  *
@@ -435,7 +447,7 @@ int checkboard (void)
 int recbuf[REC_BUFFER_SIZE];
 static int r_ptr = 0;
 int w_ptr;
-struct stdio_dev pci_con_dev;
+device_t pci_con_dev;
 int conn=0;
 int buff_full=0;
 
@@ -451,7 +463,7 @@ void pci_con_put_it(const char c)
 	PCICON_SET_REG(PCICON_DBELL_REG,PCIMSG_CON_DATA);
 }
 
-void pci_con_putc(struct stdio_dev *dev, const char c)
+void pci_con_putc(const char c)
 {
 	pci_con_put_it(c);
 	if(c == '\n')
@@ -459,7 +471,7 @@ void pci_con_putc(struct stdio_dev *dev, const char c)
 }
 
 
-int pci_con_getc(struct stdio_dev *dev)
+int pci_con_getc(void)
 {
 	int res;
 	int diff;
@@ -479,14 +491,14 @@ int pci_con_getc(struct stdio_dev *dev)
 	return res;
 }
 
-int pci_con_tstc(struct stdio_dev *dev)
+int pci_con_tstc(void)
 {
 	if(r_ptr==(volatile int)w_ptr)
 		return 0;
 	return 1;
 }
 
-void pci_con_puts(struct stdio_dev *dev, const char *s)
+void pci_con_puts (const char *s)
 {
 	while (*s) {
 		pci_con_putc(*s);
@@ -567,12 +579,12 @@ void pci_con_connect(void)
 	irq_install_handler (0x2, (interrupt_handler_t *) pci_dorbell_irq,NULL);
 	memset (&pci_con_dev, 0, sizeof (pci_con_dev));
 	strcpy (pci_con_dev.name, "pci_con");
-	pci_con_dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
+	pci_con_dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT | DEV_FLAGS_SYSTEM;
 	pci_con_dev.putc = pci_con_putc;
 	pci_con_dev.puts = pci_con_puts;
 	pci_con_dev.getc = pci_con_getc;
 	pci_con_dev.tstc = pci_con_tstc;
-	stdio_register (&pci_con_dev);
+	device_register (&pci_con_dev);
 	printf("PATI ready for PCI connection, type ctrl-c for exit\n");
 	do {
 		udelay(10);
@@ -598,9 +610,9 @@ void pci_con_disc(void)
 	irq_free_handler(0x02);
 	pci_con_connect();
 }
-#endif /* #ifdef CONFIG_SYS_PCI_CON_DEVICE */
+#endif /* #ifdef CFG_PCI_CON_DEVICE */
 
 /*
  * Absolute environment address for linker file.
  */
-GEN_ABS(env_start, CONFIG_ENV_OFFSET + CONFIG_SYS_FLASH_BASE);
+GEN_ABS(env_start, CFG_ENV_OFFSET + CFG_FLASH_BASE);

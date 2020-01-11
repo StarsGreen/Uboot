@@ -5,7 +5,23 @@
  * (C) Copyright 2004
  * Mark Jonas, Freescale Semiconductor, mark.jonas@motorola.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -29,7 +45,7 @@
 #define SDRAM_CONFIG2	0x88b70004
 #endif
 
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 static void sdram_start (int hi_addr)
 {
 	long hi_addr_bit = hi_addr ? 0x01000000 : 0;
@@ -72,7 +88,7 @@ static void sdram_start (int hi_addr)
 
 /*
  * ATTENTION: Although partially referenced initdram does NOT make real use
- *            use of CONFIG_SYS_SDRAM_BASE. The code does not work if CONFIG_SYS_SDRAM_BASE
+ *            use of CFG_SDRAM_BASE. The code does not work if CFG_SDRAM_BASE
  *            is something else than 0x00000000.
  */
 
@@ -82,7 +98,7 @@ phys_size_t initdram (int board_type)
 	ulong dramsize2 = 0;
 	uint svr, pvr;
 
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 	ulong test1, test2;
 
 	/* setup SDRAM chip selects */
@@ -103,9 +119,9 @@ phys_size_t initdram (int board_type)
 
 	/* find RAM size using SDRAM CS0 only */
 	sdram_start(0);
-	test1 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test1 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	sdram_start(1);
-	test2 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test2 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	if (test1 > test2) {
 		sdram_start(0);
 		dramsize = test1;
@@ -131,10 +147,10 @@ phys_size_t initdram (int board_type)
 	/* find RAM size using SDRAM CS1 only */
 	if (!dramsize)
 		sdram_start(0);
-	test2 = test1 = get_ram_size((long *)(CONFIG_SYS_SDRAM_BASE + dramsize), 0x80000000);
+	test2 = test1 = get_ram_size((long *)(CFG_SDRAM_BASE + dramsize), 0x80000000);
 	if (!dramsize) {
 		sdram_start(1);
-		test2 = get_ram_size((long *)(CONFIG_SYS_SDRAM_BASE + dramsize), 0x80000000);
+		test2 = get_ram_size((long *)(CFG_SDRAM_BASE + dramsize), 0x80000000);
 	}
 	if (test1 > test2) {
 		sdram_start(0);
@@ -156,7 +172,7 @@ phys_size_t initdram (int board_type)
 		*(vu_long *)MPC5XXX_SDRAM_CS1CFG = dramsize; /* disabled */
 	}
 
-#else /* CONFIG_SYS_RAMBOOT */
+#else /* CFG_RAMBOOT */
 
 	/* retrieve size of memory connected to SDRAM CS0 */
 	dramsize = *(vu_long *)MPC5XXX_SDRAM_CS0CFG & 0xFF;
@@ -174,7 +190,7 @@ phys_size_t initdram (int board_type)
 		dramsize2 = 0;
 	}
 
-#endif /* CONFIG_SYS_RAMBOOT */
+#endif /* CFG_RAMBOOT */
 
 	/*
 	 * On MPC5200B we need to set the special configuration delay in the
@@ -211,6 +227,10 @@ void flash_preinit(void)
 	 * Note that CS_BOOT cannot be cleared when
 	 * executing in flash.
 	 */
+#if defined(CONFIG_MGT5100)
+	*(vu_long *)MPC5XXX_ADDECR &= ~(1 << 25); /* disable CS_BOOT */
+	*(vu_long *)MPC5XXX_ADDECR |= (1 << 16); /* enable CS0 */
+#endif
 	*(vu_long *)MPC5XXX_BOOTCS_CFG &= ~0x1; /* clear RO */
 }
 
@@ -224,12 +244,14 @@ void flash_afterinit(ulong size)
 {
 	if (size == 0x1000000) { /* adjust mapping */
 		*(vu_long *)MPC5XXX_BOOTCS_START = *(vu_long *)MPC5XXX_CS0_START =
-			START_REG(CONFIG_SYS_BOOTCS_START | size);
+			START_REG(CFG_BOOTCS_START | size);
 		*(vu_long *)MPC5XXX_BOOTCS_STOP = *(vu_long *)MPC5XXX_CS0_STOP =
-			STOP_REG(CONFIG_SYS_BOOTCS_START | size, size);
+			STOP_REG(CFG_BOOTCS_START | size, size);
 	}
+#if defined(CONFIG_MPC5200)
 	*(vu_long *)MPC5XXX_ADDECR &= ~(1 << 25); /* disable CS_BOOT */
 	*(vu_long *)MPC5XXX_ADDECR |= (1 << 16); /* enable CS0 */
+#endif
 }
 
 int update_flash_size (int flash_size)
@@ -283,10 +305,9 @@ void ide_set_reset (int idereset)
 #endif
 
 #if defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void
+ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
-
-	return 0;
 }
 #endif

@@ -2,15 +2,33 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  *
  * Source partly derived from:
  * linux/drivers/char/pc_keyb.c
+ *
+ *
  */
 #include <common.h>
-#include <console.h>
 #include <asm/processor.h>
-#include <stdio_dev.h>
+#include <devices.h>
 #include "isa.h"
 #include "kbd.h"
 
@@ -185,7 +203,7 @@ int isa_kbd_init(void)
 	}
 }
 
-#ifdef CONFIG_SYS_CONSOLE_OVERWRITE_ROUTINE
+#ifdef CFG_CONSOLE_OVERWRITE_ROUTINE
 extern int overwrite_console (void);
 #else
 int overwrite_console (void)
@@ -197,18 +215,20 @@ int overwrite_console (void)
 int drv_isa_kbd_init (void)
 {
 	int error;
-	struct stdio_dev kbddev ;
+	device_t kbddev ;
 	char *stdinname  = getenv ("stdin");
 
 	if(isa_kbd_init()==-1)
 		return -1;
 	memset (&kbddev, 0, sizeof(kbddev));
 	strcpy(kbddev.name, DEVNAME);
-	kbddev.flags =  DEV_FLAGS_INPUT;
+	kbddev.flags =  DEV_FLAGS_INPUT | DEV_FLAGS_SYSTEM;
+	kbddev.putc = NULL ;
+	kbddev.puts = NULL ;
 	kbddev.getc = kbd_getc ;
 	kbddev.tstc = kbd_testc ;
 
-	error = stdio_register (&kbddev);
+	error = device_register (&kbddev);
 	if(error==0) {
 		/* check if this is the standard input device */
 		if(strcmp(stdinname,DEVNAME)==0) {
@@ -249,7 +269,7 @@ void kbd_put_queue(char data)
 }
 
 /* test if a character is in the queue */
-int kbd_testc(struct stdio_dev *dev)
+int kbd_testc(void)
 {
 	if(in_pointer==out_pointer)
 		return(0); /* no data */
@@ -257,7 +277,7 @@ int kbd_testc(struct stdio_dev *dev)
 		return(1);
 }
 /* gets the character from the queue */
-int kbd_getc(struct stdio_dev *dev)
+int kbd_getc(void)
 {
 	char c;
 	while(in_pointer==out_pointer);
@@ -432,22 +452,22 @@ unsigned char handle_kbd_event(void)
  */
 unsigned char kbd_read_status(void)
 {
-	return(in8(CONFIG_SYS_ISA_IO_BASE_ADDRESS + KDB_COMMAND_PORT));
+	return(in8(CFG_ISA_IO_BASE_ADDRESS + KDB_COMMAND_PORT));
 }
 
 unsigned char kbd_read_input(void)
 {
-	return(in8(CONFIG_SYS_ISA_IO_BASE_ADDRESS + KDB_DATA_PORT));
+	return(in8(CFG_ISA_IO_BASE_ADDRESS + KDB_DATA_PORT));
 }
 
 void kbd_write_command(unsigned char cmd)
 {
-	out8(CONFIG_SYS_ISA_IO_BASE_ADDRESS + KDB_COMMAND_PORT,cmd);
+	out8(CFG_ISA_IO_BASE_ADDRESS + KDB_COMMAND_PORT,cmd);
 }
 
 void kbd_write_output(unsigned char data)
 {
-	out8(CONFIG_SYS_ISA_IO_BASE_ADDRESS + KDB_DATA_PORT, data);
+	out8(CFG_ISA_IO_BASE_ADDRESS + KDB_DATA_PORT, data);
 }
 
 int kbd_read_data(void)

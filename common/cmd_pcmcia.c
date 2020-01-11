@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2006
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  ********************************************************************
  *
@@ -50,7 +66,7 @@
 extern int pcmcia_on (void);
 extern int pcmcia_off (void);
 
-int do_pinit (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_pinit (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	int rcode = 0;
 
@@ -72,10 +88,10 @@ int do_pinit (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 U_BOOT_CMD(
 	pinit,	2,	0,	do_pinit,
-	"PCMCIA sub-system",
+	"pinit   - PCMCIA sub-system\n",
 	"on  - power on PCMCIA socket\n"
-	"pinit off - power off PCMCIA socket"
-);
+			"pinit off - power off PCMCIA socket\n"
+	  );
 
 #endif
 
@@ -262,8 +278,8 @@ int check_ide_device (int slot)
 	int found = 0;
 	int i;
 
-	addr = (volatile uchar *)(CONFIG_SYS_PCMCIA_MEM_ADDR +
-				  CONFIG_SYS_PCMCIA_MEM_SIZE * (slot * 4));
+	addr = (volatile uchar *)(CFG_PCMCIA_MEM_ADDR +
+				  CFG_PCMCIA_MEM_SIZE * (slot * 4));
 	debug ("PCMCIA MEM: %08lX\n", (ulong)addr);
 
 	start = p = (volatile uchar *) addr;
@@ -331,8 +347,11 @@ int check_ide_device (int slot)
 
 	ide_devices_found |= (1 << slot);
 
+#if CONFIG_CPC45
+#else
 	/* set I/O area in config reg -> only valid for ARGOSY D5!!! */
 	*((uchar *)(addr + config_base)) = 1;
+#endif
 #if 0
 	printf("\n## Config_base = %04x ###\n", config_base);
 	printf("Configuration Option Register: %02x @ %x\n", readb(addr + config_base), addr + config_base);

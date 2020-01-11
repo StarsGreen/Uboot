@@ -3,16 +3,32 @@
  *
  * Written by: Rafal Jaworowski <raj@semihalf.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <config.h>
+
+#if defined(CONFIG_API)
+
 #include <common.h>
 #include <api_public.h>
-
-#if defined(CONFIG_CMD_USB) && defined(CONFIG_USB_STORAGE)
-#include <usb.h>
-#endif
 
 #define DEBUG
 #undef DEBUG
@@ -47,28 +63,28 @@ static struct stor_spec specs[ENUM_MAX] = { { 0, 0, 0, 0, "" }, };
 void dev_stor_init(void)
 {
 #if defined(CONFIG_CMD_IDE)
-	specs[ENUM_IDE].max_dev = CONFIG_SYS_IDE_MAXDEVICE;
+	specs[ENUM_IDE].max_dev = CFG_IDE_MAXDEVICE;
 	specs[ENUM_IDE].enum_started = 0;
 	specs[ENUM_IDE].enum_ended = 0;
 	specs[ENUM_IDE].type = DEV_TYP_STOR | DT_STOR_IDE;
 	specs[ENUM_IDE].name = "ide";
 #endif
 #if defined(CONFIG_CMD_MMC)
-	specs[ENUM_MMC].max_dev = CONFIG_SYS_MMC_MAX_DEVICE;
+	specs[ENUM_MMC].max_dev = CFG_MMC_MAX_DEVICE;
 	specs[ENUM_MMC].enum_started = 0;
 	specs[ENUM_MMC].enum_ended = 0;
 	specs[ENUM_MMC].type = DEV_TYP_STOR | DT_STOR_MMC;
 	specs[ENUM_MMC].name = "mmc";
 #endif
 #if defined(CONFIG_CMD_SATA)
-	specs[ENUM_SATA].max_dev = CONFIG_SYS_SATA_MAX_DEVICE;
+	specs[ENUM_SATA].max_dev = CFG_SATA_MAX_DEVICE;
 	specs[ENUM_SATA].enum_started = 0;
 	specs[ENUM_SATA].enum_ended = 0;
 	specs[ENUM_SATA].type = DEV_TYP_STOR | DT_STOR_SATA;
 	specs[ENUM_SATA].name = "sata";
 #endif
 #if defined(CONFIG_CMD_SCSI)
-	specs[ENUM_SCSI].max_dev = CONFIG_SYS_SCSI_MAX_DEVICE;
+	specs[ENUM_SCSI].max_dev = CFG_SCSI_MAX_DEVICE;
 	specs[ENUM_SCSI].enum_started = 0;
 	specs[ENUM_SCSI].enum_ended = 0;
 	specs[ENUM_SCSI].type = DEV_TYP_STOR | DT_STOR_SCSI;
@@ -111,11 +127,6 @@ static int dev_stor_get(int type, int first, int *more, struct device_info *di)
 			return 0;
 		else
 			found = 1;
-
-		/* provide hint if there are more devices in
-		 * this group to enumerate */
-		if (1 < specs[type].max_dev)
-			*more = 1;
 
 	} else {
 		for (i = 0; i < specs[type].max_dev; i++)
@@ -376,3 +387,5 @@ lbasize_t dev_read_stor(void *cookie, void *buf, lbasize_t len, lbastart_t start
 
 	return (dd->block_read(dev_stor_index(dd), start, len, buf));
 }
+
+#endif /* CONFIG_API */

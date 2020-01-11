@@ -23,9 +23,14 @@
 #include <common.h>
 #include <malloc.h>
 #include <watchdog.h>
-#include <u-boot/zlib.h>
+#include <zlib.h>
+
+#if defined(CONFIG_CMD_CRAMFS)
 
 static z_stream stream;
+
+void *zalloc(void *, unsigned, unsigned);
+void zfree(void *, void *, unsigned);
 
 /* Returns length of decompressed data. */
 int cramfs_uncompress_block (void *dst, void *src, int srclen)
@@ -56,8 +61,8 @@ int cramfs_uncompress_init (void)
 {
 	int err;
 
-	stream.zalloc = gzalloc;
-	stream.zfree = gzfree;
+	stream.zalloc = zalloc;
+	stream.zfree = zfree;
 	stream.next_in = 0;
 	stream.avail_in = 0;
 
@@ -81,3 +86,5 @@ int cramfs_uncompress_exit (void)
 	inflateEnd (&stream);
 	return 0;
 }
+
+#endif /* CFG_FS_CRAMFS */

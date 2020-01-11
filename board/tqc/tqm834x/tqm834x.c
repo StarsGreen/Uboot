@@ -2,7 +2,24 @@
  * (C) Copyright 2005
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
@@ -11,10 +28,8 @@
 #include <asm/mpc8349_pci.h>
 #include <i2c.h>
 #include <miiphy.h>
-#include <asm/mmu.h>
+#include <asm-ppc/mmu.h>
 #include <pci.h>
-#include <flash.h>
-#include <mtd/cfi_flash.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -37,18 +52,22 @@ DECLARE_GLOBAL_DATA_PTR;
 #define INITIAL_CS_CONFIG	(CSCONFIG_EN | CSCONFIG_ROW_BIT_12 | \
 				CSCONFIG_COL_BIT_9)
 
+/* Global variable used to store detected number of banks */
+int tqm834x_num_flash_banks;
+
 /* External definitions */
 ulong flash_get_size (ulong base, int banknum);
+extern flash_info_t flash_info[];
 
 /* Local functions */
 static int detect_num_flash_banks(void);
-static long int get_ddr_bank_size(short cs, long *base);
+static long int get_ddr_bank_size(short cs, volatile long *base);
 static void set_cs_bounds(short cs, long base, long size);
 static void set_cs_config(short cs, long config);
 static void set_ddr_config(void);
 
 /* Local variable */
-static volatile immap_t *im = (immap_t *)CONFIG_SYS_IMMR;
+static volatile immap_t *im = (immap_t *)CFG_IMMR;
 
 /**************************************************************************
  * Board initialzation after relocation to RAM. Used to detect the number
@@ -73,13 +92,13 @@ phys_size_t initdram (int board_type)
 	int cs;
 
 	/* during size detection, set up the max DDRLAW size */
-	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_DDR_BASE;
+	im->sysconf.ddrlaw[0].bar = CFG_DDR_BASE;
 	im->sysconf.ddrlaw[0].ar = (LAWAR_EN | LAWAR_SIZE_2G);
 
 	/* set CS bounds to maximum size */
 	for(cs = 0; cs < 4; ++cs) {
 		set_cs_bounds(cs,
-			CONFIG_SYS_DDR_BASE + (cs * DDR_MAX_SIZE_PER_CS),
+			CFG_DDR_BASE + (cs * DDR_MAX_SIZE_PER_CS),
 			DDR_MAX_SIZE_PER_CS);
 
 		set_cs_config(cs, INITIAL_CS_CONFIG);
@@ -103,10 +122,10 @@ phys_size_t initdram (int board_type)
 		debug("\nDetecting Bank%d\n", cs);
 
 		bank_size = get_ddr_bank_size(cs,
-			(long *)(CONFIG_SYS_DDR_BASE + size));
+			(volatile long*)(CFG_DDR_BASE + size));
 		size += bank_size;
 
-		debug("DDR Bank%d size: %ld MiB\n\n", cs, bank_size >> 20);
+		debug("DDR Bank%d size: %d MiB\n\n", cs, bank_size >> 20);
 
 		/* exit if less than one bank */
 		if(size < DDR_MAX_SIZE_PER_CS) break;
@@ -126,7 +145,7 @@ int checkboard (void)
 	volatile immap_t * immr;
 	u32 w, f;
 
-	immr = (immap_t *)CONFIG_SYS_IMMR;
+	immr = (immap_t *)CFG_IMMR;
 	if (!(immr->reset.rcwh & HRCWH_PCI_HOST)) {
 		printf("PCI:   NOT in host mode..?!\n");
 		return 0;
@@ -171,12 +190,12 @@ static int detect_num_flash_banks(void)
 	ulong bank2_size;
 	ulong total_size;
 
-	cfi_flash_num_flash_banks = 2;	/* assume two banks */
+	tqm834x_num_flash_banks = 2;	/* assume two banks */
 
 	/* Get bank 1 and 2 information */
-	bank1_size = flash_get_size(CONFIG_SYS_FLASH_BASE, 0);
+	bank1_size = flash_get_size(CFG_FLASH_BASE, 0);
 	debug("Bank1 size: %lu\n", bank1_size);
-	bank2_size = flash_get_size(CONFIG_SYS_FLASH_BASE + bank1_size, 1);
+	bank2_size = flash_get_size(CFG_FLASH_BASE + bank1_size, 1);
 	debug("Bank2 size: %lu\n", bank2_size);
 	total_size = bank1_size + bank2_size;
 
@@ -184,8 +203,8 @@ static int detect_num_flash_banks(void)
 		/* Seems like we've got bank 2, but maybe it's mirrored 1 */
 
 		/* Set the base addresses */
-		bank1_base = (FPWV *) (CONFIG_SYS_FLASH_BASE);
-		bank2_base = (FPWV *) (CONFIG_SYS_FLASH_BASE + bank1_size);
+		bank1_base = (FPWV *) (CFG_FLASH_BASE);
+		bank2_base = (FPWV *) (CFG_FLASH_BASE + bank1_size);
 
 		/* Put bank 2 into CFI command mode and read */
 		bank2_base[0x55] = 0x00980098;
@@ -225,19 +244,19 @@ static int detect_num_flash_banks(void)
 				 * we got the some data reading from Flash.
 				 * There is only one mirrored bank.
 				 */
-				cfi_flash_num_flash_banks = 1;
+				tqm834x_num_flash_banks = 1;
 				total_size = bank1_size;
 			}
 		}
 	}
 
-	debug("Number of flash banks detected: %d\n", cfi_flash_num_flash_banks);
+	debug("Number of flash banks detected: %d\n", tqm834x_num_flash_banks);
 
 	/* set OR0 and BR0 */
-	set_lbc_or(0, CONFIG_SYS_OR_TIMING_FLASH |
-		   (-(total_size) & OR_GPCM_AM));
-	set_lbc_br(0, (CONFIG_SYS_FLASH_BASE & BR_BA) |
-		   (BR_MS_GPCM | BR_PS_32 | BR_V));
+	im->lbus.bank[0].or = CFG_OR_TIMING_FLASH |
+		(-(total_size) & OR_GPCM_AM);
+	im->lbus.bank[0].br = (CFG_FLASH_BASE & BR_BA) |
+		(BR_MS_GPCM | BR_PS_32 | BR_V);
 
 	return (0);
 }
@@ -245,7 +264,7 @@ static int detect_num_flash_banks(void)
 /*************************************************************************
  * Detect the size of a ddr bank. Sets CS bounds and CS config accordingly.
  */
-static long int get_ddr_bank_size(short cs, long *base)
+static long int get_ddr_bank_size(short cs, volatile long *base)
 {
 	/* This array lists all valid DDR SDRAM configurations, with
 	 * Bank sizes in bytes. (Refer to Table 9-27 in the MPC8349E RM).
@@ -316,7 +335,7 @@ static long int get_ddr_bank_size(short cs, long *base)
  */
 static void set_cs_bounds(short cs, long base, long size)
 {
-	debug("Setting bounds %08lx, %08lx for cs %d\n", base, size, cs);
+	debug("Setting bounds %08x, %08x for cs %d\n", base, size, cs);
 	if(size == 0){
 		im->ddr.csbnds[cs].csbnds = 0x00000000;
 	} else {
@@ -334,7 +353,7 @@ static void set_cs_bounds(short cs, long base, long size)
  */
 static void set_cs_config(short cs, long config)
 {
-	debug("Setting config %08lx for cs %d\n", config, cs);
+	debug("Setting config %08x for cs %d\n", config, cs);
 	im->ddr.cs_config[cs] = config;
 	SYNC;
 }
@@ -412,16 +431,3 @@ static void set_ddr_config(void) {
 #endif
 	}
 }
-
-#ifdef CONFIG_OF_BOARD_SETUP
-int ft_board_setup(void *blob, bd_t *bd)
-{
-	ft_cpu_setup(blob, bd);
-
-#ifdef CONFIG_PCI
-	ft_pci_setup(blob, bd);
-#endif	/* CONFIG_PCI */
-
-	return 0;
-}
-#endif	/* CONFIG_OF_BOARD_SETUP */

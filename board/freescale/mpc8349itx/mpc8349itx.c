@@ -1,7 +1,23 @@
 /*
- * Copyright (C) Freescale Semiconductor, Inc. 2006.
+ * Copyright (C) Freescale Semiconductor, Inc. 2006. All rights reserved.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS for A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -26,28 +42,24 @@
  ************************************************************************/
 int fixed_sdram(void)
 {
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
-	/* The size of RAM, in bytes */
-	u32 ddr_size = CONFIG_SYS_DDR_SIZE << 20;
-	u32 ddr_size_log2 = __ilog2(ddr_size);
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
+	u32 ddr_size;		/* The size of RAM, in bytes */
+	u32 ddr_size_log2 = 0;
+
+	for (ddr_size = CFG_DDR_SIZE * 0x100000; ddr_size > 1; ddr_size >>= 1) {
+		if (ddr_size & 1) {
+			return -1;
+		}
+		ddr_size_log2++;
+	}
 
 	im->sysconf.ddrlaw[0].ar =
 	    LAWAR_EN | ((ddr_size_log2 - 1) & LAWAR_SIZE);
-	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_DDR_SDRAM_BASE & 0xfffff000;
+	im->sysconf.ddrlaw[0].bar = (CFG_DDR_SDRAM_BASE >> 12) & 0xfffff;
 
-#if ((CONFIG_SYS_DDR_SDRAM_BASE & 0x00FFFFFF) != 0)
-#warning Chip select bounds is only configurable in 16MB increments
-#endif
-	im->ddr.csbnds[0].csbnds =
-		((CONFIG_SYS_DDR_SDRAM_BASE >> CSBNDS_SA_SHIFT) & CSBNDS_SA) |
-		(((CONFIG_SYS_DDR_SDRAM_BASE + ddr_size - 1) >>
-				CSBNDS_EA_SHIFT) & CSBNDS_EA);
-	im->ddr.cs_config[0] = CONFIG_SYS_DDR_CS0_CONFIG;
-
-	/* Only one CS for DDR */
-	im->ddr.cs_config[1] = 0;
-	im->ddr.cs_config[2] = 0;
-	im->ddr.cs_config[3] = 0;
+	/* Only one CS0 for DDR */
+	im->ddr.csbnds[0].csbnds = 0x0000000f;
+	im->ddr.cs_config[0] = CFG_DDR_CONFIG;
 
 	debug("cs0_bnds = 0x%08x\n", im->ddr.csbnds[0].csbnds);
 	debug("cs0_config = 0x%08x\n", im->ddr.cs_config[0]);
@@ -55,15 +67,15 @@ int fixed_sdram(void)
 	debug("DDR:bar=0x%08x\n", im->sysconf.ddrlaw[0].bar);
 	debug("DDR:ar=0x%08x\n", im->sysconf.ddrlaw[0].ar);
 
-	im->ddr.timing_cfg_1 = CONFIG_SYS_DDR_TIMING_1;
-	im->ddr.timing_cfg_2 = CONFIG_SYS_DDR_TIMING_2;/* Was "2 << TIMING_CFG2_WR_DATA_DELAY_SHIFT" */
+	im->ddr.timing_cfg_1 = CFG_DDR_TIMING_1;
+	im->ddr.timing_cfg_2 = CFG_DDR_TIMING_2;/* Was "2 << TIMING_CFG2_WR_DATA_DELAY_SHIFT" */
 	im->ddr.sdram_cfg = SDRAM_CFG_SREN | SDRAM_CFG_SDRAM_TYPE_DDR1;
 	im->ddr.sdram_mode =
 	    (0x0000 << SDRAM_MODE_ESD_SHIFT) | (0x0032 << SDRAM_MODE_SD_SHIFT);
 	im->ddr.sdram_interval =
 	    (0x0410 << SDRAM_INTERVAL_REFINT_SHIFT) | (0x0100 <<
 						       SDRAM_INTERVAL_BSTOPRE_SHIFT);
-	im->ddr.sdram_clk_cntl = CONFIG_SYS_DDR_SDRAM_CLK_CNTL;
+	im->ddr.sdram_clk_cntl = CFG_DDR_SDRAM_CLK_CNTL;
 
 	udelay(200);
 
@@ -75,7 +87,7 @@ int fixed_sdram(void)
 	debug("DDR:sdram_interval=0x%08x\n", im->ddr.sdram_interval);
 	debug("DDR:sdram_cfg=0x%08x\n", im->ddr.sdram_cfg);
 
-	return CONFIG_SYS_DDR_SIZE;
+	return CFG_DDR_SIZE;
 }
 #endif
 
@@ -118,7 +130,7 @@ volatile static struct pci_controller hose[] = {
 
 phys_size_t initdram(int board_type)
 {
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	u32 msize = 0;
 #ifdef CONFIG_DDR_ECC
 	volatile ddr83xx_t *ddr = &im->ddr;
@@ -128,7 +140,7 @@ phys_size_t initdram(int board_type)
 		return -1;
 
 	/* DDR SDRAM - Main SODIMM */
-	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_DDR_BASE & LAWBAR_BAR;
+	im->sysconf.ddrlaw[0].bar = CFG_DDR_BASE & LAWBAR_BAR;
 #ifdef CONFIG_SPD_EEPROM
 	msize = spd_sdram();
 #else
@@ -184,7 +196,7 @@ int misc_init_f(void)
 	   don't enable compact flash for U-Boot.
 	 */
 
-	vsc7385_cpuctrl = (volatile u32 *)(CONFIG_SYS_VSC7385_BASE + 0x1c0c0);
+	vsc7385_cpuctrl = (volatile u32 *)(CFG_VSC7385_BASE + 0x1c0c0);
 	*vsc7385_cpuctrl |= 0x0c;
 #endif
 
@@ -208,15 +220,16 @@ int misc_init_f(void)
 		0xfffffc00, 0xfffffc00, 0xfffffc00, 0xfffffc01,
 		0xfffffc00, 0xfffffc00, 0xfffffc00, 0xfffffc01
 	};
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
+	volatile lbus83xx_t *lbus = &immap->lbus;
 
-	set_lbc_br(3, CONFIG_SYS_BR3_PRELIM);
-	set_lbc_or(3, CONFIG_SYS_OR3_PRELIM);
+	lbus->bank[3].br = CFG_BR3_PRELIM;
+	lbus->bank[3].or = CFG_OR3_PRELIM;
 
 	/* Program the MAMR. RFEN=0, OP=00, UWPL=1, AM=000, DS=01, G0CL=000,
 	   GPL4=0, RLF=0001, WLF=0001, TLF=0001, MAD=000000
 	 */
-	immap->im_lbc.mamr = 0x08404440;
+	lbus->mamr = 0x08404440;
 
 	upmconfig(0, UPMATable, sizeof(UPMATable) / sizeof(UPMATable[0]));
 
@@ -247,30 +260,31 @@ int misc_init_r(void)
 {
 	int rc = 0;
 
-#if defined(CONFIG_SYS_I2C)
+#ifdef CONFIG_HARD_I2C
+
 	unsigned int orig_bus = i2c_get_bus_num();
 	u8 i2c_data;
 
-#ifdef CONFIG_SYS_I2C_RTC_ADDR
+#ifdef CFG_I2C_RTC_ADDR
 	u8 ds1339_data[17];
 #endif
 
-#ifdef CONFIG_SYS_I2C_EEPROM_ADDR
+#ifdef CFG_I2C_EEPROM_ADDR
 	static u8 eeprom_data[] =	/* HRCW data */
 	{
 		0xAA, 0x55, 0xAA,       /* Preamble */
 		0x7C,		        /* ACS=0, BYTE_EN=1111, CONT=1 */
 		0x02, 0x40,	        /* RCWL ADDR=0x0_0900 */
-		(CONFIG_SYS_HRCW_LOW >> 24) & 0xFF,
-		(CONFIG_SYS_HRCW_LOW >> 16) & 0xFF,
-		(CONFIG_SYS_HRCW_LOW >> 8) & 0xFF,
-		CONFIG_SYS_HRCW_LOW & 0xFF,
+		(CFG_HRCW_LOW >> 24) & 0xFF,
+		(CFG_HRCW_LOW >> 16) & 0xFF,
+		(CFG_HRCW_LOW >> 8) & 0xFF,
+		CFG_HRCW_LOW & 0xFF,
 		0x7C,		        /* ACS=0, BYTE_EN=1111, CONT=1 */
 		0x02, 0x41,	        /* RCWH ADDR=0x0_0904 */
-		(CONFIG_SYS_HRCW_HIGH >> 24) & 0xFF,
-		(CONFIG_SYS_HRCW_HIGH >> 16) & 0xFF,
-		(CONFIG_SYS_HRCW_HIGH >> 8) & 0xFF,
-		CONFIG_SYS_HRCW_HIGH & 0xFF
+		(CFG_HRCW_HIGH >> 24) & 0xFF,
+		(CFG_HRCW_HIGH >> 16) & 0xFF,
+		(CFG_HRCW_HIGH >> 8) & 0xFF,
+		CFG_HRCW_HIGH & 0xFF
 	};
 
 	u8 data[sizeof(eeprom_data)];
@@ -278,22 +292,22 @@ int misc_init_r(void)
 
 	printf("Board revision: ");
 	i2c_set_bus_num(1);
-	if (i2c_read(CONFIG_SYS_I2C_8574A_ADDR2, 0, 0, &i2c_data, sizeof(i2c_data)) == 0)
+	if (i2c_read(CFG_I2C_8574A_ADDR2, 0, 0, &i2c_data, sizeof(i2c_data)) == 0)
 		printf("%u.%u (PCF8475A)\n", (i2c_data & 0x02) >> 1, i2c_data & 0x01);
-	else if (i2c_read(CONFIG_SYS_I2C_8574_ADDR2, 0, 0, &i2c_data, sizeof(i2c_data)) == 0)
+	else if (i2c_read(CFG_I2C_8574_ADDR2, 0, 0, &i2c_data, sizeof(i2c_data)) == 0)
 		printf("%u.%u (PCF8475)\n",  (i2c_data & 0x02) >> 1, i2c_data & 0x01);
 	else {
 		printf("Unknown\n");
 		rc = 1;
 	}
 
-#ifdef CONFIG_SYS_I2C_EEPROM_ADDR
+#ifdef CFG_I2C_EEPROM_ADDR
 	i2c_set_bus_num(0);
 
-	if (i2c_read(CONFIG_SYS_I2C_EEPROM_ADDR, 0, 2, data, sizeof(data)) == 0) {
+	if (i2c_read(CFG_I2C_EEPROM_ADDR, 0, 2, data, sizeof(data)) == 0) {
 		if (memcmp(data, eeprom_data, sizeof(data)) != 0) {
 			if (i2c_write
-			    (CONFIG_SYS_I2C_EEPROM_ADDR, 0, 2, eeprom_data,
+			    (CFG_I2C_EEPROM_ADDR, 0, 2, eeprom_data,
 			     sizeof(eeprom_data)) != 0) {
 				puts("Failure writing the HRCW to EEPROM via I2C.\n");
 				rc = 1;
@@ -305,10 +319,10 @@ int misc_init_r(void)
 	}
 #endif
 
-#ifdef CONFIG_SYS_I2C_RTC_ADDR
+#ifdef CFG_I2C_RTC_ADDR
 	i2c_set_bus_num(1);
 
-	if (i2c_read(CONFIG_SYS_I2C_RTC_ADDR, 0, 1, ds1339_data, sizeof(ds1339_data))
+	if (i2c_read(CFG_I2C_RTC_ADDR, 0, 1, ds1339_data, sizeof(ds1339_data))
 	    == 0) {
 
 		/* Work-around for MPC8349E-mITX bug #13601.
@@ -352,7 +366,7 @@ int misc_init_r(void)
 		 */
 
 		if (i2c_write
-		    (CONFIG_SYS_I2C_RTC_ADDR, 0, 1, ds1339_data,
+		    (CFG_I2C_RTC_ADDR, 0, 1, ds1339_data,
 		     sizeof(ds1339_data))) {
 			puts("Failure writing to the RTC via I2C.\n");
 			rc = 1;
@@ -378,13 +392,11 @@ int misc_init_r(void)
 }
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
 #ifdef CONFIG_PCI
 	ft_pci_setup(blob, bd);
 #endif
-
-	return 0;
 }
 #endif

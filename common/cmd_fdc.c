@@ -2,7 +2,24 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG, d.peter@mpl.ch.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 /*
  * Floppy Disk support
@@ -22,9 +39,18 @@
 #define PRINTF(fmt,args...)
 #endif
 
+#ifndef	TRUE
+#define TRUE            1
+#endif
+#ifndef FALSE
+#define FALSE           0
+#endif
+
 /*#if defined(CONFIG_CMD_DATE) */
 /*#include <rtc.h> */
 /*#endif */
+
+#if defined(CONFIG_CMD_FDC) || defined(CONFIG_CMD_FDOS)
 
 typedef struct {
 	int		flags;		/* connected drives ect */
@@ -146,17 +172,42 @@ const static FD_GEO_STRUCT floppy_type[2] = {
 static FDC_COMMAND_STRUCT cmd; /* global command struct */
 
 /* If the boot drive number is undefined, we assume it's drive 0             */
-#ifndef CONFIG_SYS_FDC_DRIVE_NUMBER
-#define CONFIG_SYS_FDC_DRIVE_NUMBER 0
+#ifndef CFG_FDC_DRIVE_NUMBER
+#define CFG_FDC_DRIVE_NUMBER 0
 #endif
 
 /* Hardware access */
-#ifndef CONFIG_SYS_ISA_IO_STRIDE
-#define CONFIG_SYS_ISA_IO_STRIDE 1
+#ifndef CFG_ISA_IO_STRIDE
+#define CFG_ISA_IO_STRIDE 1
 #endif
 
-#ifndef CONFIG_SYS_ISA_IO_OFFSET
-#define CONFIG_SYS_ISA_IO_OFFSET 0
+#ifndef CFG_ISA_IO_OFFSET
+#define CFG_ISA_IO_OFFSET 0
+#endif
+
+
+#ifdef CONFIG_AMIGAONEG3SE
+unsigned char INT6_Status;
+
+void fdc_interrupt(void)
+{
+    INT6_Status = 0x80;
+}
+
+/* waits for an interrupt (polling) */
+int wait_for_fdc_int(void)
+{
+	unsigned long timeout;
+	timeout = FDC_TIME_OUT;
+	while(((volatile)INT6_Status & 0x80) == 0) {
+		timeout--;
+		udelay(10);
+		if(timeout == 0) /* timeout occured */
+			return FALSE;
+	}
+	INT6_Status = 0;
+	return TRUE;
+}
 #endif
 
 /* Supporting Functions */
@@ -164,9 +215,9 @@ static FDC_COMMAND_STRUCT cmd; /* global command struct */
 unsigned char read_fdc_reg(unsigned int addr)
 {
 	volatile unsigned char *val =
-		(volatile unsigned char *)(CONFIG_SYS_ISA_IO_BASE_ADDRESS +
-					   (addr * CONFIG_SYS_ISA_IO_STRIDE) +
-					   CONFIG_SYS_ISA_IO_OFFSET);
+		(volatile unsigned char *)(CFG_ISA_IO_BASE_ADDRESS +
+					   (addr * CFG_ISA_IO_STRIDE) +
+					   CFG_ISA_IO_OFFSET);
 
 	return val [0];
 }
@@ -175,12 +226,13 @@ unsigned char read_fdc_reg(unsigned int addr)
 void write_fdc_reg(unsigned int addr, unsigned char val)
 {
 	volatile unsigned char *tmp =
-		(volatile unsigned char *)(CONFIG_SYS_ISA_IO_BASE_ADDRESS +
-					   (addr * CONFIG_SYS_ISA_IO_STRIDE) +
-					   CONFIG_SYS_ISA_IO_OFFSET);
+		(volatile unsigned char *)(CFG_ISA_IO_BASE_ADDRESS +
+					   (addr * CFG_ISA_IO_STRIDE) +
+					   CFG_ISA_IO_OFFSET);
 	tmp[0]=val;
 }
 
+#ifndef CONFIG_AMIGAONEG3SE
 /* waits for an interrupt (polling) */
 int wait_for_fdc_int(void)
 {
@@ -190,10 +242,12 @@ int wait_for_fdc_int(void)
 		timeout--;
 		udelay(10);
 		if(timeout==0) /* timeout occured */
-			return false;
+			return FALSE;
 	}
-	return true;
+	return TRUE;
 }
+
+#endif
 
 /* reads a byte from the FIFO of the FDC and checks direction and RQM bit
    of the MSR. returns -1 if timeout, or byte if ok */
@@ -220,7 +274,7 @@ int fdc_need_more_output(void)
 			c=(unsigned char)read_fdc_byte();
 			printf("Error: more output: %x\n",c);
 	}
-	return true;
+	return TRUE;
 }
 
 
@@ -236,10 +290,10 @@ int write_fdc_byte(unsigned char val)
 		udelay(10);
 		fdc_need_more_output();
 		if(timeout==0) /* timeout occured */
-			return false;
+			return FALSE;
 	}
 	write_fdc_reg(FDC_FIFO,val);
-	return true;
+	return TRUE;
 }
 
 /* sets up all FDC commands and issues it to the FDC. If
@@ -320,9 +374,9 @@ int fdc_issue_cmd(FDC_COMMAND_STRUCT *pCMD,FD_GEO_STRUCT *pFG)
 	}
 	for(i=0;i<pCMD->cmdlen;i++) {
 		/* PRINTF("write cmd%d = 0x%02X\n",i,pCMD->cmd[i]); */
-		if (write_fdc_byte(pCMD->cmd[i]) == false) {
+		if(write_fdc_byte(pCMD->cmd[i])==FALSE) {
 			PRINTF("Error: timeout while issue cmd%d\n",i);
-			return false;
+			return FALSE;
 		}
 	}
 	timeout=FDC_TIME_OUT;
@@ -331,12 +385,12 @@ int fdc_issue_cmd(FDC_COMMAND_STRUCT *pCMD,FD_GEO_STRUCT *pFG)
 			timeout--;
 			if(timeout==0) {
 				PRINTF(" timeout while reading result%d MSR=0x%02X\n",i,read_fdc_reg(FDC_MSR));
-				return false;
+				return FALSE;
 			}
 		}
 		pCMD->result[i]=(unsigned char)read_fdc_byte();
 	}
-	return true;
+	return TRUE;
 }
 
 /* selects the drive assigned in the cmd structur and
@@ -367,10 +421,9 @@ void stop_fdc_drive(FDC_COMMAND_STRUCT *pCMD)
 int fdc_recalibrate(FDC_COMMAND_STRUCT *pCMD,FD_GEO_STRUCT *pFG)
 {
 	pCMD->cmd[COMMAND]=FDC_CMD_RECALIBRATE;
-	if (fdc_issue_cmd(pCMD, pFG) == false)
-		return false;
-	while (wait_for_fdc_int() != true);
-
+	if(fdc_issue_cmd(pCMD,pFG)==FALSE)
+		return FALSE;
+	while(wait_for_fdc_int()!=TRUE);
 	pCMD->cmd[COMMAND]=FDC_CMD_SENSE_INT;
 	return(fdc_issue_cmd(pCMD,pFG));
 }
@@ -380,14 +433,14 @@ int fdc_recalibrate(FDC_COMMAND_STRUCT *pCMD,FD_GEO_STRUCT *pFG)
 int fdc_seek(FDC_COMMAND_STRUCT *pCMD,FD_GEO_STRUCT *pFG)
 {
 	pCMD->cmd[COMMAND]=FDC_CMD_SEEK;
-	if (fdc_issue_cmd(pCMD, pFG) == false)
-		return false;
-	while (wait_for_fdc_int() != true);
-
+	if(fdc_issue_cmd(pCMD,pFG)==FALSE)
+		return FALSE;
+	while(wait_for_fdc_int()!=TRUE);
 	pCMD->cmd[COMMAND]=FDC_CMD_SENSE_INT;
 	return(fdc_issue_cmd(pCMD,pFG));
 }
 
+#ifndef CONFIG_AMIGAONEG3SE
 /* terminates current command, by not servicing the FIFO
  * waits for interrupt and fills in the result bytes */
 int fdc_terminate(FDC_COMMAND_STRUCT *pCMD)
@@ -399,15 +452,36 @@ int fdc_terminate(FDC_COMMAND_STRUCT *pCMD)
 	for(i=0;i<7;i++) {
 		pCMD->result[i]=(unsigned char)read_fdc_byte();
 	}
-	return true;
+	return TRUE;
 }
+#endif
+#ifdef CONFIG_AMIGAONEG3SE
+int fdc_terminate(FDC_COMMAND_STRUCT *pCMD)
+{
+	int i;
+	for(i=0;i<100;i++)
+		udelay(500); /* wait 500usec for fifo overrun */
+	while((INT6_Status&0x80)==0x00); /* wait as long as no int has occured */
+	for(i=0;i<7;i++) {
+		pCMD->result[i]=(unsigned char)read_fdc_byte();
+	}
+	INT6_Status = 0;
+	return TRUE;
+}
+
+#endif
+
+#ifdef CONFIG_AMIGAONEG3SE
+#define disable_interrupts() 0
+#define enable_interrupts() (void)0
+#endif
 
 /* reads data from FDC, seek commands are issued automatic */
 int fdc_read_data(unsigned char *buffer, unsigned long blocks,FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 {
   /* first seek to start address */
-	unsigned long len,readblk,i,timeout,ii,offset;
-	unsigned char c,retriesrw,retriescal;
+	unsigned long len,lastblk,readblk,i,timeout,ii,offset;
+	unsigned char pcn,c,retriesrw,retriescal;
 	unsigned char *bufferw; /* working buffer */
 	int sect_size;
 	int flags;
@@ -418,21 +492,20 @@ int fdc_read_data(unsigned char *buffer, unsigned long blocks,FDC_COMMAND_STRUCT
 	retriesrw=0;
 	retriescal=0;
 	offset=0;
-	if (fdc_seek(pCMD, pFG) == false) {
+	if(fdc_seek(pCMD,pFG)==FALSE) {
 		stop_fdc_drive(pCMD);
-		if (flags)
-			enable_interrupts();
-		return false;
+		enable_interrupts();
+		return FALSE;
 	}
 	if((pCMD->result[STATUS_0]&0x20)!=0x20) {
 		printf("Seek error Status: %02X\n",pCMD->result[STATUS_0]);
 		stop_fdc_drive(pCMD);
-		if (flags)
-			enable_interrupts();
-		return false;
+		enable_interrupts();
+		return FALSE;
 	}
+	pcn=pCMD->result[STATUS_PCN]; /* current track */
 	/* now determine the next seek point */
-	/*	lastblk=pCMD->blnr + blocks; */
+	lastblk=pCMD->blnr + blocks;
 	/*	readblk=(pFG->head*pFG->sect)-(pCMD->blnr%(pFG->head*pFG->sect)); */
 	readblk=pFG->sect-(pCMD->blnr%pFG->sect);
 	PRINTF("1st nr of block possible read %ld start %ld\n",readblk,pCMD->blnr);
@@ -444,11 +517,10 @@ int fdc_read_data(unsigned char *buffer, unsigned long blocks,FDC_COMMAND_STRUCT
 retryrw:
 		len=sect_size * readblk;
 		pCMD->cmd[COMMAND]=FDC_CMD_READ;
-		if (fdc_issue_cmd(pCMD, pFG) == false) {
+		if(fdc_issue_cmd(pCMD,pFG)==FALSE) {
 			stop_fdc_drive(pCMD);
-			if (flags)
-				enable_interrupts();
-			return false;
+			enable_interrupts();
+			return FALSE;
 		}
 		for (i=0;i<len;i++) {
 			timeout=FDC_TIME_OUT;
@@ -468,17 +540,15 @@ retryrw:
 					if(retriesrw++>FDC_RW_RETRIES) {
 						if (retriescal++>FDC_CAL_RETRIES) {
 							stop_fdc_drive(pCMD);
-							if (flags)
-								enable_interrupts();
-							return false;
+							enable_interrupts();
+							return FALSE;
 						}
 						else {
 							PRINTF(" trying to recalibrate Try %d\n",retriescal);
-							if (fdc_recalibrate(pCMD, pFG) == false) {
+							if(fdc_recalibrate(pCMD,pFG)==FALSE) {
 								stop_fdc_drive(pCMD);
-								if (flags)
-									enable_interrupts();
-								return false;
+								enable_interrupts();
+								return FALSE;
 							}
 							retriesrw=0;
 							goto retrycal;
@@ -490,7 +560,7 @@ retryrw:
 					} /* else >FDC_RW_RETRIES */
 				}/* if output */
 				timeout--;
-			} while (true);
+			}while(TRUE);
 		} /* for len */
 		/* the last sector of a track or all data has been read,
 		 * we need to get the results */
@@ -508,23 +578,27 @@ retryrw:
 			readblk=blocks;
 retrycal:
 		/* a seek is necessary */
-		if (fdc_seek(pCMD, pFG) == false) {
+		if(fdc_seek(pCMD,pFG)==FALSE) {
 			stop_fdc_drive(pCMD);
-			if (flags)
-				enable_interrupts();
-			return false;
+			enable_interrupts();
+			return FALSE;
 		}
 		if((pCMD->result[STATUS_0]&0x20)!=0x20) {
 			PRINTF("Seek error Status: %02X\n",pCMD->result[STATUS_0]);
 			stop_fdc_drive(pCMD);
-			return false;
+			return FALSE;
 		}
-	} while (true); /* start over */
+		pcn=pCMD->result[STATUS_PCN]; /* current track */
+	}while(TRUE); /* start over */
 	stop_fdc_drive(pCMD); /* switch off drive */
-	if (flags)
-		enable_interrupts();
-	return true;
+	enable_interrupts();
+	return TRUE;
 }
+
+#ifdef CONFIG_AMIGAONEG3SE
+#undef disable_interrupts()
+#undef enable_interrupts()
+#endif
 
 /* Scan all drives and check if drive is present and disk is inserted */
 int fdc_check_drive(FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
@@ -537,20 +611,20 @@ int fdc_check_drive(FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 		pCMD->drive=drives;
 		select_fdc_drive(pCMD);
 		pCMD->blnr=0; /* set to the 1st block */
-		if (fdc_recalibrate(pCMD, pFG) == false)
+		if(fdc_recalibrate(pCMD,pFG)==FALSE)
 			continue;
 		if((pCMD->result[STATUS_0]&0x10)==0x10)
 			continue;
 		/* ok drive connected check for disk */
 		state|=(1<<drives);
 		pCMD->blnr=pFG->size; /* set to the last block */
-		if (fdc_seek(pCMD, pFG) == false)
+		if(fdc_seek(pCMD,pFG)==FALSE)
 			continue;
 		pCMD->blnr=0; /* set to the 1st block */
-		if (fdc_recalibrate(pCMD, pFG) == false)
+		if(fdc_recalibrate(pCMD,pFG)==FALSE)
 			continue;
 		pCMD->cmd[COMMAND]=FDC_CMD_READ_ID;
-		if (fdc_issue_cmd(pCMD, pFG) == false)
+		if(fdc_issue_cmd(pCMD,pFG)==FALSE)
 			continue;
 		state|=(0x10<<drives);
 	}
@@ -562,7 +636,7 @@ int fdc_check_drive(FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 			((state&(0x10<<i))==(0x10<<i)) ? pFG->name : "");
 	}
 	pCMD->flags=state;
-	return true;
+	return TRUE;
 }
 
 
@@ -575,7 +649,12 @@ int fdc_setup(int drive, FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 {
 	int i;
 
-#ifdef CONFIG_SYS_FDC_HW_INIT
+#ifdef CONFIG_AMIGAONEG3SE
+	irq_install_handler(6, (interrupt_handler_t *)fdc_interrupt, NULL);
+	i8259_unmask_irq(6);
+#endif
+
+#ifdef CFG_FDC_HW_INIT
 	fdc_hw_init ();
 #endif
 	/* first, we reset the FDC via the DOR */
@@ -589,9 +668,9 @@ int fdc_setup(int drive, FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 	write_fdc_reg(FDC_CCR,pFG->rate);
 	/* then initialize the DSR */
 	write_fdc_reg(FDC_DSR,pFG->rate);
-	if (wait_for_fdc_int() == false) {
+	if(wait_for_fdc_int()==FALSE) {
 			PRINTF("Time Out after writing CCR\n");
-			return false;
+			return FALSE;
 	}
 	/* now issue sense Interrupt and status command
 	 * assuming only one drive present (drive 0) */
@@ -599,7 +678,7 @@ int fdc_setup(int drive, FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 	for(i=0;i<4;i++) {
 		/* issue sense interrupt for all 4 possible drives */
 		pCMD->cmd[COMMAND]=FDC_CMD_SENSE_INT;
-		if (fdc_issue_cmd(pCMD, pFG) == false) {
+		if(fdc_issue_cmd(pCMD,pFG)==FALSE) {
 			PRINTF("Sense Interrupt for drive %d failed\n",i);
 		}
 	}
@@ -607,65 +686,133 @@ int fdc_setup(int drive, FDC_COMMAND_STRUCT *pCMD, FD_GEO_STRUCT *pFG)
 	pCMD->drive=drive;
 	select_fdc_drive(pCMD);
 	pCMD->cmd[COMMAND]=FDC_CMD_CONFIGURE;
-	if (fdc_issue_cmd(pCMD, pFG) == false) {
+	if(fdc_issue_cmd(pCMD,pFG)==FALSE) {
 		PRINTF(" configure timeout\n");
 		stop_fdc_drive(pCMD);
-		return false;
+		return FALSE;
 	}
 	/* issue specify command */
 	pCMD->cmd[COMMAND]=FDC_CMD_SPECIFY;
-	if (fdc_issue_cmd(pCMD, pFG) == false) {
+	if(fdc_issue_cmd(pCMD,pFG)==FALSE) {
 		PRINTF(" specify timeout\n");
 		stop_fdc_drive(pCMD);
-		return false;
+		return FALSE;
 
 	}
 	/* then, we clear the reset in the DOR */
 	/* fdc_check_drive(pCMD,pFG);	*/
 	/*	write_fdc_reg(FDC_DOR,0x04); */
 
-	return true;
+	return TRUE;
 }
+#endif
 
+#if defined(CONFIG_CMD_FDOS)
+
+/* Low level functions for the Floppy-DOS layer                              */
+
+/**************************************************************************
+* int fdc_fdos_init
+* initialize the FDC layer
+*
+*/
+int fdc_fdos_init (int drive)
+{
+	FD_GEO_STRUCT *pFG = (FD_GEO_STRUCT *)floppy_type;
+	FDC_COMMAND_STRUCT *pCMD = &cmd;
+
+	/* setup FDC and scan for drives  */
+	if(fdc_setup(drive,pCMD,pFG)==FALSE) {
+		printf("\n** Error in setup FDC **\n");
+		return FALSE;
+	}
+	if(fdc_check_drive(pCMD,pFG)==FALSE) {
+		printf("\n** Error in check_drives **\n");
+		return FALSE;
+	}
+	if((pCMD->flags&(1<<drive))==0) {
+		/* drive not available */
+		printf("\n** Drive %d not available **\n",drive);
+		return FALSE;
+	}
+	if((pCMD->flags&(0x10<<drive))==0) {
+		/* no disk inserted */
+		printf("\n** No disk inserted in drive %d **\n",drive);
+		return FALSE;
+	}
+	/* ok, we have a valid source */
+	pCMD->drive=drive;
+
+	/* read first block */
+	pCMD->blnr=0;
+	return TRUE;
+}
+/**************************************************************************
+* int fdc_fdos_seek
+* parameter is a block number
+*/
+int fdc_fdos_seek (int where)
+{
+	FD_GEO_STRUCT *pFG = (FD_GEO_STRUCT *)floppy_type;
+	FDC_COMMAND_STRUCT *pCMD = &cmd;
+
+	pCMD -> blnr = where ;
+	return (fdc_seek (pCMD, pFG));
+}
+/**************************************************************************
+* int fdc_fdos_read
+*  the length is in block number
+*/
+int fdc_fdos_read (void *buffer, int len)
+{
+	FD_GEO_STRUCT *pFG = (FD_GEO_STRUCT *)floppy_type;
+	FDC_COMMAND_STRUCT *pCMD = &cmd;
+
+	return (fdc_read_data (buffer, len, pCMD, pFG));
+}
+#endif
+
+#if defined(CONFIG_CMD_FDC)
 /****************************************************************************
  * main routine do_fdcboot
  */
-int do_fdcboot (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_fdcboot (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	FD_GEO_STRUCT *pFG = (FD_GEO_STRUCT *)floppy_type;
 	FDC_COMMAND_STRUCT *pCMD = &cmd;
 	unsigned long addr,imsize;
-#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
 	image_header_t *hdr;  /* used for fdc boot */
-#endif
 	unsigned char boot_drive;
 	int i,nrofblk;
+	char *ep;
+	int rcode = 0;
 #if defined(CONFIG_FIT)
 	const void *fit_hdr = NULL;
 #endif
 
 	switch (argc) {
 	case 1:
-		addr = CONFIG_SYS_LOAD_ADDR;
-		boot_drive=CONFIG_SYS_FDC_DRIVE_NUMBER;
+		addr = CFG_LOAD_ADDR;
+		boot_drive=CFG_FDC_DRIVE_NUMBER;
 		break;
 	case 2:
 		addr = simple_strtoul(argv[1], NULL, 16);
-		boot_drive=CONFIG_SYS_FDC_DRIVE_NUMBER;
+		boot_drive=CFG_FDC_DRIVE_NUMBER;
 		break;
 	case 3:
 		addr = simple_strtoul(argv[1], NULL, 16);
 		boot_drive=simple_strtoul(argv[2], NULL, 10);
 		break;
 	default:
-		return CMD_RET_USAGE;
+		printf ("Usage:\n%s\n", cmdtp->usage);
+		return 1;
 	}
 	/* setup FDC and scan for drives  */
-	if (fdc_setup(boot_drive, pCMD, pFG) == false) {
+	if(fdc_setup(boot_drive,pCMD,pFG)==FALSE) {
 		printf("\n** Error in setup FDC **\n");
 		return 1;
 	}
-	if (fdc_check_drive(pCMD, pFG) == false) {
+	if(fdc_check_drive(pCMD,pFG)==FALSE) {
 		printf("\n** Error in check_drives **\n");
 		return 1;
 	}
@@ -683,7 +830,7 @@ int do_fdcboot (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	pCMD->drive=boot_drive;
 	/* read first block */
 	pCMD->blnr=0;
-	if (fdc_read_data((unsigned char *)addr, 1, pCMD, pFG) == false) {
+	if(fdc_read_data((unsigned char *)addr,1,pCMD,pFG)==FALSE) {
 		printf("\nRead error:");
 		for(i=0;i<7;i++)
 			printf("result%d: 0x%02X\n",i,pCMD->result[i]);
@@ -691,14 +838,12 @@ int do_fdcboot (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	}
 
 	switch (genimg_get_format ((void *)addr)) {
-#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
 	case IMAGE_FORMAT_LEGACY:
 		hdr = (image_header_t *)addr;
 		image_print_contents (hdr);
 
 		imsize = image_get_image_size (hdr);
 		break;
-#endif
 #if defined(CONFIG_FIT)
 	case IMAGE_FORMAT_FIT:
 		fit_hdr = (const void *)addr;
@@ -717,7 +862,7 @@ int do_fdcboot (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		nrofblk++;
 	printf("Loading %ld Bytes (%d blocks) at 0x%08lx..\n",imsize,nrofblk,addr);
 	pCMD->blnr=0;
-	if (fdc_read_data((unsigned char *)addr, nrofblk, pCMD, pFG) == false) {
+	if(fdc_read_data((unsigned char *)addr,nrofblk,pCMD,pFG)==FALSE) {
 		/* read image block */
 		printf("\nRead error:");
 		for(i=0;i<7;i++)
@@ -742,11 +887,34 @@ int do_fdcboot (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	/* Loading ok, update default load address */
 	load_addr = addr;
 
-	return bootm_maybe_autostart(cmdtp, argv[0]);
+	/* Check if we should attempt an auto-start */
+	if (((ep = getenv("autostart")) != NULL) && (strcmp(ep,"yes") == 0)) {
+		char *local_args[2];
+		extern int do_bootm (cmd_tbl_t *, int, int, char *[]);
+
+		local_args[0] = argv[0];
+		local_args[1] = NULL;
+
+		printf ("Automatic boot of image at addr 0x%08lX ...\n", addr);
+
+		do_bootm (cmdtp, 0, 1, local_args);
+		rcode ++;
+	}
+	return rcode;
 }
+
+
+#endif
+
+
+/***************************************************/
+
+
+#if defined(CONFIG_CMD_FDC)
 
 U_BOOT_CMD(
 	fdcboot,	3,	1,	do_fdcboot,
-	"boot from floppy device",
-	"loadAddr drive"
+	"fdcboot - boot from floppy device\n",
+	"loadAddr drive\n"
 );
+#endif

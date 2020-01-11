@@ -3,7 +3,23 @@
  *
  * Adapted for U-Boot 1.2 by Piotr Kruszynski <ppk@semihalf.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -13,7 +29,7 @@
 
 #ifdef CONFIG_CMD_BSP
 
-static int do_i2c_test(char * const argv[])
+int do_i2c(char *argv[])
 {
 	unsigned char temp, temp1;
 
@@ -23,25 +39,25 @@ static int do_i2c_test(char * const argv[])
 	getc();
 
 	temp = 0xf0; /* set io 0-4 as output */
-	i2c_write(CONFIG_SYS_I2C_IO, 3, 1, (uchar *)&temp, 1);
+	i2c_write(CFG_I2C_IO, 3, 1, (uchar *)&temp, 1);
 
 	printf("Press I2C4-7. LED I2C0-3 should have the same state\n\n"
 		"Press any key to stop\n\n");
 
 	while (!tstc()) {
-		i2c_read(CONFIG_SYS_I2C_IO, 0, 1, (uchar *)&temp, 1);
+		i2c_read(CFG_I2C_IO, 0, 1, (uchar *)&temp, 1);
 		temp1 = (temp >> 4) & 0x03;
 		temp1 |= (temp >> 3) & 0x08; /* S302 -> LED303 */
 		temp1 |= (temp >> 5) & 0x04; /* S303 -> LED302 */
 		temp = temp1;
-		i2c_write(CONFIG_SYS_I2C_IO, 1, 1, (uchar *)&temp, 1);
+		i2c_write(CFG_I2C_IO, 1, 1, (uchar *)&temp, 1);
 	}
 	getc();
 
 	return 0;
 }
 
-static int do_usb_test(char * const argv[])
+int do_usbtest(char *argv[])
 {
 	int i;
 	static int usb_stor_curr_dev = -1; /* current device */
@@ -74,7 +90,7 @@ static int do_usb_test(char * const argv[])
 	return 0;
 }
 
-static int do_led_test(char * const argv[])
+int do_led(char *argv[])
 {
 	int i = 0;
 	struct mpc5xxx_gpt_0_7 *gpt = (struct mpc5xxx_gpt_0_7 *)MPC5XXX_GPT;
@@ -118,7 +134,7 @@ static int do_led_test(char * const argv[])
 	return 0;
 }
 
-static int do_rs232_test(char * const argv[])
+int do_rs232(char *argv[])
 {
 	int error_status = 0;
 	struct mpc5xxx_gpio *gpio = (struct mpc5xxx_gpio *)MPC5XXX_GPIO;
@@ -376,27 +392,27 @@ static int do_rs232_test(char * const argv[])
 		error_status = 1;
 		break;
 	}
-	gpio->port_config |= (CONFIG_SYS_GPS_PORT_CONFIG & 0xFF0FF80F);
+	gpio->port_config |= (CFG_GPS_PORT_CONFIG & 0xFF0FF80F);
 
 	return error_status;
 }
 
-static int cmd_fkt(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int cmd_fkt(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	int rcode = -1;
 
 	switch (argc) {
 	case 2:
 		if (strncmp(argv[1], "i2c", 3) == 0)
-			rcode = do_i2c_test(argv);
+			rcode = do_i2c(argv);
 		else if (strncmp(argv[1], "led", 3) == 0)
-			rcode = do_led_test(argv);
+			rcode = do_led(argv);
 		else if (strncmp(argv[1], "usb", 3) == 0)
-			rcode = do_usb_test(argv);
+			rcode = do_usbtest(argv);
 		break;
 	case 3:
 		if (strncmp(argv[1], "rs232", 3) == 0)
-			rcode = do_rs232_test(argv);
+			rcode = do_rs232(argv);
 		break;
 	}
 
@@ -419,7 +435,7 @@ static int cmd_fkt(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 U_BOOT_CMD(
 	fkt,	4,	1,	cmd_fkt,
-	"Function test routines",
+	"fkt     - Function test routines\n",
 	"i2c\n"
 	"     - Test I2C communication\n"
 	"fkt led\n"
@@ -427,6 +443,6 @@ U_BOOT_CMD(
 	"fkt rs232 number\n"
 	"     - Test RS232 (loopback plug(s) for RS232 required)\n"
 	"fkt usb\n"
-	"     - Test USB communication"
+	"     - Test USB communication\n"
 );
 #endif /* CONFIG_CMD_BSP */

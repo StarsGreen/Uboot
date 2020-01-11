@@ -4,7 +4,23 @@
  * (C) Copyright 2004, Li-Pro.Net <www.li-pro.net>
  * Stephan Linz <linz@li-pro.net>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -20,7 +36,7 @@
 #include <rtc.h>
 #include <spi.h>
 
-#if defined(CONFIG_CMD_DATE)
+#if defined(CONFIG_RTC_DS1306) && defined(CONFIG_CMD_DATE)
 
 #define	RTC_SECONDS		0x00
 #define	RTC_MINUTES		0x01
@@ -46,6 +62,9 @@
 
 #define	RTC_USER_RAM_BASE	0x20
 
+static unsigned int bin2bcd (unsigned int n);
+static unsigned char bcd2bin (unsigned char c);
+
 /* ************************************************************************* */
 #ifdef CONFIG_SXNI855T		/* !!! SHOULD BE CHANGED TO NEW CODE !!! */
 
@@ -67,7 +86,7 @@ static void init_spi (void);
 /* read clock time from DS1306 and return it in *tmp */
 int rtc_get (struct rtc_time *tmp)
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 	unsigned char spi_byte;	/* Data Byte */
 
 	init_spi ();		/* set port B for software SPI */
@@ -110,7 +129,7 @@ int rtc_get (struct rtc_time *tmp)
 	immap->im_cpm.cp_pbdat &= ~PB_SPI_CE;	/* Disable DS1306 Chip */
 	udelay (10);
 
-	rtc_calc_weekday(tmp);	/* Determine the day of week */
+	GregorianDay (tmp);	/* Determine the day of week */
 
 	debug ("Get DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
 	       tmp->tm_year, tmp->tm_mon, tmp->tm_mday, tmp->tm_wday,
@@ -122,9 +141,9 @@ int rtc_get (struct rtc_time *tmp)
 /* ------------------------------------------------------------------------- */
 
 /* set clock time in DS1306 RTC and in MPC8xx RTC */
-int rtc_set (struct rtc_time *tmp)
+void rtc_set (struct rtc_time *tmp)
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 	init_spi ();		/* set port B for software SPI */
 
@@ -180,7 +199,8 @@ int rtc_set (struct rtc_time *tmp)
 	{
 		ulong tim;
 
-		tim = rtc_mktime(tmp);
+		tim = mktime (tmp->tm_year, tmp->tm_mon, tmp->tm_mday,
+			      tmp->tm_hour, tmp->tm_min, tmp->tm_sec);
 
 		immap->im_sitk.sitk_rtck = KAPWR_KEY;
 		immap->im_sit.sit_rtc = tim;
@@ -189,8 +209,6 @@ int rtc_set (struct rtc_time *tmp)
 	debug ("Set DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
 	       tmp->tm_year, tmp->tm_mon, tmp->tm_mday, tmp->tm_wday,
 	       tmp->tm_hour, tmp->tm_min, tmp->tm_sec);
-
-	return 0;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -198,7 +216,7 @@ int rtc_set (struct rtc_time *tmp)
 /* Initialize Port B for software SPI */
 static void init_spi (void)
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 	/* Force output pins to begin at logic 0 */
 	immap->im_cpm.cp_pbdat &= ~(PB_SPI_CE | PB_SPIMOSI | PB_SPISCK);
@@ -215,7 +233,7 @@ static void init_spi (void)
 /* NOTE: soft_spi_send() assumes that the I/O lines are configured already */
 static void soft_spi_send (unsigned char n)
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 	unsigned char bitpos;	/* bit position to receive */
 	unsigned char i;	/* Loop Control */
 
@@ -244,7 +262,7 @@ static void soft_spi_send (unsigned char n)
 /* NOTE: soft_spi_read() assumes that the I/O lines are configured already */
 static unsigned char soft_spi_read (void)
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 	unsigned char spi_byte = 0;	/* Return value, assume success */
 	unsigned char bitpos;	/* bit position to receive */
@@ -294,7 +312,7 @@ int rtc_get (struct rtc_time *tmp)
 	 * step just once.
 	 */
 	if (!slave) {
-		slave = spi_setup_slave(0, CONFIG_SYS_SPI_RTC_DEVID, 600000,
+		slave = spi_setup_slave(0, CFG_SPI_RTC_DEVID, 600000,
 				SPI_MODE_3 | SPI_CS_HIGH);
 		if (!slave)
 			return;
@@ -353,11 +371,11 @@ int rtc_get (struct rtc_time *tmp)
 /* ------------------------------------------------------------------------- */
 
 /* set clock time from *tmp in DS1306 RTC */
-int rtc_set (struct rtc_time *tmp)
+void rtc_set (struct rtc_time *tmp)
 {
 	/* Assuming Vcc = 2.0V (lowest speed) */
 	if (!slave) {
-		slave = spi_setup_slave(0, CONFIG_SYS_SPI_RTC_DEVID, 600000,
+		slave = spi_setup_slave(0, CFG_SPI_RTC_DEVID, 600000,
 				SPI_MODE_3 | SPI_CS_HIGH);
 		if (!slave)
 			return;
@@ -388,7 +406,7 @@ void rtc_reset (void)
 {
 	/* Assuming Vcc = 2.0V (lowest speed) */
 	if (!slave) {
-		slave = spi_setup_slave(0, CONFIG_SYS_SPI_RTC_DEVID, 600000,
+		slave = spi_setup_slave(0, CFG_SPI_RTC_DEVID, 600000,
 				SPI_MODE_3 | SPI_CS_HIGH);
 		if (!slave)
 			return;
@@ -438,5 +456,20 @@ static void rtc_write (unsigned char reg, unsigned char val)
 }
 
 #endif /* end of code exclusion (see #ifdef CONFIG_SXNI855T above) */
+
+/* ------------------------------------------------------------------------- */
+
+static unsigned char bcd2bin (unsigned char n)
+{
+	return ((((n >> 4) & 0x0F) * 10) + (n & 0x0F));
+}
+
+/* ------------------------------------------------------------------------- */
+
+static unsigned int bin2bcd (unsigned int n)
+{
+	return (((n / 10) << 4) | (n % 10));
+}
+/* ------------------------------------------------------------------------- */
 
 #endif

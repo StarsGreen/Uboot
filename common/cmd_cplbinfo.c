@@ -26,11 +26,11 @@ static const char *cplb_page_size(uint32_t data)
  */
 static void show_cplb_table(uint32_t *addr, uint32_t *data)
 {
-	int i;
+	size_t i;
 	printf("      Address     Data   Size  Valid  Locked\n");
 	for (i = 1; i <= 16; ++i) {
 		printf(" %2i 0x%p  0x%05X   %s     %c      %c\n",
-			i, (void *)*addr, *data,
+			i, *addr, *data,
 			cplb_page_size(*data),
 			(*data & CPLB_VALID ? 'Y' : 'N'),
 			(*data & CPLB_LOCK ? 'Y' : 'N'));
@@ -42,7 +42,7 @@ static void show_cplb_table(uint32_t *addr, uint32_t *data)
 /*
  * display current instruction and data cplb tables
  */
-int do_cplbinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_cplbinfo(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	printf("%s CPLB table [%08x]:\n", "Instruction", *(uint32_t *)DMEM_CONTROL);
 	show_cplb_table((uint32_t *)ICPLB_ADDR0, (uint32_t *)ICPLB_DATA0);
@@ -53,8 +53,7 @@ int do_cplbinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	return 0;
 }
 
-U_BOOT_CMD(
-	cplbinfo, 1, 0, do_cplbinfo,
-	"display current CPLB tables",
-	""
-);
+U_BOOT_CMD(cplbinfo, 1, 0, do_cplbinfo,
+	"cplbinfo- display current CPLB tables\n",
+	"\n"
+	"    - display current CPLB tables\n");

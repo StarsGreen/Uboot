@@ -4,9 +4,25 @@
  * (C) 2007,2008 Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
  * (C) 2008 Yusuke Goda <goda.yusuke@renesas.com>
  *
- * u-boot/arch/sh/cpu/sh4/pci-sh4.c
+ * u-boot/cpu/sh4/pci-sh4.c
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -37,16 +53,6 @@ int pci_sh4_init(struct pci_controller *hose)
 		CONFIG_PCI_IO_SIZE,
 		PCI_REGION_IO);
 	hose->region_count++;
-
-#if defined(CONFIG_PCI_SYS_BUS)
-	/* PCI System Memory space */
-	pci_set_region(hose->regions + 2,
-		CONFIG_PCI_SYS_BUS,
-		CONFIG_PCI_SYS_PHYS,
-		CONFIG_PCI_SYS_SIZE,
-		PCI_REGION_MEM | PCI_REGION_SYS_MEMORY);
-	hose->region_count++;
-#endif
 
 	udelay(1000);
 

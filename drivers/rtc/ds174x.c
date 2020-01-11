@@ -4,7 +4,23 @@
  *
  * Based on MontaVista DS1743 code and U-Boot mc146818 code
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -17,12 +33,14 @@
 #include <command.h>
 #include <rtc.h>
 
-#if defined(CONFIG_CMD_DATE)
+#if defined(CONFIG_RTC_DS174x) && defined(CONFIG_CMD_DATE)
 
 static uchar rtc_read( unsigned int addr );
 static void  rtc_write( unsigned int addr, uchar val);
+static uchar bin2bcd   (unsigned int n);
+static unsigned bcd2bin(uchar c);
 
-#define RTC_BASE		( CONFIG_SYS_NVRAM_SIZE + CONFIG_SYS_NVRAM_BASE_ADDR )
+#define RTC_BASE		( CFG_NVRAM_SIZE + CFG_NVRAM_BASE_ADDR )
 
 #define RTC_YEAR		( RTC_BASE + 7 )
 #define RTC_MONTH		( RTC_BASE + 6 )
@@ -99,7 +117,7 @@ int rtc_get( struct rtc_time *tmp )
 	return 0;
 }
 
-int rtc_set( struct rtc_time *tmp )
+void rtc_set( struct rtc_time *tmp )
 {
 	uchar reg_a;
 #ifdef RTC_DEBUG
@@ -125,8 +143,6 @@ int rtc_set( struct rtc_time *tmp )
 
 	/* unlock clock registers after read */
 	rtc_write( RTC_CONTROLA, ( reg_a  & ~RTC_CA_WRITE ));
-
-	return 0;
 }
 
 void rtc_reset (void)
@@ -172,6 +188,16 @@ static void rtc_write( unsigned int addr, uchar val )
 	printf( "rtc_write: %x:%x\n", addr, val );
 #endif
 	out8( addr, val );
+}
+
+static unsigned bcd2bin (uchar n)
+{
+	return ((((n >> 4) & 0x0F) * 10) + (n & 0x0F));
+}
+
+static unsigned char bin2bcd (unsigned int n)
+{
+	return (((n / 10) << 4) | (n % 10));
 }
 
 #endif

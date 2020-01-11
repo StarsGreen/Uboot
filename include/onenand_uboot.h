@@ -16,39 +16,29 @@
 
 #include <linux/types.h>
 
-/* Forward declarations */
+struct kvec {
+	void *iov_base;
+	size_t iov_len;
+};
+
+typedef int spinlock_t;
+typedef int wait_queue_head_t;
+
 struct mtd_info;
-struct mtd_oob_ops;
 struct erase_info;
-struct onenand_chip;
-
-extern struct mtd_info onenand_mtd;
-extern struct onenand_chip onenand_chip;
-
-/* board */
-extern void onenand_board_init(struct mtd_info *);
 
 /* Functions */
 extern void onenand_init(void);
 extern int onenand_read(struct mtd_info *mtd, loff_t from, size_t len,
 			size_t * retlen, u_char * buf);
-extern int onenand_read_oob(struct mtd_info *mtd, loff_t from, struct mtd_oob_ops *ops);
+extern int onenand_read_oob(struct mtd_info *mtd, loff_t from, size_t len,
+			    size_t * retlen, u_char * buf);
 extern int onenand_write(struct mtd_info *mtd, loff_t from, size_t len,
 			 size_t * retlen, const u_char * buf);
 extern int onenand_erase(struct mtd_info *mtd, struct erase_info *instr);
 
-extern char *onenand_print_device_info(int device, int version);
+extern int onenand_unlock(struct mtd_info *mtd, loff_t ofs, size_t len);
 
-extern unsigned onenand_block(struct onenand_chip *this, loff_t addr);
-
-extern loff_t onenand_addr(struct onenand_chip *this, int block);
-
-extern int flexonenand_region(struct mtd_info *mtd, loff_t addr);
-
-extern int flexonenand_set_boundary(struct mtd_info *mtd, int die,
-					int boundary, int lock);
-
-/* SPL */
-void onenand_spl_load_image(uint32_t offs, uint32_t size, void *dst);
+extern void onenand_print_device_info(int device, int verbose);
 
 #endif /* __UBOOT_ONENAND_H */

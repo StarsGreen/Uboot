@@ -2,17 +2,30 @@
  * (C) Copyright 2007-2008
  * Matthias Fuchs, esd Gmbh, matthias.fuchs@esd-electronics.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 #include <common.h>
 #include <command.h>
-#include <console.h>
 #include <asm/io.h>
 #include <asm/cache.h>
 #include <asm/processor.h>
-#if defined(CONFIG_LOGBUFFER)
-#include <logbuff.h>
-#endif
 
 #include "pmc440.h"
 
@@ -51,7 +64,7 @@ int fpga_interrupt(u32 arg)
 	return rc;
 }
 
-int do_waithci(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_waithci(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	pmc440_fpga_t *fpga = (pmc440_fpga_t *)FPGA_BA;
 
@@ -82,9 +95,9 @@ int do_waithci(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 U_BOOT_CMD(
 	waithci,	1,	1,	do_waithci,
-	"Wait for host control interrupt",
-	""
-);
+	"waithci - Wait for host control interrupt\n",
+	NULL
+	);
 
 void dump_fifo(pmc440_fpga_t *fpga, int f, int *n)
 {
@@ -102,7 +115,7 @@ void dump_fifo(pmc440_fpga_t *fpga, int f, int *n)
 	}
 }
 
-int do_fifo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_fifo(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	pmc440_fpga_t *fpga = (pmc440_fpga_t *)FPGA_BA;
 	int i;
@@ -226,7 +239,7 @@ int do_fifo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 				       "address %08x\n",
 				       n, data, f);
 				for (i=0; i<n; i++)
-					out_be32((void *)f, data);
+					out32(f, data);
 			}
 		} else {
 			printf("Usage:\nfifo %s\n", cmdtp->help);
@@ -242,7 +255,7 @@ int do_fifo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 U_BOOT_CMD(
 	fifo,	5,	1,	do_fifo,
-	"Fifo module operations",
+	"fifo    - Fifo module operations\n",
 	"wait\nfifo read\n"
 	"fifo write fifo(0..3) data [cnt=1]\n"
 	"fifo write address(>=4) data [cnt=1]\n"
@@ -250,10 +263,10 @@ U_BOOT_CMD(
 	"  - with 'wait' argument: interrupt driven read from all fifos\n"
 	"  - with 'read' argument: read current contents from all fifos\n"
 	"  - with 'write' argument: write 'data' 'cnt' times to "
-	"'fifo' or 'address'"
-);
+	"'fifo' or 'address'\n"
+	);
 
-int do_setup_bootstrap_eeprom(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_setup_bootstrap_eeprom(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	ulong sdsdp[5];
 	ulong delay;
@@ -310,7 +323,7 @@ int do_setup_bootstrap_eeprom(cmd_tbl_t *cmdtp, int flag, int argc, char * const
 	}
 
 	printf("Writing boot EEPROM ...\n");
-	if (bootstrap_eeprom_write(CONFIG_SYS_I2C_BOOT_EEPROM_ADDR,
+	if (bootstrap_eeprom_write(CFG_I2C_BOOT_EEPROM_ADDR,
 				   0, (uchar*)sdsdp, count) != 0)
 		printf("bootstrap_eeprom_write failed\n");
 	else
@@ -320,25 +333,23 @@ int do_setup_bootstrap_eeprom(cmd_tbl_t *cmdtp, int flag, int argc, char * const
 }
 U_BOOT_CMD(
 	sbe, 4, 0, do_setup_bootstrap_eeprom,
-	"setup bootstrap eeprom",
+	"sbe     - setup bootstrap eeprom\n",
 	"<cpufreq:400|533|667> [<console-uart:0|1> [<bringup delay (0..20s)>]]"
-);
+	);
 
 #if defined(CONFIG_PRAM)
 #include <environment.h>
-#include <search.h>
-#include <errno.h>
+extern env_t *env_ptr;
 
-int do_painit(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_painit(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	u32 pram, nextbase, base;
+	u32 memsize;
+	u32 pram, env_base;
 	char *v;
 	u32 param;
 	ulong *lptr;
 
-	env_t *envp;
-	char *res;
-	int len;
+	memsize = gd->bd->bi_memsize;
 
 	v = getenv("pram");
 	if (v)
@@ -348,71 +359,59 @@ int do_painit(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		return 1;
 	}
 
-	base = (u32)gd->ram_size;
-#if defined(CONFIG_LOGBUFFER)
-	base -= LOGBUFF_LEN + LOGBUFF_OVERHEAD;
-#endif
-	/*
-	 * gd->ram_size == physical ram size - CONFIG_SYS_MEM_TOP_HIDE
-	 */
-	param = base - (pram << 10);
+	param = memsize - (pram << 10);
 	printf("PARAM: @%08x\n", param);
-	debug("memsize=0x%08x, base=0x%08x\n", (u32)gd->ram_size, base);
 
-	/* clear entire PA ram */
 	memset((void*)param, 0, (pram << 10));
+	env_base = memsize - 4096 - ((CFG_ENV_SIZE + 4096) & ~(4096-1));
+	memcpy((void*)env_base, env_ptr, CFG_ENV_SIZE);
 
-	/* reserve 4k for pointer field */
-	nextbase = base - 4096;
-	lptr = (ulong*)(base);
+	lptr = (ulong*)memsize;
+	*(--lptr) = CFG_ENV_SIZE;
+	*(--lptr) = memsize - env_base;
+	*(--lptr) = crc32(0, (void*)(memsize - 0x08), 0x08);
+	*(--lptr) = 0;
 
-	/*
-	 * *(--lptr) = item_size;
-	 * *(--lptr) = base - item_base = distance from field top;
-	 */
-
-	/* env is first (4k aligned) */
-	nextbase -= ((CONFIG_ENV_SIZE + 4096 - 1) & ~(4096 - 1));
-	envp = (env_t *)nextbase;
-	res = (char *)envp->data;
-	len = hexport_r(&env_htab, '\0', 0, &res, ENV_SIZE, 0, NULL);
-	if (len < 0) {
-		error("Cannot export environment: errno = %d\n", errno);
-		return 1;
-	}
-	envp->crc = crc32(0, envp->data, ENV_SIZE);
-
-	*(--lptr) = CONFIG_ENV_SIZE;     /* size */
-	*(--lptr) = base - nextbase;  /* offset | type=0 */
-
-	/* free section */
-	*(--lptr) = nextbase - param; /* size */
-	*(--lptr) = (base - param) | 126; /* offset | type=126 */
-
-	/* terminate pointer field */
-	*(--lptr) = crc32(0, (void*)(base - 0x10), 0x10);
-	*(--lptr) = 0;                /* offset=0 -> terminator */
+	/* make sure data can be accessed through PCI */
+	flush_dcache_range(param, param + (pram << 10) - 1);
 	return 0;
 }
 U_BOOT_CMD(
 	painit,	1,	1,	do_painit,
-	"prepare PciAccess system",
-	""
-);
+	"painit  - prepare PciAccess system\n",
+	NULL
+	);
 #endif /* CONFIG_PRAM */
 
-int do_selfreset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_selfreset(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	in_be32((void*)CONFIG_SYS_RESET_BASE);
+	if (argc > 1) {
+		if (argv[1][0] == '0') {
+			/* assert */
+			printf("self-reset# asserted\n");
+			out_be32((void*)GPIO0_TCR,
+				 in_be32((void*)GPIO0_TCR) | GPIO0_SELF_RST);
+		} else {
+			/* deassert */
+			printf("self-reset# deasserted\n");
+			out_be32((void*)GPIO0_TCR,
+				 in_be32((void*)GPIO0_TCR) & ~GPIO0_SELF_RST);
+		}
+	} else {
+		printf("self-reset# is %s\n",
+		       in_be32((void*)GPIO0_TCR) & GPIO0_SELF_RST ?
+		       "active" : "inactive");
+	}
+
 	return 0;
 }
 U_BOOT_CMD(
-	selfreset,	1,	1,	do_selfreset,
-	"assert self-reset# signal",
-	""
-);
+	selfreset,	2,	1,	do_selfreset,
+	"selfreset- assert self-reset# signal\n",
+	NULL
+	);
 
-int do_resetout(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_resetout(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	pmc440_fpga_t *fpga = (pmc440_fpga_t *)FPGA_BA;
 
@@ -445,11 +444,11 @@ int do_resetout(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 U_BOOT_CMD(
 	resetout,	2,	1,	do_resetout,
-	"assert PMC-RESETOUT# signal",
-	""
-);
+	"resetout - assert PMC-RESETOUT# signal\n",
+	NULL
+	);
 
-int do_inta(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_inta(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	if (is_monarch()) {
 		printf("This command is only supported in non-monarch mode\n");
@@ -477,12 +476,12 @@ int do_inta(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 U_BOOT_CMD(
 	inta,	2,	1,	do_inta,
-	"Assert/Deassert or query INTA# state in non-monarch mode",
-	""
-);
+	"inta    - Assert/Deassert or query INTA# state in non-monarch mode\n",
+	NULL
+	);
 
 /* test-only */
-int do_pmm(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_pmm(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	ulong pciaddr;
 
@@ -494,15 +493,15 @@ int do_pmm(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		/* map PCI address at 0xc0000000 in PLB space */
 
 		/* PMM1 Mask/Attribute - disabled b4 setting */
-		out32r(PCIL0_PMM1MA, 0x00000000);
+		out32r(PCIX0_PMM1MA, 0x00000000);
 		/* PMM1 Local Address */
-		out32r(PCIL0_PMM1LA, 0xc0000000);
+		out32r(PCIX0_PMM1LA, 0xc0000000);
 		/* PMM1 PCI Low Address */
-		out32r(PCIL0_PMM1PCILA, pciaddr);
+		out32r(PCIX0_PMM1PCILA, pciaddr);
 		/* PMM1 PCI High Address */
-		out32r(PCIL0_PMM1PCIHA, 0x00000000);
+		out32r(PCIX0_PMM1PCIHA, 0x00000000);
 		/* 256MB + No prefetching, and enable region */
-		out32r(PCIL0_PMM1MA, 0xf0000001);
+		out32r(PCIX0_PMM1MA, 0xf0000001);
 	} else {
 		printf("Usage:\npmm %s\n", cmdtp->help);
 	}
@@ -510,33 +509,33 @@ int do_pmm(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 U_BOOT_CMD(
 	pmm,	2,	1,	do_pmm,
-	"Setup pmm[1] registers",
-	"<pciaddr> (pciaddr will be aligned to 256MB)"
-);
+	"pmm     - Setup pmm[1] registers\n",
+	"<pciaddr> (pciaddr will be aligned to 256MB)\n"
+	);
 
-#if defined(CONFIG_SYS_EEPROM_WREN)
-int do_eep_wren(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+#if defined(CFG_EEPROM_WREN)
+int do_eep_wren(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	int query = argc == 1;
 	int state = 0;
 
 	if (query) {
 		/* Query write access state. */
-		state = eeprom_write_enable(CONFIG_SYS_I2C_EEPROM_ADDR, -1);
+		state = eeprom_write_enable(CFG_I2C_EEPROM_ADDR, -1);
 		if (state < 0) {
 			puts("Query of write access state failed.\n");
 		} else {
 			printf("Write access for device 0x%0x is %sabled.\n",
-			       CONFIG_SYS_I2C_EEPROM_ADDR, state ? "en" : "dis");
+			       CFG_I2C_EEPROM_ADDR, state ? "en" : "dis");
 			state = 0;
 		}
 	} else {
 		if ('0' == argv[1][0]) {
 			/* Disable write access. */
-			state = eeprom_write_enable(CONFIG_SYS_I2C_EEPROM_ADDR, 0);
+			state = eeprom_write_enable(CFG_I2C_EEPROM_ADDR, 0);
 		} else {
 			/* Enable write access. */
-			state = eeprom_write_enable(CONFIG_SYS_I2C_EEPROM_ADDR, 1);
+			state = eeprom_write_enable(CFG_I2C_EEPROM_ADDR, 1);
 		}
 		if (state < 0) {
 			puts("Setup of write access state failed.\n");
@@ -546,9 +545,8 @@ int do_eep_wren(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	return state;
 }
 U_BOOT_CMD(eepwren, 2, 0, do_eep_wren,
-	"Enable / disable / query EEPROM write access",
-	""
-);
-#endif /* #if defined(CONFIG_SYS_EEPROM_WREN) */
+	   "eepwren - Enable / disable / query EEPROM write access\n",
+	   NULL);
+#endif /* #if defined(CFG_EEPROM_WREN) */
 
 #endif /* CONFIG_CMD_BSP */

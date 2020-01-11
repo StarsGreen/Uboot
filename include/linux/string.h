@@ -20,18 +20,11 @@ extern __kernel_size_t strspn(const char *,const char *);
  */
 #include <asm/string.h>
 
-#ifndef __HAVE_ARCH_BCOPY
-char *bcopy(const char *src, char *dest, int count);
-#endif
-
 #ifndef __HAVE_ARCH_STRCPY
 extern char * strcpy(char *,const char *);
 #endif
 #ifndef __HAVE_ARCH_STRNCPY
 extern char * strncpy(char *,const char *, __kernel_size_t);
-#endif
-#ifndef __HAVE_ARCH_STRLCPY
-size_t strlcpy(char *, const char *, size_t);
 #endif
 #ifndef __HAVE_ARCH_STRCAT
 extern char * strcat(char *, const char *);
@@ -45,11 +38,8 @@ extern int strcmp(const char *,const char *);
 #ifndef __HAVE_ARCH_STRNCMP
 extern int strncmp(const char *,const char *,__kernel_size_t);
 #endif
-#ifndef __HAVE_ARCH_STRCASECMP
-int strcasecmp(const char *s1, const char *s2);
-#endif
-#ifndef __HAVE_ARCH_STRNCASECMP
-extern int strncasecmp(const char *s1, const char *s2, __kernel_size_t len);
+#if 0 /* not used - was: #ifndef __HAVE_ARCH_STRNICMP */
+extern int strnicmp(const char *, const char *, __kernel_size_t);
 #endif
 #ifndef __HAVE_ARCH_STRCHR
 extern char * strchr(const char *,int);
@@ -57,7 +47,6 @@ extern char * strchr(const char *,int);
 #ifndef __HAVE_ARCH_STRRCHR
 extern char * strrchr(const char *,int);
 #endif
-#include <linux/linux_string.h>
 #ifndef __HAVE_ARCH_STRSTR
 extern char * strstr(const char *,const char *);
 #endif
@@ -92,12 +81,6 @@ extern int memcmp(const void *,const void *,__kernel_size_t);
 #ifndef __HAVE_ARCH_MEMCHR
 extern void * memchr(const void *,int,__kernel_size_t);
 #endif
-#ifndef __HAVE_ARCH_MEMCHR_INV
-void *memchr_inv(const void *, int, size_t);
-#endif
-
-unsigned long ustrtoul(const char *cp, char **endp, unsigned int base);
-unsigned long long ustrtoull(const char *cp, char **endp, unsigned int base);
 
 #ifdef __cplusplus
 }

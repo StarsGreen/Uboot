@@ -2,7 +2,23 @@
  * (C) Copyright 2001 Sysgo Real-Time Solutions, GmbH <www.elinos.com>
  * Andreas Heppel <aheppel@sysgo.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -13,6 +29,8 @@
 
 #include <common.h>
 #include <config.h>
+
+#ifdef CFG_WINBOND_83C553
 
 #include <asm/io.h>
 #include <pci.h>
@@ -26,7 +44,7 @@
 			out_be16((u16*) (addr),(val)); udelay(1); \
 			} while (0)
 
-extern uint ide_bus_offset[CONFIG_SYS_IDE_MAXBUS];
+extern uint ide_bus_offset[CFG_IDE_MAXBUS];
 
 void initialise_pic(void);
 void initialise_dma(void);
@@ -89,7 +107,7 @@ void initialise_w83c553f(void)
 
 	pci_read_config_dword(devbusfn, PCI_BASE_ADDRESS_0, &ide_bus_offset[0]);
 	ide_bus_offset[0] &= ~1;
-#if CONFIG_SYS_IDE_MAXBUS > 1
+#if CFG_IDE_MAXBUS > 1
 	pci_read_config_dword(devbusfn, PCI_BASE_ADDRESS_2, &ide_bus_offset[1]);
 	ide_bus_offset[1] &= ~1;
 #endif
@@ -204,3 +222,5 @@ void initialise_dma(void)
 	out8(W83C553F_DMA1 + W83C553F_DMA1_CS, 0x00);
 	out16(W83C553F_DMA2 + W83C553F_DMA2_CS, 0x0000);
 }
+
+#endif /* CFG_WINBOND_83C553 */

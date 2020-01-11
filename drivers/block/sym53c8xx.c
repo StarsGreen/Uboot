@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  * partly derived from
  * linux/drivers/scsi/sym53c8xx.c
  *
@@ -18,6 +34,8 @@
  */
 
 #include <common.h>
+
+#ifdef CONFIG_SCSI_SYM53C8XX
 
 #include <command.h>
 #include <pci.h>
@@ -248,7 +266,7 @@ void scsi_print_error (ccb * pccb)
 
 /******************************************************************************
  * sets-up the SCSI controller
- * the base memory address is retrieved via the pci_read_config_dword
+ * the base memory address is retrived via the pci_read_config_dword
  */
 void scsi_low_level_init(int busdevfunc)
 {
@@ -410,7 +428,7 @@ void scsi_bus_reset(void)
 {
 	unsigned char t;
 	int i;
-	int end = CONFIG_SYS_SCSI_SPIN_UP_TIME*1000;
+	int end = CFG_SCSI_SPIN_UP_TIME*1000;
 
 	t=scsi_read_byte(SCNTL1);
 	scsi_write_byte(SCNTL1,(t | CRST));
@@ -437,9 +455,11 @@ void scsi_int_enable(void)
 
 void scsi_write_dsp(unsigned long start)
 {
+	unsigned long val;
 #ifdef SCSI_SINGLE_STEP
 	unsigned char t;
 #endif
+	val = start;
 	out32r(scsi_mem_addr + DSP,start);
 #ifdef SCSI_SINGLE_STEP
 	t=scsi_read_byte(DCNTL);
@@ -748,9 +768,9 @@ int scsi_exec(ccb *pccb)
 retry:
 	scsi_issue(pccb);
 	if(pccb->contr_stat!=SIR_COMPLETE)
-		return false;
+		return FALSE;
 	if(pccb->status==S_GOOD)
-		return true;
+		return TRUE;
 	if(pccb->status==S_CHECK_COND) { /* check condition */
 		for(i=0;i<16;i++)
 			tmpcmd[i]=pccb->cmd[i];
@@ -781,12 +801,12 @@ retry:
 			case SENSE_NO_SENSE:
 			case SENSE_RECOVERED_ERROR:
 				/* seems to be ok */
-				return true;
+				return TRUE;
 				break;
 			case SENSE_NOT_READY:
 				if((pccb->sense_buf[12]!=0x04)||(pccb->sense_buf[13]!=0x01)) {
 					/* if device is not in process of becoming ready */
-					return false;
+					return FALSE;
 					break;
 				} /* else fall through */
 			case SENSE_UNIT_ATTENTION:
@@ -798,13 +818,13 @@ retry:
 					goto retry;
 				}
 				PRINTF("Target %d not ready, %d retried\n",pccb->target,retrycnt);
-				return false;
+				return FALSE;
 			default:
-				return false;
+				return FALSE;
 		}
 	}
 	PRINTF("Status = %X\n",pccb->status);
-	return false;
+	return FALSE;
 }
 
 
@@ -818,10 +838,10 @@ void scsi_chip_init(void)
 	scsi_write_byte(SCNTL0,0xC0); /* full arbitration no start, no message, parity disabled, master */
 	scsi_write_byte(SCNTL1,0x00);
 	scsi_write_byte(SCNTL2,0x00);
-#ifndef CONFIG_SYS_SCSI_SYM53C8XX_CCF    /* config value for none 40 MHz clocks */
+#ifndef CFG_SCSI_SYM53C8XX_CCF    /* config value for none 40 mhz clocks */
 	scsi_write_byte(SCNTL3,0x13); /* synchronous clock 40/4=10MHz, asynchronous 40MHz */
 #else
-	scsi_write_byte(SCNTL3,CONFIG_SYS_SCSI_SYM53C8XX_CCF); /* config value for none 40 MHz clocks */
+	scsi_write_byte(SCNTL3,CFG_SCSI_SYM53C8XX_CCF); /* config value for none 40 mhz clocks */
 #endif
 	scsi_write_byte(SCID,0x47); /* ID=7, enable reselection */
 	scsi_write_byte(SXFER,0x00); /* synchronous transfer period 10MHz, asynchronous */
@@ -850,3 +870,6 @@ void scsi_chip_init(void)
 #endif
 }
 #endif
+
+
+#endif /* CONFIG_SCSI_SYM53C8XX */

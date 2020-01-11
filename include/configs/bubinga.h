@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2005
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -18,9 +34,8 @@
  */
 
 #define CONFIG_405EP		1	/* This is a PPC405 CPU		*/
+#define CONFIG_4xx		1	/* ...member of PPC4xx family   */
 #define CONFIG_BUBINGA	        1	/* ...on a BUBINGA board	*/
-
-#define	CONFIG_SYS_TEXT_BASE	0xFFFC0000
 
 /*
  * Include common defines/options for all AMCC eval boards
@@ -66,9 +81,9 @@
  *       supported for backward compatibility.
  */
 #if 1
-#define CONFIG_ENV_IS_IN_FLASH     1	/* use FLASH for environment vars	*/
+#define CFG_ENV_IS_IN_FLASH     1	/* use FLASH for environment vars	*/
 #else
-#define CONFIG_ENV_IS_IN_NVRAM	1	/* use NVRAM for environment vars	*/
+#define CFG_ENV_IS_IN_NVRAM	1	/* use NVRAM for environment vars	*/
 #endif
 
 /*
@@ -100,31 +115,31 @@
 #define CONFIG_SPD_EEPROM      1       /* use SPD EEPROM for setup    */
 
 /*
- * If CONFIG_SYS_EXT_SERIAL_CLOCK, then the UART divisor is 1.
- * If CONFIG_SYS_405_UART_ERRATA_59, then UART divisor is 31.
- * Otherwise, UART divisor is determined by CPU Clock and CONFIG_SYS_BASE_BAUD value.
+ * If CFG_EXT_SERIAL_CLOCK, then the UART divisor is 1.
+ * If CFG_405_UART_ERRATA_59, then UART divisor is 31.
+ * Otherwise, UART divisor is determined by CPU Clock and CFG_BASE_BAUD value.
  * The Linux BASE_BAUD define should match this configuration.
  *    baseBaud = cpuClock/(uartDivisor*16)
- * If CONFIG_SYS_405_UART_ERRATA_59 and 200MHz CPU clock,
+ * If CFG_405_UART_ERRATA_59 and 200MHz CPU clock,
  * set Linux BASE_BAUD to 403200.
  */
-#define CONFIG_CONS_INDEX	1	/* Use UART0			*/
-#undef  CONFIG_SYS_EXT_SERIAL_CLOCK           /* external serial clock */
-#undef  CONFIG_SYS_405_UART_ERRATA_59         /* 405GP/CR Rev. D silicon */
-#define CONFIG_SYS_BASE_BAUD       691200
+#undef	CONFIG_SERIAL_SOFTWARE_FIFO
+#undef  CFG_EXT_SERIAL_CLOCK           /* external serial clock */
+#undef  CFG_405_UART_ERRATA_59         /* 405GP/CR Rev. D silicon */
+#define CFG_BASE_BAUD       691200
 
 /*-----------------------------------------------------------------------
  * I2C stuff
  *-----------------------------------------------------------------------
  */
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		400000
+#define CFG_I2C_SPEED		400000	/* I2C speed and slave address	*/
 
-#define CONFIG_SYS_I2C_NOPROBES	{ {0, 0x69} }	/* avoid i2c probe hangup (?) */
-#define CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS	6	/* 24C02 requires 5ms delay */
+#define CFG_I2C_NOPROBES	{ 0x69 }	/* avoid iprobe hangup (why?) */
+#define CFG_EEPROM_PAGE_WRITE_DELAY_MS	6	/* 24C02 requires 5ms delay */
 
 #if defined(CONFIG_CMD_EEPROM)
-#define CONFIG_SYS_I2C_EEPROM_ADDR	0x50	/* I2C boot EEPROM (24C02W)	*/
-#define CONFIG_SYS_I2C_EEPROM_ADDR_LEN	1	/* Bytes of address		*/
+#define CFG_I2C_EEPROM_ADDR	0x50	/* I2C boot EEPROM (24C02W)	*/
+#define CFG_I2C_EEPROM_ADDR_LEN	1	/* Bytes of address		*/
 #endif
 
 /*-----------------------------------------------------------------------
@@ -136,71 +151,69 @@
 #define PCI_HOST_AUTO   2               /* detected via arbiter enable  */
 
 #define CONFIG_PCI			/* include pci support	        */
-#define CONFIG_PCI_INDIRECT_BRIDGE	/* indirect PCI bridge support */
 #define CONFIG_PCI_HOST	PCI_HOST_FORCE  /* select pci host function     */
 #define CONFIG_PCI_PNP			/* do pci plug-and-play         */
 					/* resource configuration       */
 #define CONFIG_PCI_SCAN_SHOW            /* show pci devices on startup  */
 
-#define CONFIG_SYS_PCI_SUBSYS_VENDORID 0x10e8	/* AMCC */
-#define CONFIG_SYS_PCI_SUBSYS_DEVICEID 0xcafe	/* Whatever */
-#define CONFIG_SYS_PCI_CLASSCODE       0x0600  /* PCI Class Code: bridge/host  */
-#define CONFIG_SYS_PCI_PTM1LA  0x00000000      /* point to sdram               */
-#define CONFIG_SYS_PCI_PTM1MS  0x80000001      /* 2GB, enable hard-wired to 1  */
-#define CONFIG_SYS_PCI_PTM1PCI 0x00000000      /* Host: use this pci address   */
-#define CONFIG_SYS_PCI_PTM2LA  0x00000000      /* disabled                     */
-#define CONFIG_SYS_PCI_PTM2MS  0x00000000      /* disabled                     */
-#define CONFIG_SYS_PCI_PTM2PCI 0x04000000      /* Host: use this pci address   */
+#define CFG_PCI_SUBSYS_VENDORID 0x10e8	/* AMCC */
+#define CFG_PCI_SUBSYS_DEVICEID 0xcafe	/* Whatever */
+#define CFG_PCI_CLASSCODE       0x0600  /* PCI Class Code: bridge/host  */
+#define CFG_PCI_PTM1LA  0x00000000      /* point to sdram               */
+#define CFG_PCI_PTM1MS  0x80000001      /* 2GB, enable hard-wired to 1  */
+#define CFG_PCI_PTM1PCI 0x00000000      /* Host: use this pci address   */
+#define CFG_PCI_PTM2LA  0x00000000      /* disabled                     */
+#define CFG_PCI_PTM2MS  0x00000000      /* disabled                     */
+#define CFG_PCI_PTM2PCI 0x04000000      /* Host: use this pci address   */
 
 /*-----------------------------------------------------------------------
  * External peripheral base address
  *-----------------------------------------------------------------------
  */
-#define	CONFIG_SYS_KEY_REG_BASE_ADDR	0xF0100000
-#define	CONFIG_SYS_IR_REG_BASE_ADDR	0xF0200000
-#define	CONFIG_SYS_FPGA_REG_BASE_ADDR	0xF0300000
+#define	CFG_KEY_REG_BASE_ADDR	0xF0100000
+#define	CFG_IR_REG_BASE_ADDR	0xF0200000
+#define	CFG_FPGA_REG_BASE_ADDR	0xF0300000
 
 /*-----------------------------------------------------------------------
  * Start addresses for the final memory configuration
  * (Set up by the startup code)
  */
-#define CONFIG_SYS_SRAM_BASE		0xFFF00000
-#define CONFIG_SYS_SRAM_SIZE		(256 << 10)
-#define CONFIG_SYS_FLASH_BASE		0xFFF80000
+#define CFG_SRAM_BASE		0xFFF00000
+#define CFG_FLASH_BASE		0xFFF80000
 
 /*-----------------------------------------------------------------------
  * FLASH organization
  */
-#define CONFIG_SYS_MAX_FLASH_BANKS	1	/* max number of memory banks		*/
-#define CONFIG_SYS_MAX_FLASH_SECT	256	/* max number of sectors on one chip	*/
+#define CFG_MAX_FLASH_BANKS	1	/* max number of memory banks		*/
+#define CFG_MAX_FLASH_SECT	256	/* max number of sectors on one chip	*/
 
-#define CONFIG_SYS_FLASH_ERASE_TOUT	120000	/* Timeout for Flash Erase (in ms)	*/
-#define CONFIG_SYS_FLASH_WRITE_TOUT	500	/* Timeout for Flash Write (in ms)	*/
+#define CFG_FLASH_ERASE_TOUT	120000	/* Timeout for Flash Erase (in ms)	*/
+#define CFG_FLASH_WRITE_TOUT	500	/* Timeout for Flash Write (in ms)	*/
 
-#define CONFIG_SYS_FLASH_ADDR0         0x5555
-#define CONFIG_SYS_FLASH_ADDR1         0x2aaa
-#define CONFIG_SYS_FLASH_WORD_SIZE     unsigned char
+#define CFG_FLASH_ADDR0         0x5555
+#define CFG_FLASH_ADDR1         0x2aaa
+#define CFG_FLASH_WORD_SIZE     unsigned char
 
-#ifdef CONFIG_ENV_IS_IN_FLASH
-#define CONFIG_ENV_SECT_SIZE	0x10000	/* size of one complete sector	*/
-#define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE-CONFIG_ENV_SECT_SIZE)
-#define	CONFIG_ENV_SIZE		0x4000	/* Total Size of Environment Sector	*/
+#ifdef CFG_ENV_IS_IN_FLASH
+#define CFG_ENV_SECT_SIZE	0x10000	/* size of one complete sector	*/
+#define CFG_ENV_ADDR		(CFG_MONITOR_BASE-CFG_ENV_SECT_SIZE)
+#define	CFG_ENV_SIZE		0x4000	/* Total Size of Environment Sector	*/
 
 /* Address and size of Redundant Environment Sector	*/
-#define CONFIG_ENV_ADDR_REDUND	(CONFIG_ENV_ADDR-CONFIG_ENV_SECT_SIZE)
-#define CONFIG_ENV_SIZE_REDUND	(CONFIG_ENV_SIZE)
-#endif /* CONFIG_ENV_IS_IN_FLASH */
+#define CFG_ENV_ADDR_REDUND	(CFG_ENV_ADDR-CFG_ENV_SECT_SIZE)
+#define CFG_ENV_SIZE_REDUND	(CFG_ENV_SIZE)
+#endif /* CFG_ENV_IS_IN_FLASH */
 
 /*-----------------------------------------------------------------------
  * NVRAM organization
  */
-#define CONFIG_SYS_NVRAM_BASE_ADDR	0xf0000000	/* NVRAM base address	*/
-#define CONFIG_SYS_NVRAM_SIZE		0x1ff8		/* NVRAM size	*/
+#define CFG_NVRAM_BASE_ADDR	0xf0000000	/* NVRAM base address	*/
+#define CFG_NVRAM_SIZE		0x1ff8		/* NVRAM size	*/
 
-#ifdef CONFIG_ENV_IS_IN_NVRAM
-#define CONFIG_ENV_SIZE		0x0ff8		/* Size of Environment vars	*/
-#define CONFIG_ENV_ADDR		\
-	(CONFIG_SYS_NVRAM_BASE_ADDR+CONFIG_SYS_NVRAM_SIZE-CONFIG_ENV_SIZE)	/* Env	*/
+#ifdef CFG_ENV_IS_IN_NVRAM
+#define CFG_ENV_SIZE		0x0ff8		/* Size of Environment vars	*/
+#define CFG_ENV_ADDR		\
+	(CFG_NVRAM_BASE_ADDR+CFG_NVRAM_SIZE-CFG_ENV_SIZE)	/* Env	*/
 #endif
 
 /*
@@ -209,47 +222,48 @@
  * BR0/1 and OR0/1 (FLASH)
  */
 
-#define FLASH_BASE0_PRELIM	CONFIG_SYS_FLASH_BASE	/* FLASH bank #0	*/
+#define FLASH_BASE0_PRELIM	CFG_FLASH_BASE	/* FLASH bank #0	*/
 #define FLASH_BASE1_PRELIM	0		/* FLASH bank #1	*/
 
 /*-----------------------------------------------------------------------
  * Definitions for initial stack pointer and data area (in data cache)
  */
 /* use on chip memory ( OCM ) for temperary stack until sdram is tested */
-#define CONFIG_SYS_TEMP_STACK_OCM        1
+#define CFG_TEMP_STACK_OCM        1
 
 /* On Chip Memory location */
-#define CONFIG_SYS_OCM_DATA_ADDR	0xF8000000
-#define CONFIG_SYS_OCM_DATA_SIZE	0x1000
-#define CONFIG_SYS_INIT_RAM_ADDR	CONFIG_SYS_OCM_DATA_ADDR /* inside of SDRAM		*/
-#define CONFIG_SYS_INIT_RAM_SIZE	CONFIG_SYS_OCM_DATA_SIZE /* Size of used area in RAM	*/
+#define CFG_OCM_DATA_ADDR	0xF8000000
+#define CFG_OCM_DATA_SIZE	0x1000
+#define CFG_INIT_RAM_ADDR	CFG_OCM_DATA_ADDR /* inside of SDRAM		*/
+#define CFG_INIT_RAM_END	CFG_OCM_DATA_SIZE /* End of used area in RAM	*/
 
-#define CONFIG_SYS_GBL_DATA_OFFSET    (CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_INIT_SP_OFFSET      CONFIG_SYS_GBL_DATA_OFFSET
+#define CFG_GBL_DATA_SIZE      128  /* size in bytes reserved for initial data */
+#define CFG_GBL_DATA_OFFSET    (CFG_INIT_RAM_END - CFG_GBL_DATA_SIZE)
+#define CFG_INIT_SP_OFFSET      CFG_GBL_DATA_OFFSET
 
 /*-----------------------------------------------------------------------
  * External Bus Controller (EBC) Setup
  */
 
 /* Memory Bank 0 (Flash/SRAM) initialization                                    */
-#define CONFIG_SYS_EBC_PB0AP           0x04006000
-#define CONFIG_SYS_EBC_PB0CR           0xFFF18000  /* BAS=0xFFF,BS=1MB,BU=R/W,BW=8bit  */
+#define CFG_EBC_PB0AP           0x04006000
+#define CFG_EBC_PB0CR           0xFFF18000  /* BAS=0xFFF,BS=1MB,BU=R/W,BW=8bit  */
 
 /* Memory Bank 1 (NVRAM/RTC) initialization                                     */
-#define CONFIG_SYS_EBC_PB1AP           0x04041000
-#define CONFIG_SYS_EBC_PB1CR           0xF0018000  /* BAS=0xF00,BS=1MB,BU=R/W,BW=8bit  */
+#define CFG_EBC_PB1AP           0x04041000
+#define CFG_EBC_PB1CR           0xF0018000  /* BAS=0xF00,BS=1MB,BU=R/W,BW=8bit  */
 
 /* Memory Bank 2 (not used) initialization                                      */
-#define CONFIG_SYS_EBC_PB2AP           0x00000000
-#define CONFIG_SYS_EBC_PB2CR           0x00000000
+#define CFG_EBC_PB2AP           0x00000000
+#define CFG_EBC_PB2CR           0x00000000
 
 /* Memory Bank 2 (not used) initialization                                      */
-#define CONFIG_SYS_EBC_PB3AP           0x00000000
-#define CONFIG_SYS_EBC_PB3CR           0x00000000
+#define CFG_EBC_PB3AP           0x00000000
+#define CFG_EBC_PB3CR           0x00000000
 
 /* Memory Bank 4 (FPGA regs) initialization                                     */
-#define CONFIG_SYS_EBC_PB4AP           0x01815000
-#define CONFIG_SYS_EBC_PB4CR           0xF0318000  /* BAS=0xF03,BS=1MB,BU=R/W,BW=8bit  */
+#define CFG_EBC_PB4AP           0x01815000
+#define CFG_EBC_PB4CR           0xF0318000  /* BAS=0xF03,BS=1MB,BU=R/W,BW=8bit  */
 
 /*-----------------------------------------------------------------------
  * Definitions for Serial Presence Detect EEPROM address
@@ -269,13 +283,13 @@
  * GPIO0[28-29] - UART1 data signal input/output
  * GPIO0[30-31] - EMAC0 and EMAC1 reject packet inputs
  */
-#define CONFIG_SYS_GPIO0_OSRL          0x55555555
-#define CONFIG_SYS_GPIO0_OSRH          0x40000110
-#define CONFIG_SYS_GPIO0_ISR1L         0x00000000
-#define CONFIG_SYS_GPIO0_ISR1H         0x15555445
-#define CONFIG_SYS_GPIO0_TSRL          0x00000000
-#define CONFIG_SYS_GPIO0_TSRH          0x00000000
-#define CONFIG_SYS_GPIO0_TCR           0xFFFF8014
+#define CFG_GPIO0_OSRH          0x55555555
+#define CFG_GPIO0_OSRL          0x40000110
+#define CFG_GPIO0_ISR1H         0x00000000
+#define CFG_GPIO0_ISR1L         0x15555445
+#define CFG_GPIO0_TSRH          0x00000000
+#define CFG_GPIO0_TSRL          0x00000000
+#define CFG_GPIO0_TCR           0xFFFF8014
 
 /*-----------------------------------------------------------------------
  * Some BUBINGA stuff...

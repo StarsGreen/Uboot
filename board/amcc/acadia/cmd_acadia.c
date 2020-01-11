@@ -2,7 +2,24 @@
  * (C) Copyright 2007
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
@@ -21,14 +38,16 @@ static u8 boot_267_nand[] = {
 	0x00, 0x00, 0x00, 0x00
 };
 
-static int do_bootstrap(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+static int do_bootstrap(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	u8 chip;
 	u8 *buf;
 	int cpu_freq;
 
-	if (argc < 3)
-		return cmd_usage(cmdtp);
+	if (argc < 3) {
+		printf("Usage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 
 	cpu_freq = simple_strtol(argv[1], NULL, 10);
 	if (cpu_freq != 267) {
@@ -65,7 +84,7 @@ static int do_bootstrap(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[
 
 	if (i2c_write(chip, 0, 1, buf, 16) != 0)
 		printf("Error writing to EEPROM at address 0x%x\n", chip);
-	udelay(CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS * 1000);
+	udelay(CFG_EEPROM_PAGE_WRITE_DELAY_MS * 1000);
 	if (i2c_write(chip, 0x10, 1, buf+16, 4) != 0)
 		printf("Error2 writing to EEPROM at address 0x%x\n", chip);
 
@@ -77,6 +96,6 @@ static int do_bootstrap(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[
 
 U_BOOT_CMD(
 	bootstrap,	3,	0,	do_bootstrap,
-	"program the I2C bootstrap EEPROM",
-	"<cpu-freq> <nor|nand> - program the I2C bootstrap EEPROM"
-);
+	"bootstrap - program the I2C bootstrap EEPROM\n",
+	"<cpu-freq> <nor|nand> - program the I2C bootstrap EEPROM\n"
+	);

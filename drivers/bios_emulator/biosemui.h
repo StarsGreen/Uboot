@@ -3,7 +3,7 @@
 *			 BIOS emulator and interface
 *		       to Realmode X86 Emulator Library
 *
-*  Copyright (C) 2007 Freescale Semiconductor, Inc.
+*  Copyright (C) 2007 Freescale Semiconductor, Inc. All rights reserved.
 *  Jason Jin <Jason.jin@freescale.com>
 *
 *		Copyright (C) 1996-1999 SciTech Software, Inc.
@@ -48,7 +48,7 @@
 #include <asm/io.h>
 /*---------------------- Macros and type definitions ----------------------*/
 
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
 #define DB(x)	x
 #else
 #define DB(x)	do{}while(0);

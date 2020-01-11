@@ -5,9 +5,25 @@
  * modified for Promess PRO - by Andy Joseph, andy@promessdev.com
  * modified for Promess PRO-Motion - by Robert McCullough, rob@promessdev.com
  * modified by Chris M. Tumas 6/20/06 Change CAS latency to 2 from 3
- * Also changed the refresh for 100MHz operation
+ * Also changed the refresh for 100Mhz operation
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -74,13 +90,13 @@ void reset_phy(void)
 {
 	unsigned short mode_control;
 
-	miiphy_read("FEC", CONFIG_PHY_ADDR, 0x15, &mode_control);
-	miiphy_write("FEC", CONFIG_PHY_ADDR, 0x15,
+	miiphy_read("FEC ETHERNET", CONFIG_PHY_ADDR, 0x15, &mode_control);
+	miiphy_write("FEC ETHERNET", CONFIG_PHY_ADDR, 0x15,
 			mode_control & 0xfffe);
 	return;
 }
 
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 /*
  * Helper function to initialize SDRAM controller.
  */
@@ -110,7 +126,7 @@ static void sdram_start(int hi_addr)
 	/* normal operation */
 	*(vu_long *)MPC5XXX_SDRAM_CTRL = SDRAM_CONTROL | hi_addr_bit;
 }
-#endif /* !CONFIG_SYS_RAMBOOT */
+#endif /* !CFG_RAMBOOT */
 
 
 /*
@@ -119,7 +135,7 @@ static void sdram_start(int hi_addr)
 phys_size_t initdram(int board_type)
 {
 	ulong dramsize = 0;
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 	ulong test1, test2;
 
 	/* According to AN3221 (MPC5200B SDRAM Initialization and
@@ -137,9 +153,9 @@ phys_size_t initdram(int board_type)
 	*(vu_long *)MPC5XXX_SDRAM_CONFIG2 = SDRAM_CONFIG2;
 
 	sdram_start(0);
-	test1 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test1 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	sdram_start(1);
-	test2 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test2 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	if (test1 > test2) {
 		sdram_start(0);
 		dramsize = test1;
@@ -162,14 +178,14 @@ phys_size_t initdram(int board_type)
 	/* let SDRAM CS1 start right after CS0 and disable it */
 	*(vu_long *) MPC5XXX_SDRAM_CS1CFG = dramsize;
 
-#else /* !CONFIG_SYS_RAMBOOT */
+#else /* !CFG_RAMBOOT */
 	/* retrieve size of memory connected to SDRAM CS0 */
 	dramsize = *(vu_long *)MPC5XXX_SDRAM_CS0CFG & 0xFF;
 	if (dramsize >= 0x13)
 		dramsize = (1 << (dramsize - 0x13)) << 20;
 	else
 		dramsize = 0;
-#endif /* CONFIG_SYS_RAMBOOT */
+#endif /* CFG_RAMBOOT */
 
 	/* return total ram size */
 	return dramsize;
@@ -185,11 +201,9 @@ int checkboard(void)
 
 
 #if defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
-
-	return 0;
 }
 #endif /* defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP) */
 

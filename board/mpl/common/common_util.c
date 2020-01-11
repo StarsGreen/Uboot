@@ -2,7 +2,24 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
@@ -12,6 +29,7 @@
 #include <asm/processor.h>
 #include <asm/byteorder.h>
 #include <i2c.h>
+#include <devices.h>
 #include <pci.h>
 #include <malloc.h>
 #include <bzlib.h>
@@ -31,161 +49,19 @@ DECLARE_GLOBAL_DATA_PTR;
 #define FIRM_START 0xFFF00000
 #endif
 
+extern int gunzip(void *, int, uchar *, unsigned long *);
 extern int mem_test(ulong start, ulong ramsize, int quiet);
 
 #define I2C_BACKUP_ADDR 0x7C00		/* 0x200 bytes for backup */
-#define IMAGE_SIZE CONFIG_SYS_MONITOR_LEN	/* ugly, but it works for now */
+#define IMAGE_SIZE CFG_MONITOR_LEN	/* ugly, but it works for now */
 
-#if defined(CONFIG_PIP405) || defined(CONFIG_MIP405)
-/*-----------------------------------------------------------------------
- * On PIP/MIP405 we have 3 (4) possible boot mode
- *
- * - Boot from Flash (Flash CS = CS0, MPS CS = CS1)
- * - Boot from MPS   (Flash CS = CS1, MPS CS = CS0)
- * - Boot from PCI with Flash map (Flash CS = CS0, MPS CS = CS1)
- * - Boot from PCI with MPS map   (Flash CS = CS1, MPS CS = CS0)
- * The flash init is the first board specific routine which is called
- * after code relocation (running from SDRAM)
- * The first thing we do is to map the Flash CS to the Flash area and
- * the MPS CS to the MPS area. Since the flash size is unknown at this
- * point, we use the max flash size and the lowest flash address as base.
- *
- * After flash detection we adjust the size of the CS area accordingly.
- * update_flash_size() will fix in wrong values in the flash_info structure,
- * misc_init_r() will fix the values in the board info structure
- */
-int get_boot_mode(void)
-{
-	unsigned long pbcr;
-	int res = 0;
-	pbcr = mfdcr(CPC0_PSR);
-	if ((pbcr & PSR_ROM_WIDTH_MASK) == 0)
-		/* boot via MPS or MPS mapping */
-		res = BOOT_MPS;
-	if (pbcr & PSR_ROM_LOC)
-		/* boot via PCI.. */
-		res |= BOOT_PCI;
-	 return res;
-}
-
-/* Map the flash high (in boot area)
-   This code can only be executed from SDRAM (after relocation).
-*/
-void setup_cs_reloc(void)
-{
-	int mode;
-	/*
-	 * since we are relocated, we can set-up the CS finaly
-	 * but first of all, switch off PCI mapping (in case it
-	 * was a PCI boot)
-	 */
-	out32r(PMM0MA, 0L);
-	/* get boot mode */
-	mode = get_boot_mode();
-	/*
-	 * we map the flash high in every case
-	 * first find out to which CS the flash is attached to
-	 */
-	if (mode & BOOT_MPS) {
-		/* map flash high on CS1 and MPS on CS0 */
-		mtdcr(EBC0_CFGADDR, PB0AP);
-		mtdcr(EBC0_CFGDATA, MPS_AP);
-		mtdcr(EBC0_CFGADDR, PB0CR);
-		mtdcr(EBC0_CFGDATA, MPS_CR);
-		/*
-		 * we use the default values (max values) for the flash
-		 * because its real size is not yet known
-		 */
-		mtdcr(EBC0_CFGADDR, PB1AP);
-		mtdcr(EBC0_CFGDATA, FLASH_AP);
-		mtdcr(EBC0_CFGADDR, PB1CR);
-		mtdcr(EBC0_CFGDATA, FLASH_CR_B);
-	} else {
-		/* map flash high on CS0 and MPS on CS1 */
-		mtdcr(EBC0_CFGADDR, PB1AP);
-		mtdcr(EBC0_CFGDATA, MPS_AP);
-		mtdcr(EBC0_CFGADDR, PB1CR);
-		mtdcr(EBC0_CFGDATA, MPS_CR);
-		/*
-		 * we use the default values (max values) for the flash
-		 * because its real size is not yet known
-		 */
-		mtdcr(EBC0_CFGADDR, PB0AP);
-		mtdcr(EBC0_CFGDATA, FLASH_AP);
-		mtdcr(EBC0_CFGADDR, PB0CR);
-		mtdcr(EBC0_CFGDATA, FLASH_CR_B);
-	}
-}
-#endif /* #if defined(CONFIG_PIP405) || defined(CONFIG_MIP405) */
-
-#ifdef CONFIG_SYS_UPDATE_FLASH_SIZE
-/* adjust flash start and protection info */
-int update_flash_size(int flash_size)
-{
-	int i = 0, mode;
-	flash_info_t *info = &flash_info[0];
-	unsigned long flashcr;
-	unsigned long flash_base = (0 - flash_size) & 0xFFF00000;
-
-	if (flash_size > 128*1024*1024) {
-		printf("\n ### ERROR, wrong flash size: %X, reset board ###\n",
-		       flash_size);
-		hang();
-	}
-
-	if ((flash_size >> 20) != 0)
-		i = __ilog2(flash_size >> 20);
-
-	/* set up flash CS according to the size */
-	mode = get_boot_mode();
-	if (mode & BOOT_MPS) {
-		/* flash is on CS1 */
-		mtdcr(EBC0_CFGADDR, PB1CR);
-		flashcr = mfdcr(EBC0_CFGDATA);
-		/* we map the flash high in every case */
-		flashcr &= 0x0001FFFF; /* mask out address bits */
-		flashcr |= flash_base; /* start addr */
-		flashcr |= (i << 17); /* size addr */
-		mtdcr(EBC0_CFGADDR, PB1CR);
-		mtdcr(EBC0_CFGDATA, flashcr);
-	} else {
-		/* flash is on CS0 */
-		mtdcr(EBC0_CFGADDR, PB0CR);
-		flashcr = mfdcr(EBC0_CFGDATA);
-		/* we map the flash high in every case */
-		flashcr &= 0x0001FFFF; /* mask out address bits */
-		flashcr |= flash_base; /* start addr */
-		flashcr |= (i << 17); /* size addr */
-		mtdcr(EBC0_CFGADDR, PB0CR);
-		mtdcr(EBC0_CFGDATA, flashcr);
-	}
-
-	for (i = 0; i < info->sector_count; i++)
-		/* adjust sector start address */
-		info->start[i] = flash_base +
-				(info->start[i] - CONFIG_SYS_FLASH_BASE);
-
-	/* unprotect all sectors */
-	flash_protect(FLAG_PROTECT_CLEAR,
-		      info->start[0],
-		      0xFFFFFFFF,
-		      info);
-	flash_protect_default();
-	/* protect reset vector too*/
-	flash_protect(FLAG_PROTECT_SET,
-		      info->start[info->sector_count-1],
-		      0xFFFFFFFF,
-		      info);
-
-	return 0;
-}
-#endif
+extern flash_info_t flash_info[];	/* info for FLASH chips */
 
 static int
 mpl_prg(uchar *src, ulong size)
 {
 	ulong start;
-	flash_info_t *info = &flash_info[0];
+	flash_info_t *info;
 	int i, rc;
 #if defined(CONFIG_PATI)
 	int start_sect;
@@ -194,6 +70,8 @@ mpl_prg(uchar *src, ulong size)
 	char *copystr = (char *)src;
 	ulong *magic = (ulong *)src;
 #endif
+
+	info = &flash_info[0];
 
 #if defined(CONFIG_PIP405) || defined(CONFIG_MIP405) || defined(CONFIG_PATI)
 	if (uimage_to_cpu (magic[0]) != IH_MAGIC) {
@@ -220,18 +98,12 @@ mpl_prg(uchar *src, ulong size)
 	}
 #if !defined(CONFIG_PATI)
 	start = 0 - size;
-
-	/* unprotect sectors used by u-boot */
-	flash_protect(FLAG_PROTECT_CLEAR,
-		      start,
-		      0xFFFFFFFF,
-		      info);
-
-	/* search start sector */
-	for (i = info->sector_count-1; i > 0; i--)
+	for (i = info->sector_count-1; i > 0; i--) {
+		info->protect[i] = 0; /* unprotect this sector */
 		if (start >= info->start[i])
 			break;
-
+	}
+	/* set-up flash location */
 	/* now erase flash */
 	printf("Erasing at %lx (sector %d) (start %lx)\n",
 				start,i,info->start[i]);
@@ -244,24 +116,22 @@ mpl_prg(uchar *src, ulong size)
 #else /* #if !defined(CONFIG_PATI */
 	start = FIRM_START;
 	start_sect = -1;
-
-	/* search start sector */
-	for (i = info->sector_count-1; i > 0; i--)
-		if (start >= info->start[i])
+	for (i = 0; i < info->sector_count; i++) {
+		if (start < info->start[i]) {
+			start_sect = i - 1;
 			break;
+		}
+	}
 
-	start_sect = i;
-
-	for (i = info->sector_count-1; i > 0; i--)
-		if ((start + size) >= info->start[i])
+	info->protect[i - 1] = 0;	/* unprotect this sector */
+	for (; i < info->sector_count; i++) {
+		if ((start + size) < info->start[i])
 			break;
+		info->protect[i] = 0;	/* unprotect this sector */
+	}
 
-	/* unprotect sectors used by u-boot */
-	flash_protect(FLAG_PROTECT_CLEAR,
-		      start,
-		      start + size,
-		      info);
-
+	i--;
+	/* set-up flash location */
 	/* now erase flash */
 	printf ("Erasing at %lx to %lx (sector %d to %d) (%lx to %lx)\n",
 		start, start + size, start_sect, i,
@@ -275,17 +145,12 @@ mpl_prg(uchar *src, ulong size)
 
 #elif defined(CONFIG_VCMA9)
 	start = 0;
-
-	/* search end sector */
-	for (i = 0; i < info->sector_count; i++)
+	for (i = 0; i <info->sector_count; i++) {
+		info->protect[i] = 0; /* unprotect this sector */
 		if (size < info->start[i])
 		    break;
-
-	flash_protect(FLAG_PROTECT_CLEAR,
-		      start,
-		      size,
-		      info);
-
+	}
+	/* set-up flash location */
 	/* now erase flash */
 	printf("Erasing at %lx (sector %d) (start %lx)\n",
 				start,0,info->start[0]);
@@ -405,7 +270,7 @@ mpl_prg_image(uchar *ld_addr)
 #if !defined(CONFIG_PATI)
 void get_backup_values(backup_t *buf)
 {
-	i2c_read(CONFIG_SYS_DEF_EEPROM_ADDR, I2C_BACKUP_ADDR,2,(void *)buf,sizeof(backup_t));
+	i2c_read(CFG_DEF_EEPROM_ADDR, I2C_BACKUP_ADDR,2,(void *)buf,sizeof(backup_t));
 }
 
 void set_backup_values(int overwrite)
@@ -421,19 +286,19 @@ void set_backup_values(int overwrite)
 		}
 	}
 	memcpy(back.signature,"MPL\0",4);
-	i = getenv_f("serial#",back.serial_name,16);
+	i = getenv_r("serial#",back.serial_name,16);
 	if(i < 0) {
 		puts("Not possible to write Backup\n");
 		return;
 	}
 	back.serial_name[16]=0;
-	i = getenv_f("ethaddr",back.eth_addr,20);
+	i = getenv_r("ethaddr",back.eth_addr,20);
 	if(i < 0) {
 		puts("Not possible to write Backup\n");
 		return;
 	}
 	back.eth_addr[20]=0;
-	i2c_write(CONFIG_SYS_DEF_EEPROM_ADDR, I2C_BACKUP_ADDR,2,(void *)&back,sizeof(backup_t));
+	i2c_write(CFG_DEF_EEPROM_ADDR, I2C_BACKUP_ADDR,2,(void *)&back,sizeof(backup_t));
 }
 
 void clear_env_values(void)
@@ -443,8 +308,8 @@ void clear_env_values(void)
 
 	memset(&back,0xff,sizeof(backup_t));
 	memset(env_crc,0x00,4);
-	i2c_write(CONFIG_SYS_DEF_EEPROM_ADDR,I2C_BACKUP_ADDR,2,(void *)&back,sizeof(backup_t));
-	i2c_write(CONFIG_SYS_DEF_EEPROM_ADDR,CONFIG_ENV_OFFSET,2,(void *)env_crc,4);
+	i2c_write(CFG_DEF_EEPROM_ADDR,I2C_BACKUP_ADDR,2,(void *)&back,sizeof(backup_t));
+	i2c_write(CFG_DEF_EEPROM_ADDR,CFG_ENV_OFFSET,2,(void *)env_crc,4);
 }
 
 /*
@@ -457,8 +322,8 @@ int check_env_old_size(ulong oldsize)
 	uchar buf[64];
 
 	/* read old CRC */
-	eeprom_read (CONFIG_SYS_DEF_EEPROM_ADDR,
-		     CONFIG_ENV_OFFSET,
+	eeprom_read (CFG_DEF_EEPROM_ADDR,
+		     CFG_ENV_OFFSET,
 		     (uchar *)&crc, sizeof(ulong));
 
 	new = 0;
@@ -468,7 +333,7 @@ int check_env_old_size(ulong oldsize)
 	while (len > 0) {
 		int n = (len > sizeof(buf)) ? sizeof(buf) : len;
 
-		eeprom_read (CONFIG_SYS_DEF_EEPROM_ADDR, CONFIG_ENV_OFFSET+off, buf, n);
+		eeprom_read (CFG_DEF_EEPROM_ADDR, CFG_ENV_OFFSET+off, buf, n);
 		new = crc32 (new, buf, n);
 		len -= n;
 		off += n;
@@ -497,7 +362,7 @@ void copy_old_env(ulong size)
 	len=size;
 	off = sizeof(long);
 	while (len > off) {
-		eeprom_read (CONFIG_SYS_DEF_EEPROM_ADDR, CONFIG_ENV_OFFSET+off, &c, 1);
+		eeprom_read (CFG_DEF_EEPROM_ADDR, CFG_ENV_OFFSET+off, &c, 1);
 		if(c != '=') {
 			*name++=c;
 			off++;
@@ -506,7 +371,7 @@ void copy_old_env(ulong size)
 			*name++='\0';
 			off++;
 			do {
-				eeprom_read (CONFIG_SYS_DEF_EEPROM_ADDR, CONFIG_ENV_OFFSET+off, &c, 1);
+				eeprom_read (CFG_DEF_EEPROM_ADDR, CFG_ENV_OFFSET+off, &c, 1);
 				*value++=c;
 				off++;
 				if(c == '\0')
@@ -563,16 +428,45 @@ void check_env(void)
 	}
 }
 
+
+extern device_t *stdio_devices[];
+extern char *stdio_names[];
+
+void show_stdio_dev(void)
+{
+	/* Print information */
+	puts("In:    ");
+	if (stdio_devices[stdin] == NULL) {
+		puts("No input devices available!\n");
+	} else {
+		printf ("%s\n", stdio_devices[stdin]->name);
+	}
+
+	puts("Out:   ");
+	if (stdio_devices[stdout] == NULL) {
+		puts("No output devices available!\n");
+	} else {
+		printf ("%s\n", stdio_devices[stdout]->name);
+	}
+
+	puts("Err:   ");
+	if (stdio_devices[stderr] == NULL) {
+		puts("No error devices available!\n");
+	} else {
+		printf ("%s\n", stdio_devices[stderr]->name);
+	}
+}
+
 #endif /* #if !defined(CONFIG_PATI) */
 
-int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	ulong ld_addr;
+	ulong size,src,ld_addr;
 	int result;
 #if !defined(CONFIG_PATI)
-	ulong size = IMAGE_SIZE;
-	ulong src = MULTI_PURPOSE_SOCKET_ADDR;
 	backup_t back;
+	src = MULTI_PURPOSE_SOCKET_ADDR;
+	size = IMAGE_SIZE;
 #endif
 
 	if (strcmp(argv[1], "flash") == 0)
@@ -591,7 +485,7 @@ int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			}
 			else {
 				local_args[1] = NULL;
-				ld_addr=CONFIG_SYS_LOAD_ADDR;
+				ld_addr=CFG_LOAD_ADDR;
 				result=do_fdcboot(cmdtp, 0, 1, local_args);
 			}
 			result=mpl_prg_image((uchar *)ld_addr);
@@ -617,6 +511,30 @@ int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		}
 #endif /* #if !defined(CONFIG_PATI)	*/
 	}
+	if (strcmp(argv[1], "mem") == 0)
+	{
+		result=0;
+		if(argc==3)
+		{
+			result = (int)simple_strtol(argv[2], NULL, 16);
+	    }
+	    src=(unsigned long)&result;
+	    src-=CFG_MEMTEST_START;
+	    src-=(100*1024); /* - 100k */
+	    src&=0xfff00000;
+	    size=0;
+	    do {
+		size++;
+			printf("\n\nPass %ld\n",size);
+			mem_test(CFG_MEMTEST_START,src,1);
+			if(ctrlc())
+				break;
+			if(result>0)
+				result--;
+
+		}while(result);
+		return 0;
+	}
 #if !defined(CONFIG_PATI)
 	if (strcmp(argv[1], "clearenvvalues") == 0)
 	{
@@ -641,11 +559,13 @@ int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		return 0;
 	}
 #endif
-	return cmd_usage(cmdtp);
+	printf("Usage:\n%s\n", cmdtp->usage);
+	return 1;
 }
 
 
 #if defined(CONFIG_CMD_DOC)
+extern void doc_probe(ulong physadr);
 void doc_init (void)
 {
   doc_probe(MULTI_PURPOSE_SOCKET_ADDR);
@@ -672,7 +592,7 @@ void video_get_info_str (int line_number, char *info)
 	int i,boot;
 	unsigned long pvr;
 	char buf[64];
-	char buf1[32], buf2[32], buf3[32], buf4[32];
+	char tmp[16];
 	char cpustr[16];
 	char *s, *e, bc;
 	switch (line_number)
@@ -725,12 +645,11 @@ void video_get_info_str (int line_number, char *info)
 			}
 			buf[i++]=0;
 		}
-		sprintf (info," %s %s %s MHz (%s/%s/%s MHz)",
+		sprintf (info," %s %s %s MHz (%lu/%lu/%lu MHz)",
 			buf, cpustr,
-			strmhz (buf1, gd->cpu_clk),
-			strmhz (buf2, sys_info.freqPLB),
-			strmhz (buf3, sys_info.freqPLB / sys_info.pllOpbDiv),
-			strmhz (buf4, sys_info.freqPLB / sys_info.pllExtBusDiv));
+			strmhz (tmp, gd->cpu_clk), sys_info.freqPLB / 1000000,
+			sys_info.freqPLB / sys_info.pllOpbDiv / 1000000,
+			sys_info.freqPLB / sys_info.pllExtBusDiv / 1000000);
 		return;
 	case 3:
 		/* Memory Info */

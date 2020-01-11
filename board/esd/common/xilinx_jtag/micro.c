@@ -2,7 +2,23 @@
  * (C) Copyright 2003
  * Stefan Roese, esd gmbh germany, stefan.roese@esd-electronics.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*****************************************************************************
@@ -50,7 +66,10 @@
 #include "lenval.h"
 #include "ports.h"
 
-const unsigned char *xsvfdata;
+
+extern const unsigned char fpgadata[];
+extern int filesize;
+
 
 /*============================================================================
  * XSVF #define
@@ -1812,28 +1831,19 @@ int xsvfExecute(void)
  *               ppzArgv  - array of ptrs to strings (command-line arguments).
  * Returns:      int      - Legacy return value:  1 = success; 0 = error.
  *****************************************************************************/
-int do_cpld(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_cpld(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	int     iErrorCode;
+	char*   pzXsvfFileName;
 	unsigned long duration;
 	unsigned long long startClock, endClock;
 
-	if (argc == 2)
-		xsvfdata = (unsigned char *)simple_strtoul(argv[1], NULL, 16);
-	else {
-#ifdef CONFIG_SYS_XSVF_DEFAULT_ADDR
-		xsvfdata = (unsigned char *)CONFIG_SYS_XSVF_DEFAULT_ADDR;
-#else
-		printf("Usage:\ncpld %s\n", cmdtp->help);
-		return -1;
-#endif
-	}
-
 	iErrorCode          = XSVF_ERRORCODE( XSVF_ERROR_NONE );
+	pzXsvfFileName      = 0;
 	xsvf_iDebugLevel    = 0;
 
 	printf("XSVF Player v%s, Xilinx, Inc.\n", XSVF_VERSION);
-	printf("Reading XSVF data @ %p\n", xsvfdata);
+	printf("XSVF Filesize = %d bytes\n", filesize);
 
 	/* Initialize the I/O.  SetPort initializes I/O on first call */
 	setPort( TMS, 1 );
@@ -1848,7 +1858,7 @@ int do_cpld(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	return( iErrorCode );
 }
 U_BOOT_CMD(
-	cpld,	2,	1,	do_cpld,
-	"program onboard CPLD",
-	"<xsvf-addr>"
-);
+	cpld,	1,	1,	do_cpld,
+	"cpld    - Program onboard CPLD\n",
+	NULL
+	);

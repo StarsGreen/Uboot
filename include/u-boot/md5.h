@@ -6,15 +6,12 @@
 #ifndef _MD5_H
 #define _MD5_H
 
-#include "compiler.h"
+#include <linux/types.h>
 
 struct MD5Context {
 	__u32 buf[4];
 	__u32 bits[2];
-	union {
-		unsigned char in[64];
-		__u32 in32[16];
-	};
+	unsigned char in[64];
 };
 
 /*

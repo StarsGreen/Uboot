@@ -1,19 +1,32 @@
 /*
- * Copyright 2007,2009-2011 Freescale Semiconductor, Inc.
+ * Copyright 2007 Freescale Semiconductor.
  *
  * (C) Copyright 2002 Scott McNutt <smcnutt@artesyncp.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <pci.h>
 #include <asm/processor.h>
-#include <asm/mmu.h>
 #include <asm/immap_85xx.h>
-#include <asm/fsl_pci.h>
-#include <fsl_ddr_sdram.h>
-#include <asm/fsl_serdes.h>
+#include <asm/immap_fsl_pci.h>
 #include <spd_sdram.h>
 #include <i2c.h>
 #include <ioports.h>
@@ -84,7 +97,13 @@ const qe_iop_conf_t qe_iop_conf_tab[] = {
 	{0,  0, 0, 0, QE_IOP_TAB_END}, /* END of table */
 };
 
+
+#if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)
+extern void ddr_enable_ecc(unsigned int dram_size);
+#endif
+
 void local_bus_init(void);
+void sdram_init(void);
 
 int board_early_init_f (void)
 {
@@ -102,10 +121,10 @@ int board_early_init_f (void)
 	enable_8568mds_qe_mdio();
 #endif
 
-#ifdef CONFIG_SYS_I2C2_OFFSET
+#ifdef CFG_I2C2_OFFSET
 	/* Enable I2C2_SCL and I2C2_SDA */
 	volatile struct par_io *port_c;
-	port_c = (struct par_io*)(CONFIG_SYS_IMMR + 0xe0140);
+	port_c = (struct par_io*)(CFG_IMMR + 0xe0140);
 	port_c->cpdir2 |= 0x0f000000;
 	port_c->cppar2 &= ~0x0f000000;
 	port_c->cppar2 |= 0x0a000000;
@@ -121,20 +140,62 @@ int checkboard (void)
 	return 0;
 }
 
+phys_size_t
+initdram(int board_type)
+{
+	long dram_size = 0;
+
+	puts("Initializing\n");
+
+#if defined(CONFIG_DDR_DLL)
+	{
+		/*
+		 * Work around to stabilize DDR DLL MSYNC_IN.
+		 * Errata DDR9 seems to have been fixed.
+		 * This is now the workaround for Errata DDR11:
+		 *    Override DLL = 1, Course Adj = 1, Tap Select = 0
+		 */
+
+		volatile ccsr_gur_t *gur = (void *)(CFG_MPC85xx_GUTS_ADDR);
+
+		gur->ddrdllcr = 0x81000000;
+		asm("sync;isync;msync");
+		udelay(200);
+	}
+#endif
+	dram_size = spd_sdram();
+
+#if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)
+	/*
+	 * Initialize and enable DDR ECC.
+	 */
+	ddr_enable_ecc(dram_size);
+#endif
+	/*
+	 * SDRAM Initialization
+	 */
+	sdram_init();
+
+	puts("    DDR: ");
+	return dram_size;
+}
+
 /*
  * Initialize Local Bus
  */
 void
 local_bus_init(void)
 {
-	volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
-	volatile fsl_lbc_t *lbc = LBC_BASE_ADDR;
+	volatile ccsr_gur_t *gur = (void *)(CFG_MPC85xx_GUTS_ADDR);
+	volatile ccsr_lbc_t *lbc = (void *)(CFG_MPC85xx_LBC_ADDR);
 
 	uint clkdiv;
+	uint lbc_hz;
 	sys_info_t sysinfo;
 
 	get_sys_info(&sysinfo);
-	clkdiv = (lbc->lcrr & LCRR_CLKDIV) * 2;
+	clkdiv = (lbc->lcrr & 0x0f) * 2;
+	lbc_hz = sysinfo.freqSystemBus / 1000000 / clkdiv;
 
 	gur->lbiuiplldcr1 = 0x00078080;
 	if (clkdiv == 16) {
@@ -153,43 +214,47 @@ local_bus_init(void)
 /*
  * Initialize SDRAM memory on the Local Bus.
  */
-void lbc_sdram_init(void)
+void
+sdram_init(void)
 {
-#if defined(CONFIG_SYS_OR2_PRELIM) && defined(CONFIG_SYS_BR2_PRELIM)
+#if defined(CFG_OR2_PRELIM) && defined(CFG_BR2_PRELIM)
 
 	uint idx;
-	volatile fsl_lbc_t *lbc = LBC_BASE_ADDR;
-	uint *sdram_addr = (uint *)CONFIG_SYS_LBC_SDRAM_BASE;
+	volatile ccsr_lbc_t *lbc = (void *)(CFG_MPC85xx_LBC_ADDR);
+	uint *sdram_addr = (uint *)CFG_LBC_SDRAM_BASE;
 	uint lsdmr_common;
 
-	puts("LBC SDRAM: ");
-	print_size(CONFIG_SYS_LBC_SDRAM_SIZE * 1024 * 1024,
-		   "\n       ");
+	puts("    SDRAM: ");
+
+	print_size (CFG_LBC_SDRAM_SIZE * 1024 * 1024, "\n");
 
 	/*
 	 * Setup SDRAM Base and Option Registers
 	 */
-	set_lbc_or(2, CONFIG_SYS_OR2_PRELIM);
-	set_lbc_br(2, CONFIG_SYS_BR2_PRELIM);
+	lbc->or2 = CFG_OR2_PRELIM;
 	asm("msync");
 
-	lbc->lbcr = CONFIG_SYS_LBC_LBCR;
+	lbc->br2 = CFG_BR2_PRELIM;
 	asm("msync");
 
-	lbc->lsrt = CONFIG_SYS_LBC_LSRT;
-	lbc->mrtpr = CONFIG_SYS_LBC_MRTPR;
+	lbc->lbcr = CFG_LBC_LBCR;
+	asm("msync");
+
+
+	lbc->lsrt = CFG_LBC_LSRT;
+	lbc->mrtpr = CFG_LBC_MRTPR;
 	asm("msync");
 
 	/*
 	 * MPC8568 uses "new" 15-16 style addressing.
 	 */
-	lsdmr_common = CONFIG_SYS_LBC_LSDMR_COMMON;
-	lsdmr_common |= LSDMR_BSMA1516;
+	lsdmr_common = CFG_LBC_LSDMR_COMMON;
+	lsdmr_common |= CFG_LBC_LSDMR_BSMA1516;
 
 	/*
 	 * Issue PRECHARGE ALL command.
 	 */
-	lbc->lsdmr = lsdmr_common | LSDMR_OP_PCHALL;
+	lbc->lsdmr = lsdmr_common | CFG_LBC_LSDMR_OP_PCHALL;
 	asm("sync;msync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
@@ -199,7 +264,7 @@ void lbc_sdram_init(void)
 	 * Issue 8 AUTO REFRESH commands.
 	 */
 	for (idx = 0; idx < 8; idx++) {
-		lbc->lsdmr = lsdmr_common | LSDMR_OP_ARFRSH;
+		lbc->lsdmr = lsdmr_common | CFG_LBC_LSDMR_OP_ARFRSH;
 		asm("sync;msync");
 		*sdram_addr = 0xff;
 		ppcDcbf((unsigned long) sdram_addr);
@@ -209,7 +274,7 @@ void lbc_sdram_init(void)
 	/*
 	 * Issue 8 MODE-set command.
 	 */
-	lbc->lsdmr = lsdmr_common | LSDMR_OP_MRW;
+	lbc->lsdmr = lsdmr_common | CFG_LBC_LSDMR_OP_MRW;
 	asm("sync;msync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
@@ -218,7 +283,7 @@ void lbc_sdram_init(void)
 	/*
 	 * Issue NORMAL OP command.
 	 */
-	lbc->lsdmr = lsdmr_common | LSDMR_OP_NORMAL;
+	lbc->lsdmr = lsdmr_common | CFG_LBC_LSDMR_OP_NORMAL;
 	asm("sync;msync");
 	*sdram_addr = 0xff;
 	ppcDcbf((unsigned long) sdram_addr);
@@ -241,8 +306,18 @@ static struct pci_config_table pci_mpc8568mds_config_table[] = {
 };
 #endif
 
-static struct pci_controller pci1_hose;
+static struct pci_controller pci1_hose = {
+#ifndef CONFIG_PCI_PNP
+	config_table: pci_mpc8568mds_config_table,
+#endif
+};
 #endif	/* CONFIG_PCI */
+
+#ifdef CONFIG_PCIE1
+static struct pci_controller pcie1_hose;
+#endif  /* CONFIG_PCIE1 */
+
+int first_free_busno = 0;
 
 /*
  * pib_init() -- Initialize the PCA9555 IO expander on the PIB board
@@ -284,73 +359,166 @@ pib_init(void)
 	i2c_write(0x27, 0x3, 1, &val8, 1);
 
 	asm("eieio");
-	i2c_set_bus_num(orig_i2c_bus);
 }
 
 #ifdef CONFIG_PCI
-void pci_init_board(void)
+void
+pci_init_board(void)
 {
-	volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
-	int first_free_busno = 0;
+	volatile ccsr_gur_t *gur = (void *)(CFG_MPC85xx_GUTS_ADDR);
+	uint io_sel = (gur->pordevsr & MPC85xx_PORDEVSR_IO_SEL) >> 19;
+	uint host_agent = (gur->porbmsr & MPC85xx_PORBMSR_HA) >> 16;
+
 #ifdef CONFIG_PCI1
-	struct fsl_pci_info pci_info;
-	u32 devdisr, pordevsr, io_sel;
-	u32 porpllsr, pci_agent, pci_speed, pci_32, pci_arb, pci_clk_sel;
+{
+	pib_init();
 
-	devdisr = in_be32(&gur->devdisr);
-	pordevsr = in_be32(&gur->pordevsr);
-	porpllsr = in_be32(&gur->porpllsr);
-	io_sel = (pordevsr & MPC85xx_PORDEVSR_IO_SEL) >> 19;
+	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *) CFG_PCI1_ADDR;
+	extern void fsl_pci_init(struct pci_controller *hose);
+	struct pci_controller *hose = &pci1_hose;
 
-	debug ("   pci_init_board: devdisr=%x, io_sel=%x\n", devdisr, io_sel);
+	uint pci_32 = 1;      /* PORDEVSR[15] */
+	uint pci_arb = gur->pordevsr & MPC85xx_PORDEVSR_PCI1_ARB;       /* PORDEVSR[14] */
+	uint pci_clk_sel = gur->porpllsr & MPC85xx_PORDEVSR_PCI1_SPD;   /* PORPLLSR[16] */
 
-	pci_speed = 66666000;
-	pci_32 = 1;
-	pci_arb = pordevsr & MPC85xx_PORDEVSR_PCI1_ARB;
-	pci_clk_sel = porpllsr & MPC85xx_PORDEVSR_PCI1_SPD;
+	uint pci_agent = (host_agent == 3) || (host_agent == 4 ) || (host_agent == 6);
 
-	if (!(devdisr & MPC85xx_DEVDISR_PCI1)) {
-		SET_STD_PCI_INFO(pci_info, 1);
-		set_next_law(pci_info.mem_phys,
-			law_size_bits(pci_info.mem_size), pci_info.law);
-		set_next_law(pci_info.io_phys,
-			law_size_bits(pci_info.io_size), pci_info.law);
+	uint pci_speed = 66666000;
 
-		pci_agent = fsl_setup_hose(&pci1_hose, pci_info.regs);
-		printf("PCI: %d bit, %s MHz, %s, %s, %s (base address %lx)\n",
+	if (!(gur->devdisr & MPC85xx_DEVDISR_PCI1)) {
+		printf ("    PCI: %d bit, %s MHz, %s, %s, %s\n",
 			(pci_32) ? 32 : 64,
 			(pci_speed == 33333000) ? "33" :
 			(pci_speed == 66666000) ? "66" : "unknown",
 			pci_clk_sel ? "sync" : "async",
 			pci_agent ? "agent" : "host",
-			pci_arb ? "arbiter" : "external-arbiter",
-			pci_info.regs);
+			pci_arb ? "arbiter" : "external-arbiter"
+			);
 
-#ifndef CONFIG_PCI_PNP
-		pci1_hose.config_table = pci_mpc8568mds_config_table;
-#endif
-		first_free_busno = fsl_pci_init_port(&pci_info,
-					&pci1_hose, first_free_busno);
+		/* inbound */
+		pci_set_region(hose->regions + 0,
+				CFG_PCI_MEMORY_BUS,
+				CFG_PCI_MEMORY_PHYS,
+				CFG_PCI_MEMORY_SIZE,
+				PCI_REGION_MEM | PCI_REGION_MEMORY);
+
+		/* outbound memory */
+		pci_set_region(hose->regions + 1,
+				CFG_PCI1_MEM_BASE,
+				CFG_PCI1_MEM_PHYS,
+				CFG_PCI1_MEM_SIZE,
+				PCI_REGION_MEM);
+
+		/* outbound io */
+		pci_set_region(hose->regions + 2,
+				CFG_PCI1_IO_BASE,
+				CFG_PCI1_IO_PHYS,
+				CFG_PCI1_IO_SIZE,
+				PCI_REGION_IO);
+
+		hose->region_count = 3;
+
+		hose->first_busno = first_free_busno;
+		pci_setup_indirect(hose, (int) &pci->cfg_addr, (int) &pci->cfg_data);
+
+		fsl_pci_init(hose);
+		first_free_busno = hose->last_busno+1;
+		printf ("PCI on bus %02x - %02x\n",hose->first_busno,hose->last_busno);
 	} else {
-		printf("PCI: disabled\n");
+	printf ("    PCI: disabled\n");
 	}
-
-	puts("\n");
+}
 #else
-	setbits_be32(&gur->devdisr, MPC85xx_DEVDISR_PCI1); /* disable */
+	gur->devdisr |= MPC85xx_DEVDISR_PCI1; /* disable */
 #endif
 
-	fsl_pcie_init_board(first_free_busno);
+#ifdef CONFIG_PCIE1
+{
+	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *) CFG_PCIE1_ADDR;
+	extern void fsl_pci_init(struct pci_controller *hose);
+	struct pci_controller *hose = &pcie1_hose;
+	int pcie_ep =  (host_agent == 0) || (host_agent == 2 ) || (host_agent == 3);
+
+	int pcie_configured  = io_sel >= 1;
+
+	if (pcie_configured && !(gur->devdisr & MPC85xx_DEVDISR_PCIE)){
+		printf ("\n    PCIE connected to slot as %s (base address %x)",
+			pcie_ep ? "End Point" : "Root Complex",
+			(uint)pci);
+
+		if (pci->pme_msg_det) {
+			pci->pme_msg_det = 0xffffffff;
+			debug (" with errors.  Clearing.  Now 0x%08x",pci->pme_msg_det);
+		}
+		printf ("\n");
+
+		/* inbound */
+		pci_set_region(hose->regions + 0,
+				CFG_PCI_MEMORY_BUS,
+				CFG_PCI_MEMORY_PHYS,
+				CFG_PCI_MEMORY_SIZE,
+				PCI_REGION_MEM | PCI_REGION_MEMORY);
+
+		/* outbound memory */
+		pci_set_region(hose->regions + 1,
+				CFG_PCIE1_MEM_BASE,
+				CFG_PCIE1_MEM_PHYS,
+				CFG_PCIE1_MEM_SIZE,
+				PCI_REGION_MEM);
+
+		/* outbound io */
+		pci_set_region(hose->regions + 2,
+				CFG_PCIE1_IO_BASE,
+				CFG_PCIE1_IO_PHYS,
+				CFG_PCIE1_IO_SIZE,
+				PCI_REGION_IO);
+
+		hose->region_count = 3;
+
+		hose->first_busno=first_free_busno;
+		pci_setup_indirect(hose, (int) &pci->cfg_addr, (int) &pci->cfg_data);
+
+		fsl_pci_init(hose);
+		printf ("PCIE on bus %02x - %02x\n",hose->first_busno,hose->last_busno);
+
+		first_free_busno=hose->last_busno+1;
+
+	} else {
+		printf ("    PCIE: disabled\n");
+	}
+}
+#else
+	gur->devdisr |= MPC85xx_DEVDISR_PCIE; /* disable */
+#endif
 }
 #endif /* CONFIG_PCI */
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void
+ft_board_setup(void *blob, bd_t *bd)
 {
+	int node, tmp[2];
+	const char *path;
+
 	ft_cpu_setup(blob, bd);
 
-	FT_FSL_PCI_SETUP;
-
-	return 0;
+	node = fdt_path_offset(blob, "/aliases");
+	tmp[0] = 0;
+	if (node >= 0) {
+#ifdef CONFIG_PCI1
+		path = fdt_getprop(blob, node, "pci0", NULL);
+		if (path) {
+			tmp[1] = pci1_hose.last_busno - pci1_hose.first_busno;
+			do_fixup_by_path(blob, path, "bus-range", &tmp, 8, 1);
+		}
+#endif
+#ifdef CONFIG_PCIE1
+		path = fdt_getprop(blob, node, "pci1", NULL);
+		if (path) {
+			tmp[1] = pcie1_hose.last_busno - pcie1_hose.first_busno;
+			do_fixup_by_path(blob, path, "bus-range", &tmp, 8, 1);
+		}
+#endif
+	}
 }
 #endif

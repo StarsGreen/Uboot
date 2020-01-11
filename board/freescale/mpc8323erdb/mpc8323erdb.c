@@ -66,18 +66,23 @@ const qe_iop_conf_t qe_iop_conf_tab[] = {
 	{0,  0, 0, 0, QE_IOP_TAB_END}, /* END of table */
 };
 
+int board_early_init_f(void)
+{
+	return 0;
+}
+
 int fixed_sdram(void);
 
 phys_size_t initdram(int board_type)
 {
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	u32 msize = 0;
 
 	if ((im->sysconf.immrbar & IMMRBAR_BASE_ADDR) != (u32) im)
 		return -1;
 
 	/* DDR SDRAM - Main SODIMM */
-	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_DDR_BASE & LAWBAR_BAR;
+	im->sysconf.ddrlaw[0].bar = CFG_DDR_BASE & LAWBAR_BAR;
 
 	msize = fixed_sdram();
 
@@ -90,12 +95,12 @@ phys_size_t initdram(int board_type)
  ************************************************************************/
 int fixed_sdram(void)
 {
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	u32 msize = 0;
 	u32 ddr_size;
 	u32 ddr_size_log2;
 
-	msize = CONFIG_SYS_DDR_SIZE;
+	msize = CFG_DDR_SIZE;
 	for (ddr_size = msize << 20, ddr_size_log2 = 0;
 	     (ddr_size > 1); ddr_size = ddr_size >> 1, ddr_size_log2++) {
 		if (ddr_size & 1) {
@@ -104,18 +109,18 @@ int fixed_sdram(void)
 	}
 	im->sysconf.ddrlaw[0].ar =
 	    LAWAR_EN | ((ddr_size_log2 - 1) & LAWAR_SIZE);
-	im->ddr.sdram_clk_cntl = CONFIG_SYS_DDR_CLK_CNTL;
-	im->ddr.csbnds[0].csbnds = CONFIG_SYS_DDR_CS0_BNDS;
-	im->ddr.cs_config[0] = CONFIG_SYS_DDR_CS0_CONFIG;
-	im->ddr.timing_cfg_0 = CONFIG_SYS_DDR_TIMING_0;
-	im->ddr.timing_cfg_1 = CONFIG_SYS_DDR_TIMING_1;
-	im->ddr.timing_cfg_2 = CONFIG_SYS_DDR_TIMING_2;
-	im->ddr.timing_cfg_3 = CONFIG_SYS_DDR_TIMING_3;
-	im->ddr.sdram_cfg = CONFIG_SYS_DDR_SDRAM_CFG;
-	im->ddr.sdram_cfg2 = CONFIG_SYS_DDR_SDRAM_CFG2;
-	im->ddr.sdram_mode = CONFIG_SYS_DDR_MODE;
-	im->ddr.sdram_mode2 = CONFIG_SYS_DDR_MODE2;
-	im->ddr.sdram_interval = CONFIG_SYS_DDR_INTERVAL;
+	im->ddr.sdram_clk_cntl = CFG_DDR_CLK_CNTL;
+	im->ddr.csbnds[0].csbnds = CFG_DDR_CS0_BNDS;
+	im->ddr.cs_config[0] = CFG_DDR_CS0_CONFIG;
+	im->ddr.timing_cfg_0 = CFG_DDR_TIMING_0;
+	im->ddr.timing_cfg_1 = CFG_DDR_TIMING_1;
+	im->ddr.timing_cfg_2 = CFG_DDR_TIMING_2;
+	im->ddr.timing_cfg_3 = CFG_DDR_TIMING_3;
+	im->ddr.sdram_cfg = CFG_DDR_SDRAM_CFG;
+	im->ddr.sdram_cfg2 = CFG_DDR_SDRAM_CFG2;
+	im->ddr.sdram_mode = CFG_DDR_MODE;
+	im->ddr.sdram_mode2 = CFG_DDR_MODE2;
+	im->ddr.sdram_interval = CFG_DDR_INTERVAL;
 	__asm__ __volatile__ ("sync");
 	udelay(200);
 
@@ -132,28 +137,28 @@ int checkboard(void)
 
 static struct pci_region pci_regions[] = {
 	{
-		bus_start: CONFIG_SYS_PCI1_MEM_BASE,
-		phys_start: CONFIG_SYS_PCI1_MEM_PHYS,
-		size: CONFIG_SYS_PCI1_MEM_SIZE,
+		bus_start: CFG_PCI1_MEM_BASE,
+		phys_start: CFG_PCI1_MEM_PHYS,
+		size: CFG_PCI1_MEM_SIZE,
 		flags: PCI_REGION_MEM | PCI_REGION_PREFETCH
 	},
 	{
-		bus_start: CONFIG_SYS_PCI1_MMIO_BASE,
-		phys_start: CONFIG_SYS_PCI1_MMIO_PHYS,
-		size: CONFIG_SYS_PCI1_MMIO_SIZE,
+		bus_start: CFG_PCI1_MMIO_BASE,
+		phys_start: CFG_PCI1_MMIO_PHYS,
+		size: CFG_PCI1_MMIO_SIZE,
 		flags: PCI_REGION_MEM
 	},
 	{
-		bus_start: CONFIG_SYS_PCI1_IO_BASE,
-		phys_start: CONFIG_SYS_PCI1_IO_PHYS,
-		size: CONFIG_SYS_PCI1_IO_SIZE,
+		bus_start: CFG_PCI1_IO_BASE,
+		phys_start: CFG_PCI1_IO_PHYS,
+		size: CFG_PCI1_IO_SIZE,
 		flags: PCI_REGION_IO
 	}
 };
 
 void pci_init_board(void)
 {
-	volatile immap_t *immr = (volatile immap_t *)CONFIG_SYS_IMMR;
+	volatile immap_t *immr = (volatile immap_t *)CFG_IMMR;
 	volatile clk83xx_t *clk = (volatile clk83xx_t *)&immr->clk;
 	volatile law83xx_t *pci_law = immr->sysconf.pcilaw;
 	struct pci_region *reg[] = { pci_regions };
@@ -162,28 +167,26 @@ void pci_init_board(void)
 	clk->occr |= 0xe0000000;
 
 	/* Configure PCI Local Access Windows */
-	pci_law[0].bar = CONFIG_SYS_PCI1_MEM_PHYS & LAWBAR_BAR;
+	pci_law[0].bar = CFG_PCI1_MEM_PHYS & LAWBAR_BAR;
 	pci_law[0].ar = LBLAWAR_EN | LBLAWAR_512MB;
 
-	pci_law[1].bar = CONFIG_SYS_PCI1_IO_PHYS & LAWBAR_BAR;
+	pci_law[1].bar = CFG_PCI1_IO_PHYS & LAWBAR_BAR;
 	pci_law[1].ar = LBLAWAR_EN | LBLAWAR_1MB;
 
-	mpc83xx_pci_init(1, reg);
+	mpc83xx_pci_init(1, reg, 0);
 }
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
 #ifdef CONFIG_PCI
 	ft_pci_setup(blob, bd);
 #endif
-
-	return 0;
 }
 #endif
 
-#if defined(CONFIG_SYS_I2C_MAC_OFFSET)
+#if defined(CFG_I2C_MAC_OFFSET)
 int mac_read_from_eeprom(void)
 {
 	uchar buf[28];
@@ -193,15 +196,11 @@ int mac_read_from_eeprom(void)
 	unsigned char enetvar[32];
 
 	/* Read MAC addresses from EEPROM */
-	if (eeprom_read(CONFIG_SYS_I2C_EEPROM_ADDR, CONFIG_SYS_I2C_MAC_OFFSET, buf, 28)) {
+	if (eeprom_read(CFG_I2C_EEPROM_ADDR, CFG_I2C_MAC_OFFSET, buf, 28)) {
 		printf("\nEEPROM @ 0x%02x read FAILED!!!\n",
-		       CONFIG_SYS_I2C_EEPROM_ADDR);
+		       CFG_I2C_EEPROM_ADDR);
 	} else {
-		uint32_t crc_buf;
-
-		memcpy(&crc_buf, &buf[24], sizeof(uint32_t));
-
-		if (crc32(crc, buf, 24) == crc_buf) {
+		if (crc32(crc, buf, 24) == *(unsigned int *)&buf[24]) {
 			printf("Reading MAC from EEPROM\n");
 			for (i = 0; i < 4; i++) {
 				if (memcmp(&buf[i * 6], "\0\0\0\0\0\0", 6)) {

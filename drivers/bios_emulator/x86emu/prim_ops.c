@@ -100,6 +100,9 @@
 #include <common.h>
 
 #define PRIM_OPS_NO_REDEFINE_ASM
+
+#if defined(CONFIG_BIOSEMU)
+
 #include "x86emu/x86emui.h"
 
 /*------------------------- Global Variables ------------------------------*/
@@ -118,6 +121,11 @@ static u32 x86emu_parity_tab[8] =
 
 #define PARITY(x)   (((x86emu_parity_tab[(x) / 32] >> ((x) % 32)) & 1) == 0)
 #define XOR2(x)	    (((x) ^ ((x)>>1)) & 0x1)
+/*----------------------------- Implementation ----------------------------*/
+int abs(int v)
+{
+	return (v>0)?v:-v;
+}
 
 /*----------------------------- Implementation ----------------------------*/
 
@@ -2440,3 +2448,5 @@ DB( if (CHECK_SP_ACCESS())
     M.x86.R_SP += 4;
     return res;
 }
+
+#endif

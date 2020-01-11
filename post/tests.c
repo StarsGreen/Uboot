@@ -2,10 +2,26 @@
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Be sure to mark tests to be run before relocation as such with the
- * CONFIG_SYS_POST_PREREL flag so that logging is done correctly if the
+ * CFG_POST_PREREL flag so that logging is done correctly if the
  * logbuffer support is enabled.
  */
 
@@ -30,7 +46,6 @@ extern int sysmon_post_test (int flags);
 extern int dsp_post_test (int flags);
 extern int codec_post_test (int flags);
 extern int ecc_post_test (int flags);
-extern int flash_post_test(int flags);
 
 extern int dspic_init_post_test (int flags);
 extern int dspic_post_test (int flags);
@@ -38,10 +53,6 @@ extern int gdc_post_test (int flags);
 extern int fpga_post_test (int flags);
 extern int lwmon5_watchdog_post_test(int flags);
 extern int sysmon1_post_test(int flags);
-extern int coprocessor_post_test(int flags);
-extern int led_post_test(int flags);
-extern int button_post_test(int flags);
-extern int memory_regions_post_test(int flags);
 
 extern int sysmon_init_f (void);
 
@@ -50,7 +61,7 @@ extern void sysmon_reloc (void);
 
 struct post_test post_list[] =
 {
-#if CONFIG_POST & CONFIG_SYS_POST_OCM
+#if CONFIG_POST & CFG_POST_OCM
     {
 	"OCM test",
 	"ocm",
@@ -59,10 +70,10 @@ struct post_test post_list[] =
 	&ocm_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_OCM
+	CFG_POST_OCM
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_CACHE
+#if CONFIG_POST & CFG_POST_CACHE
     {
 	"Cache test",
 	"cache",
@@ -71,10 +82,10 @@ struct post_test post_list[] =
 	&cache_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_CACHE
+	CFG_POST_CACHE
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_WATCHDOG
+#if CONFIG_POST & CFG_POST_WATCHDOG
 #if defined(CONFIG_POST_WATCHDOG)
 	CONFIG_POST_WATCHDOG,
 #else
@@ -86,11 +97,11 @@ struct post_test post_list[] =
 	&watchdog_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_WATCHDOG
+	CFG_POST_WATCHDOG
     },
 #endif
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_I2C
+#if CONFIG_POST & CFG_POST_I2C
     {
 	"I2C test",
 	"i2c",
@@ -99,10 +110,10 @@ struct post_test post_list[] =
 	&i2c_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_I2C
+	CFG_POST_I2C
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_RTC
+#if CONFIG_POST & CFG_POST_RTC
     {
 	"RTC test",
 	"rtc",
@@ -111,10 +122,10 @@ struct post_test post_list[] =
 	&rtc_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_RTC
+	CFG_POST_RTC
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_MEMORY
+#if CONFIG_POST & CFG_POST_MEMORY
     {
 	"Memory test",
 	"memory",
@@ -123,10 +134,10 @@ struct post_test post_list[] =
 	&memory_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_MEMORY
+	CFG_POST_MEMORY
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_CPU
+#if CONFIG_POST & CFG_POST_CPU
     {
 	"CPU test",
 	"cpu",
@@ -136,10 +147,10 @@ struct post_test post_list[] =
 	&cpu_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_CPU
+	CFG_POST_CPU
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_FPU
+#if CONFIG_POST & CFG_POST_FPU
     {
 	"FPU test",
 	"fpu",
@@ -149,13 +160,10 @@ struct post_test post_list[] =
 	&fpu_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_FPU
+	CFG_POST_FPU
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_UART
-#if defined(CONFIG_POST_UART)
-	CONFIG_POST_UART,
-#else
+#if CONFIG_POST & CFG_POST_UART
     {
 	"UART test",
 	"uart",
@@ -164,11 +172,10 @@ struct post_test post_list[] =
 	&uart_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_UART
+	CFG_POST_UART
     },
-#endif /* CONFIG_POST_UART */
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_ETHER
+#if CONFIG_POST & CFG_POST_ETHER
     {
 	"ETHERNET test",
 	"ethernet",
@@ -177,10 +184,10 @@ struct post_test post_list[] =
 	&ether_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_ETHER
+	CFG_POST_ETHER
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_SPI
+#if CONFIG_POST & CFG_POST_SPI
     {
 	"SPI test",
 	"spi",
@@ -189,10 +196,10 @@ struct post_test post_list[] =
 	&spi_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_SPI
+	CFG_POST_SPI
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_USB
+#if CONFIG_POST & CFG_POST_USB
     {
 	"USB test",
 	"usb",
@@ -201,10 +208,10 @@ struct post_test post_list[] =
 	&usb_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_USB
+	CFG_POST_USB
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_SPR
+#if CONFIG_POST & CFG_POST_SPR
     {
 	"SPR test",
 	"spr",
@@ -213,10 +220,10 @@ struct post_test post_list[] =
 	&spr_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_SPR
+	CFG_POST_SPR
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_SYSMON
+#if CONFIG_POST & CFG_POST_SYSMON
     {
 	"SYSMON test",
 	"sysmon",
@@ -225,10 +232,10 @@ struct post_test post_list[] =
 	&sysmon_post_test,
 	&sysmon_init_f,
 	&sysmon_reloc,
-	CONFIG_SYS_POST_SYSMON
+	CFG_POST_SYSMON
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_DSP
+#if CONFIG_POST & CFG_POST_DSP
     {
 	"DSP test",
 	"dsp",
@@ -237,10 +244,10 @@ struct post_test post_list[] =
 	&dsp_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_DSP
+	CFG_POST_DSP
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_CODEC
+#if CONFIG_POST & CFG_POST_CODEC
     {
 	"CODEC test",
 	"codec",
@@ -249,10 +256,10 @@ struct post_test post_list[] =
 	&codec_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_CODEC
+	CFG_POST_CODEC
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_ECC
+#if CONFIG_POST & CFG_POST_ECC
     {
 	"ECC test",
 	"ecc",
@@ -261,60 +268,24 @@ struct post_test post_list[] =
 	&ecc_post_test,
 	NULL,
 	NULL,
-	CONFIG_SYS_POST_ECC
+	CFG_POST_ECC
     },
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_BSPEC1
+#if CONFIG_POST & CFG_POST_BSPEC1
 	CONFIG_POST_BSPEC1,
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_BSPEC2
+#if CONFIG_POST & CFG_POST_BSPEC2
 	CONFIG_POST_BSPEC2,
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_BSPEC3
+#if CONFIG_POST & CFG_POST_BSPEC3
 	CONFIG_POST_BSPEC3,
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_BSPEC4
+#if CONFIG_POST & CFG_POST_BSPEC4
 	CONFIG_POST_BSPEC4,
 #endif
-#if CONFIG_POST & CONFIG_SYS_POST_BSPEC5
+#if CONFIG_POST & CFG_POST_BSPEC5
 	CONFIG_POST_BSPEC5,
-#endif
-#if CONFIG_POST & CONFIG_SYS_POST_COPROC
-    {
-	"Coprocessors communication test",
-	"coproc_com",
-	"This test checks communication with coprocessors.",
-	POST_RAM | POST_ALWAYS | POST_CRITICAL,
-	&coprocessor_post_test,
-	NULL,
-	NULL,
-	CONFIG_SYS_POST_COPROC
-    },
-#endif
-#if CONFIG_POST & CONFIG_SYS_POST_FLASH
-    {
-	"Parallel NOR flash test",
-	"flash",
-	"This test verifies parallel flash operations.",
-	POST_RAM | POST_SLOWTEST | POST_MANUAL,
-	&flash_post_test,
-	NULL,
-	NULL,
-	CONFIG_SYS_POST_FLASH
-    },
-#endif
-#if CONFIG_POST & CONFIG_SYS_POST_MEM_REGIONS
-    {
-	"Memory regions test",
-	"mem_regions",
-	"This test checks regularly placed regions of the RAM.",
-	POST_ROM | POST_SLOWTEST | POST_PREREL,
-	&memory_regions_post_test,
-	NULL,
-	NULL,
-	CONFIG_SYS_POST_MEM_REGIONS
-    },
 #endif
 };
 
-unsigned int post_list_size = ARRAY_SIZE(post_list);
+unsigned int post_list_size = sizeof (post_list) / sizeof (struct post_test);

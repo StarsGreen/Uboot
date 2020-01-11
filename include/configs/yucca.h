@@ -1,7 +1,23 @@
 /*
  * (C) Copyright 2004 Paul Reynolds <PaulReynolds@lhsolutions.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /************************************************************************
@@ -18,17 +34,15 @@
 /*-----------------------------------------------------------------------
  * High Level Configuration Options
  *----------------------------------------------------------------------*/
+#define CONFIG_4xx			1	/* ... PPC4xx family	*/
 #define CONFIG_440			1	/* ... PPC440 family	*/
 #define CONFIG_440SPE			1	/* Specifc SPe support	*/
-#define CONFIG_440SPE_REVA		1	/* Support old Rev A.	*/
 #define CONFIG_BOARD_EARLY_INIT_F	1	/* Call board_pre_init	*/
 #define CONFIG_SYS_CLK_FREQ	33333333	/* external freq to pll	*/
 #define EXTCLK_33_33		33333333
 #define EXTCLK_66_66		66666666
 #define EXTCLK_50		50000000
 #define EXTCLK_83		83333333
-
-#define	CONFIG_SYS_TEXT_BASE	0xfffb0000
 
 /*
  * Include common defines/options for all AMCC eval boards
@@ -44,54 +58,58 @@
  * Base addresses -- Note these are effective addresses where the
  * actual resources get mapped (not physical addresses)
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_FLASH_BASE		0xfff00000	/* start of FLASH	*/
-#define CONFIG_SYS_ISRAM_BASE		0x90000000	/* internal SRAM	*/
+#define CFG_FLASH_BASE		0xfff00000	/* start of FLASH	*/
+#define CFG_PERIPHERAL_BASE	0xa0000000	/* internal peripherals	*/
+#define CFG_ISRAM_BASE		0x90000000	/* internal SRAM	*/
 
-#define CONFIG_SYS_PCI_MEMBASE		0x80000000	/* mapped PCI memory	*/
-#define CONFIG_SYS_PCI_BASE		0xd0000000	/* internal PCI regs	*/
-#define CONFIG_SYS_PCI_TARGBASE	CONFIG_SYS_PCI_MEMBASE
+#define CFG_PCI_MEMBASE		0x80000000	/* mapped PCI memory	*/
+#define CFG_PCI_BASE		0xd0000000	/* internal PCI regs	*/
+#define CFG_PCI_TARGBASE	CFG_PCI_MEMBASE
 
-#define CONFIG_SYS_PCIE_MEMBASE	0xb0000000	/* mapped PCIe memory	*/
-#define CONFIG_SYS_PCIE_MEMSIZE	0x08000000	/* smallest incr for PCIe port */
-#define CONFIG_SYS_PCIE_BASE		0xe0000000	/* PCIe UTL regs */
+#define CFG_PCIE_MEMBASE	0xb0000000	/* mapped PCIe memory	*/
+#define CFG_PCIE_MEMSIZE	0x08000000	/* smallest incr for PCIe port */
+#define CFG_PCIE_BASE		0xe0000000	/* PCIe UTL regs */
 
-#define CONFIG_SYS_PCIE0_CFGBASE	0xc0000000
-#define CONFIG_SYS_PCIE1_CFGBASE	0xc1000000
-#define CONFIG_SYS_PCIE2_CFGBASE	0xc2000000
-#define CONFIG_SYS_PCIE0_XCFGBASE	0xc3000000
-#define CONFIG_SYS_PCIE1_XCFGBASE	0xc3001000
-#define CONFIG_SYS_PCIE2_XCFGBASE	0xc3002000
+#define CFG_PCIE0_CFGBASE	0xc0000000
+#define CFG_PCIE1_CFGBASE	0xc1000000
+#define CFG_PCIE2_CFGBASE	0xc2000000
+#define CFG_PCIE0_XCFGBASE	0xc3000000
+#define CFG_PCIE1_XCFGBASE	0xc3001000
+#define CFG_PCIE2_XCFGBASE	0xc3002000
 
 /* base address of inbound PCIe window */
-#define CONFIG_SYS_PCIE_INBOUND_BASE	0x0000000400000000ULL
+#define CFG_PCIE_INBOUND_BASE	0x0000000400000000ULL
 
 /* System RAM mapped to PCI space */
-#define CONFIG_PCI_SYS_MEM_BUS	CONFIG_SYS_SDRAM_BASE
-#define CONFIG_PCI_SYS_MEM_PHYS	CONFIG_SYS_SDRAM_BASE
+#define CONFIG_PCI_SYS_MEM_BUS	CFG_SDRAM_BASE
+#define CONFIG_PCI_SYS_MEM_PHYS	CFG_SDRAM_BASE
 #define CONFIG_PCI_SYS_MEM_SIZE	(1024 * 1024 * 1024)
 
-#define CONFIG_SYS_FPGA_BASE		0xe2000000	/* epld			*/
-#define CONFIG_SYS_OPER_FLASH		0xe7000000	/* SRAM - OPER Flash	*/
+#define CFG_FPGA_BASE		0xe2000000	/* epld			*/
+#define CFG_OPER_FLASH		0xe7000000	/* SRAM - OPER Flash	*/
 
-/* #define CONFIG_SYS_NVRAM_BASE_ADDR 0x08000000 */
+/* #define CFG_NVRAM_BASE_ADDR 0x08000000 */
 /*-----------------------------------------------------------------------
  * Initial RAM & stack pointer (placed in internal SRAM)
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_TEMP_STACK_OCM	1
-#define CONFIG_SYS_OCM_DATA_ADDR	CONFIG_SYS_ISRAM_BASE
-#define CONFIG_SYS_INIT_RAM_ADDR	CONFIG_SYS_ISRAM_BASE	/* Initial RAM address	*/
-#define CONFIG_SYS_INIT_RAM_SIZE	0x2000		/* Size of used area in RAM */
+#define CFG_TEMP_STACK_OCM	1
+#define CFG_OCM_DATA_ADDR	CFG_ISRAM_BASE
+#define CFG_INIT_RAM_ADDR	CFG_ISRAM_BASE	/* Initial RAM address	*/
+#define CFG_INIT_RAM_END	0x2000		/* End of used area in RAM */
+#define CFG_GBL_DATA_SIZE	128		/* num bytes initial data */
 
-#define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_INIT_SP_OFFSET	(CONFIG_SYS_GBL_DATA_OFFSET - 0x4)
+#define CFG_GBL_DATA_OFFSET	(CFG_INIT_RAM_END - CFG_GBL_DATA_SIZE)
+#define CFG_POST_WORD_ADDR	(CFG_GBL_DATA_OFFSET - 0x4)
+#define CFG_INIT_SP_OFFSET	CFG_POST_WORD_ADDR
 
 /*-----------------------------------------------------------------------
  * Serial Port
  *----------------------------------------------------------------------*/
-#define CONFIG_CONS_INDEX	1	/* Use UART0			*/
+#undef CONFIG_UART1_CONSOLE
 
-#undef CONFIG_SYS_EXT_SERIAL_CLOCK
-/* #define CONFIG_SYS_EXT_SERIAL_CLOCK	(1843200 * 6) */ /* Ext clk @ 11.059 MHz */
+#undef	CONFIG_SERIAL_SOFTWARE_FIFO
+#undef CFG_EXT_SERIAL_CLOCK
+/* #define CFG_EXT_SERIAL_CLOCK	(1843200 * 6) */ /* Ext clk @ 11.059 MHz */
 
 /*-----------------------------------------------------------------------
  * DDR SDRAM
@@ -103,27 +121,27 @@
 /*-----------------------------------------------------------------------
  * I2C
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		400000
+#define CFG_I2C_SPEED		400000	/* I2C speed and slave address	*/
 
 #define IIC0_BOOTPROM_ADDR	0x50
 #define IIC0_ALT_BOOTPROM_ADDR	0x54
 
 /* Don't probe these addrs */
-#define CONFIG_SYS_I2C_NOPROBES	{ {0, 0x50}, {0, 0x52}, {0, 0x53}, {0, 0x54} }
+#define CFG_I2C_NOPROBES	{0x50, 0x52, 0x53, 0x54}
 
 /* #if defined(CONFIG_CMD_EEPROM) */
-/* #define CONFIG_SYS_I2C_EEPROM_ADDR	0x50 */	/* I2C boot EEPROM		*/
-#define CONFIG_SYS_I2C_EEPROM_ADDR_LEN	2	/* Bytes of address		*/
+/* #define CFG_I2C_EEPROM_ADDR	0x50 */	/* I2C boot EEPROM		*/
+#define CFG_I2C_EEPROM_ADDR_LEN	2	/* Bytes of address		*/
 /* #endif */
 
 /*-----------------------------------------------------------------------
  * Environment
  *----------------------------------------------------------------------*/
-/* #define CONFIG_SYS_NVRAM_SIZE	(0x2000 - 8) */	/* NVRAM size(8k)- RTC regs */
+/* #define CFG_NVRAM_SIZE	(0x2000 - 8) */	/* NVRAM size(8k)- RTC regs */
 
-#undef  CONFIG_ENV_IS_IN_NVRAM		/* ... not in NVRAM		*/
-#define	CONFIG_ENV_IS_IN_FLASH	1	/* Environment uses flash	*/
-#undef	CONFIG_ENV_IS_IN_EEPROM		/* ... not in EEPROM		*/
+#undef  CFG_ENV_IS_IN_NVRAM		/* ... not in NVRAM		*/
+#define	CFG_ENV_IS_IN_FLASH	1	/* Environment uses flash	*/
+#undef	CFG_ENV_IS_IN_EEPROM		/* ... not in EEPROM		*/
 #define CONFIG_ENV_OVERWRITE	1
 
 /*
@@ -156,44 +174,43 @@
 /*-----------------------------------------------------------------------
  * FLASH related
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_MAX_FLASH_BANKS	3	/* number of banks		*/
-#define CONFIG_SYS_MAX_FLASH_SECT	256	/* sectors per device		*/
+#define CFG_MAX_FLASH_BANKS	3	/* number of banks		*/
+#define CFG_MAX_FLASH_SECT	256	/* sectors per device		*/
 
-#undef	CONFIG_SYS_FLASH_CHECKSUM
-#define CONFIG_SYS_FLASH_ERASE_TOUT	120000	/* Timeout for Flash Erase (in ms) */
-#define CONFIG_SYS_FLASH_WRITE_TOUT	500	/* Timeout for Flash Write (in ms) */
+#undef	CFG_FLASH_CHECKSUM
+#define CFG_FLASH_ERASE_TOUT	120000	/* Timeout for Flash Erase (in ms) */
+#define CFG_FLASH_WRITE_TOUT	500	/* Timeout for Flash Write (in ms) */
 
-#define CONFIG_SYS_FLASH_ADDR0		0x5555
-#define CONFIG_SYS_FLASH_ADDR1		0x2aaa
-#define CONFIG_SYS_FLASH_WORD_SIZE	unsigned char
+#define CFG_FLASH_ADDR0		0x5555
+#define CFG_FLASH_ADDR1		0x2aaa
+#define CFG_FLASH_WORD_SIZE	unsigned char
 
-#define CONFIG_SYS_FLASH_2ND_16BIT_DEV	1	/* evb440SPe has 8 and 16bit device */
-#define CONFIG_SYS_FLASH_2ND_ADDR	0xe7c00000 /* evb440SPe has 8 and 16bit device*/
+#define CFG_FLASH_2ND_16BIT_DEV	1	/* evb440SPe has 8 and 16bit device */
+#define CFG_FLASH_2ND_ADDR	0xe7c00000 /* evb440SPe has 8 and 16bit device*/
 
-#ifdef CONFIG_ENV_IS_IN_FLASH
-#define CONFIG_ENV_SECT_SIZE	0x10000	/* size of one complete sector	*/
-#define CONFIG_ENV_ADDR		0xfffa0000
-/* #define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE-CONFIG_ENV_SECT_SIZE) */
-#define CONFIG_ENV_SIZE		0x10000	/* Size of Environment vars	*/
-#endif /* CONFIG_ENV_IS_IN_FLASH */
+#ifdef CFG_ENV_IS_IN_FLASH
+#define CFG_ENV_SECT_SIZE	0x10000	/* size of one complete sector	*/
+#define CFG_ENV_ADDR		0xfffa0000
+/* #define CFG_ENV_ADDR		(CFG_MONITOR_BASE-CFG_ENV_SECT_SIZE) */
+#define CFG_ENV_SIZE		0x10000	/* Size of Environment vars	*/
+#endif /* CFG_ENV_IS_IN_FLASH */
 /*-----------------------------------------------------------------------
  * PCI stuff
  *-----------------------------------------------------------------------
  */
 /* General PCI */
 #define CONFIG_PCI			/* include pci support		*/
-#define CONFIG_PCI_INDIRECT_BRIDGE	/* indirect PCI bridge support */
 #define CONFIG_PCI_PNP		1	/* do pci plug-and-play		*/
 #define CONFIG_PCI_SCAN_SHOW	1	/* show pci devices on startup	*/
 #define CONFIG_PCI_CONFIG_HOST_BRIDGE
 
 /* Board-specific PCI */
-#define CONFIG_SYS_PCI_TARGET_INIT		/* let board init pci target    */
-#undef	CONFIG_SYS_PCI_MASTER_INIT
+#define CFG_PCI_TARGET_INIT		/* let board init pci target    */
+#undef	CFG_PCI_MASTER_INIT
 
-#define CONFIG_SYS_PCI_SUBSYS_VENDORID 0x1014	/* IBM				*/
-#define CONFIG_SYS_PCI_SUBSYS_DEVICEID 0xcafe	/* Whatever			*/
-/* #define CONFIG_SYS_PCI_SUBSYS_ID	CONFIG_SYS_PCI_SUBSYS_DEVICEID */
+#define CFG_PCI_SUBSYS_VENDORID 0x1014	/* IBM				*/
+#define CFG_PCI_SUBSYS_DEVICEID 0xcafe	/* Whatever			*/
+/* #define CFG_PCI_SUBSYS_ID	CFG_PCI_SUBSYS_DEVICEID */
 
 /*
  *  NETWORK Support (PCI):
@@ -372,11 +389,6 @@
 #define FPGA_REG1A_PE_SELSOURCE_0	0x0002
 #define FPGA_REG1A_PE_SELSOURCE_1	0x0001
 
-#define FPGA_REG1A_GLED_ENCODE(n)	(FPGA_REG1A_PE0_GLED >> (n))
-#define FPGA_REG1A_YLED_ENCODE(n)	(FPGA_REG1A_PE0_YLED >> (n))
-#define FPGA_REG1A_PWRON_ENCODE(n)	(FPGA_REG1A_PE0_PWRON >> (n))
-#define FPGA_REG1A_REFCLK_ENCODE(n)	(FPGA_REG1A_PE0_REFCLK_ENABLE >> (n))
-
 /*----------------------------------------------------------------------------+
 | PCIe Miscellaneous
 +----------------------------------------------------------------------------*/
@@ -394,9 +406,6 @@
 #define FPGA_REG1C_PE0_PERST		0x0010
 #define FPGA_REG1C_PE1_PERST		0x0008
 #define FPGA_REG1C_PE2_PERST		0x0004
-
-#define FPGA_REG1C_ROOTPOINT_ENCODE(n)	(FPGA_REG1C_PE0_ROOTPOINT >> (n))
-#define FPGA_REG1C_PERST_ENCODE(n)	(FPGA_REG1C_PE0_PERST >> (n))
 
 /*----------------------------------------------------------------------------+
 | Defines

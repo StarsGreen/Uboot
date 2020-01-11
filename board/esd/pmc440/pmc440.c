@@ -1,5 +1,5 @@
 /*
- * (Cg) Copyright 2007-2008
+ * (C) Copyright 2007-2008
  * Matthias Fuchs, esd gmbh, matthias.fuchs@esd-electronics.com.
  * Based on board/amcc/sequoia/sequoia.c
  *
@@ -10,13 +10,26 @@
  * Jacqueline Pira-Ferriol, AMCC/IBM, jpira-ferriol@fr.ibm.com
  * Alain Saurel,	    AMCC/IBM, alain.saurel@fr.ibm.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
+
 #include <common.h>
-#include <console.h>
 #include <libfdt.h>
 #include <fdt_support.h>
-#include <asm/ppc440.h>
+#include <ppc440.h>
 #include <asm/processor.h>
 #include <asm/io.h>
 #include <asm/bitops.h>
@@ -26,22 +39,17 @@
 #include <miiphy.h>
 #endif
 #include <serial.h>
-#include <asm/4xx_pci.h>
-#include <usb.h>
-
 #include "fpga.h"
 #include "pmc440.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
-extern flash_info_t flash_info[CONFIG_SYS_MAX_FLASH_BANKS];
-extern void __ft_board_setup(void *blob, bd_t *bd);
+extern flash_info_t flash_info[CFG_MAX_FLASH_BANKS]; /* info for FLASH chips */
 
 ulong flash_get_size(ulong base, int banknum);
-static int pci_is_66mhz(void);
-int is_monarch(void);
-static int bootstrap_eeprom_read(unsigned dev_addr, unsigned offset,
-				 uchar *buffer, unsigned cnt);
+int pci_is_66mhz(void);
+int bootstrap_eeprom_read(unsigned dev_addr, unsigned offset,
+			  uchar *buffer, unsigned cnt);
 
 struct serial_device *default_serial_console(void)
 {
@@ -54,34 +62,33 @@ struct serial_device *default_serial_console(void)
 	 * Use default console on P4 when strapping jumper
 	 * is installed (bootstrap option != 'H').
 	 */
-	mfsdr(SDR0_PINSTP, val);
+	mfsdr(SDR_PINSTP, val);
 	if (((val & 0xf0000000) >> 29) != 7)
-		return &eserial2_device;
+		return &serial1_device;
 
-	ulong scratchreg = in_be32((void *)GPIO0_ISR3L);
+	ulong scratchreg = in_be32((void*)GPIO0_ISR3L);
 	if (!(scratchreg & 0x80)) {
 		/* mark scratchreg valid */
 		scratchreg = (scratchreg & 0xffffff00) | 0x80;
 
-		i2c_init_all();
-
-		i = bootstrap_eeprom_read(CONFIG_SYS_I2C_BOOT_EEPROM_ADDR,
+		i = bootstrap_eeprom_read(CFG_I2C_BOOT_EEPROM_ADDR,
 					  0x10, buf, 4);
 		if ((i != -1) && (buf[0] == 0x19) && (buf[1] == 0x75)) {
 			scratchreg |= buf[2];
 
 			/* bringup delay for console */
-			for (delay = 0; delay < (1000 * (ulong)buf[3]); delay++)
+			for (delay=0; delay<(1000 * (ulong)buf[3]); delay++) {
 				udelay(1000);
+			}
 		} else
 			scratchreg |= 0x01;
-		out_be32((void *)GPIO0_ISR3L, scratchreg);
+		out_be32((void*)GPIO0_ISR3L, scratchreg);
 	}
 
 	if (scratchreg & 0x01)
-		return &eserial2_device;
+		return &serial1_device;
 	else
-		return &eserial1_device;
+		return &serial0_device;
 }
 
 int board_early_init_f(void)
@@ -91,74 +98,77 @@ int board_early_init_f(void)
 	u32 reg;
 
 	/* general EBC configuration (disable EBC timeouts) */
-	mtdcr(EBC0_CFGADDR, EBC0_CFG);
-	mtdcr(EBC0_CFGDATA, 0xf8400000);
+	mtdcr(ebccfga, xbcfg);
+	mtdcr(ebccfgd, 0xf8400000);
 
-	/* Setup the GPIO pins */
-	out_be32((void *)GPIO0_OR,    0x40000102);
-	out_be32((void *)GPIO0_TCR,   0x4c90011f);
-	out_be32((void *)GPIO0_OSRL,  0x28051400);
-	out_be32((void *)GPIO0_OSRH,  0x55005000);
-	out_be32((void *)GPIO0_TSRL,  0x08051400);
-	out_be32((void *)GPIO0_TSRH,  0x55005000);
-	out_be32((void *)GPIO0_ISR1L, 0x54000000);
-	out_be32((void *)GPIO0_ISR1H, 0x00000000);
-	out_be32((void *)GPIO0_ISR2L, 0x44000000);
-	out_be32((void *)GPIO0_ISR2H, 0x00000100);
-	out_be32((void *)GPIO0_ISR3L, 0x00000000);
-	out_be32((void *)GPIO0_ISR3H, 0x00000000);
+	/*
+	 * Setup the GPIO pins
+	 * TODO: setup GPIOs via CFG_4xx_GPIO_TABLE in board's config file
+	 */
+	out32(GPIO0_OR,    0x40000002);
+	out32(GPIO0_TCR,   0x4c90011f);
+	out32(GPIO0_OSRL,  0x28011400);
+	out32(GPIO0_OSRH,  0x55005000);
+	out32(GPIO0_TSRL,  0x08011400);
+	out32(GPIO0_TSRH,  0x55005000);
+	out32(GPIO0_ISR1L, 0x54000000);
+	out32(GPIO0_ISR1H, 0x00000000);
+	out32(GPIO0_ISR2L, 0x44000000);
+	out32(GPIO0_ISR2H, 0x00000100);
+	out32(GPIO0_ISR3L, 0x00000000);
+	out32(GPIO0_ISR3H, 0x00000000);
 
-	out_be32((void *)GPIO1_OR,    0x80002408);
-	out_be32((void *)GPIO1_TCR,   0xd6003c08);
-	out_be32((void *)GPIO1_OSRL,  0x0a5a0000);
-	out_be32((void *)GPIO1_OSRH,  0x00000000);
-	out_be32((void *)GPIO1_TSRL,  0x00000000);
-	out_be32((void *)GPIO1_TSRH,  0x00000000);
-	out_be32((void *)GPIO1_ISR1L, 0x00005555);
-	out_be32((void *)GPIO1_ISR1H, 0x40000000);
-	out_be32((void *)GPIO1_ISR2L, 0x04010000);
-	out_be32((void *)GPIO1_ISR2H, 0x00000000);
-	out_be32((void *)GPIO1_ISR3L, 0x01400000);
-	out_be32((void *)GPIO1_ISR3H, 0x00000000);
+	out32(GPIO1_OR,    0x80002408);
+	out32(GPIO1_TCR,   0xd6003c08);
+	out32(GPIO1_OSRL,  0x0a5a0000);
+	out32(GPIO1_OSRH,  0x00000000);
+	out32(GPIO1_TSRL,  0x00000000);
+	out32(GPIO1_TSRH,  0x00000000);
+	out32(GPIO1_ISR1L, 0x00005555);
+	out32(GPIO1_ISR1H, 0x40000000);
+	out32(GPIO1_ISR2L, 0x04010000);
+	out32(GPIO1_ISR2H, 0x00000000);
+	out32(GPIO1_ISR3L, 0x01400000);
+	out32(GPIO1_ISR3H, 0x00000000);
 
 	/* patch PLB:PCI divider for 66MHz PCI */
-	mfcpr(CPR0_SPCID, reg);
+	mfcpr(clk_spcid, reg);
 	if (pci_is_66mhz() && (reg != 0x02000000)) {
-		mtcpr(CPR0_SPCID, 0x02000000); /* 133MHZ : 2 for 66MHz PCI */
+		mtcpr(clk_spcid, 0x02000000); /* 133MHZ : 2 for 66MHz PCI */
 
-		mfcpr(CPR0_ICFG, reg);
+		mfcpr(clk_icfg, reg);
 		reg |= CPR0_ICFG_RLI_MASK;
-		mtcpr(CPR0_ICFG, reg);
+		mtcpr(clk_icfg, reg);
 
-		mtspr(SPRN_DBCR0, 0x20000000); /* do chip reset */
+		mtspr(dbcr0, 0x20000000); /* do chip reset */
 	}
 
 	/*
 	 * Setup the interrupt controller polarities, triggers, etc.
 	 */
-	mtdcr(UIC0SR, 0xffffffff);	/* clear all */
-	mtdcr(UIC0ER, 0x00000000);	/* disable all */
-	mtdcr(UIC0CR, 0x00000005);	/* ATI & UIC1 crit are critical */
-	mtdcr(UIC0PR, 0xfffff7ef);
-	mtdcr(UIC0TR, 0x00000000);
-	mtdcr(UIC0VR, 0x00000000);	/* int31 highest, base=0x000 */
-	mtdcr(UIC0SR, 0xffffffff);	/* clear all */
+	mtdcr(uic0sr, 0xffffffff);	/* clear all */
+	mtdcr(uic0er, 0x00000000);	/* disable all */
+	mtdcr(uic0cr, 0x00000005);	/* ATI & UIC1 crit are critical */
+	mtdcr(uic0pr, 0xfffff7ef);
+	mtdcr(uic0tr, 0x00000000);
+	mtdcr(uic0vr, 0x00000000);	/* int31 highest, base=0x000 */
+	mtdcr(uic0sr, 0xffffffff);	/* clear all */
 
-	mtdcr(UIC1SR, 0xffffffff);	/* clear all */
-	mtdcr(UIC1ER, 0x00000000);	/* disable all */
-	mtdcr(UIC1CR, 0x00000000);	/* all non-critical */
-	mtdcr(UIC1PR, 0xffffc7f5);
-	mtdcr(UIC1TR, 0x00000000);
-	mtdcr(UIC1VR, 0x00000000);	/* int31 highest, base=0x000 */
-	mtdcr(UIC1SR, 0xffffffff);	/* clear all */
+	mtdcr(uic1sr, 0xffffffff);	/* clear all */
+	mtdcr(uic1er, 0x00000000);	/* disable all */
+	mtdcr(uic1cr, 0x00000000);	/* all non-critical */
+	mtdcr(uic1pr, 0xffffc7f5);
+	mtdcr(uic1tr, 0x00000000);
+	mtdcr(uic1vr, 0x00000000);	/* int31 highest, base=0x000 */
+	mtdcr(uic1sr, 0xffffffff);	/* clear all */
 
-	mtdcr(UIC2SR, 0xffffffff);	/* clear all */
-	mtdcr(UIC2ER, 0x00000000);	/* disable all */
-	mtdcr(UIC2CR, 0x00000000);	/* all non-critical */
-	mtdcr(UIC2PR, 0x27ffffff);
-	mtdcr(UIC2TR, 0x00000000);
-	mtdcr(UIC2VR, 0x00000000);	/* int31 highest, base=0x000 */
-	mtdcr(UIC2SR, 0xffffffff);	/* clear all */
+	mtdcr(uic2sr, 0xffffffff);	/* clear all */
+	mtdcr(uic2er, 0x00000000);	/* disable all */
+	mtdcr(uic2cr, 0x00000000);	/* all non-critical */
+	mtdcr(uic2pr, 0x27ffffff);
+	mtdcr(uic2tr, 0x00000000);
+	mtdcr(uic2vr, 0x00000000);	/* int31 highest, base=0x000 */
+	mtdcr(uic2sr, 0xffffffff);	/* clear all */
 
 	/* select Ethernet pins */
 	mfsdr(SDR0_PFC1, sdr0_pfc1);
@@ -180,28 +190,11 @@ int board_early_init_f(void)
 		SDR0_CUST0_NDFC_ENABLE		|
 		SDR0_CUST0_NDFC_BW_8_BIT	|
 		SDR0_CUST0_NDFC_ARE_MASK	|
-		(0x80000000 >> (28 + CONFIG_SYS_NAND_CS));
+		(0x80000000 >> (28 + CFG_NAND_CS));
 	mtsdr(SDR0_CUST0, sdr0_cust0);
 
 	return 0;
 }
-
-#if defined(CONFIG_MISC_INIT_F)
-int misc_init_f(void)
-{
-	struct pci_controller hose;
-	hose.first_busno = 0;
-	hose.last_busno = 0;
-	hose.region_count = 0;
-
-	if (getenv("pciearly") && (!is_monarch())) {
-		printf("PCI:   early target init\n");
-		pci_setup_indirect(&hose, PCIL0_CFGADR, PCIL0_CFGDATA);
-		pci_target_init(&hose);
-	}
-	return 0;
-}
-#endif
 
 /*
  * misc_init_r.
@@ -214,7 +207,6 @@ int misc_init_r(void)
 	unsigned long usb2d0cr = 0;
 	unsigned long usb2phy0cr, usb2h0cr = 0;
 	unsigned long sdr0_pfc1;
-	unsigned long sdr0_srst0, sdr0_srst1;
 	char *act = getenv("usbact");
 
 	/*
@@ -227,37 +219,45 @@ int misc_init_r(void)
 	gd->bd->bi_flashstart = 0 - gd->bd->bi_flashsize;
 	gd->bd->bi_flashoffset = 0;
 
-	mtdcr(EBC0_CFGADDR, PB0CR);
-	pbcr = mfdcr(EBC0_CFGDATA);
+#if defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL)
+	mtdcr(ebccfga, pb2cr);
+#else
+	mtdcr(ebccfga, pb0cr);
+#endif
+	pbcr = mfdcr(ebccfgd);
 	size_val = ffs(gd->bd->bi_flashsize) - 21;
 	pbcr = (pbcr & 0x0001ffff) | gd->bd->bi_flashstart | (size_val << 17);
-	mtdcr(EBC0_CFGADDR, PB0CR);
-	mtdcr(EBC0_CFGDATA, pbcr);
+#if defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL)
+	mtdcr(ebccfga, pb2cr);
+#else
+	mtdcr(ebccfga, pb0cr);
+#endif
+	mtdcr(ebccfgd, pbcr);
 
 	/*
 	 * Re-check to get correct base address
 	 */
 	flash_get_size(gd->bd->bi_flashstart, 0);
 
-#ifdef CONFIG_ENV_IS_IN_FLASH
+#ifdef CFG_ENV_IS_IN_FLASH
 	/* Monitor protection ON by default */
 	(void)flash_protect(FLAG_PROTECT_SET,
-			    -CONFIG_SYS_MONITOR_LEN,
+			    -CFG_MONITOR_LEN,
 			    0xffffffff,
 			    &flash_info[0]);
 
 	/* Env protection ON by default */
 	(void)flash_protect(FLAG_PROTECT_SET,
-			    CONFIG_ENV_ADDR_REDUND,
-			    CONFIG_ENV_ADDR_REDUND + 2*CONFIG_ENV_SECT_SIZE - 1,
+			    CFG_ENV_ADDR_REDUND,
+			    CFG_ENV_ADDR_REDUND + 2*CFG_ENV_SECT_SIZE - 1,
 			    &flash_info[0]);
 #endif
 
 	/*
 	 * USB suff...
 	 */
-	if ((act == NULL || strcmp(act, "host") == 0) &&
-	    !(in_be32((void *)GPIO0_IR) & GPIO0_USB_PRSNT)) {
+	if ((act == NULL || strcmp(act, "hostdev") == 0) &&
+	    !(in_be32((void*)GPIO0_IR) & GPIO0_USB_PRSNT)){
 		/* SDR Setting */
 		mfsdr(SDR0_PFC1, sdr0_pfc1);
 		mfsdr(SDR0_USB2D0CR, usb2d0cr);
@@ -290,50 +290,16 @@ int misc_init_r(void)
 		mtsdr(SDR0_USB2PHY0CR, usb2phy0cr);
 		mtsdr(SDR0_USB2H0CR, usb2h0cr);
 
-		/*
-		 * Take USB out of reset:
-		 * -Initial status = all cores are in reset
-		 * -deassert reset to OPB1, P4OPB0, OPB2, PLB42OPB1 OPB2PLB40 cores
-		 * -wait 1 ms
-		 * -deassert reset to PHY
-		 * -wait 1 ms
-		 * -deassert  reset to HOST
-		 * -wait 4 ms
-		 * -deassert all other resets
-		 */
-		mfsdr(SDR0_SRST1, sdr0_srst1);
-		sdr0_srst1 &= ~(SDR0_SRST1_OPBA1 |	\
-				SDR0_SRST1_P4OPB0 |	\
-				SDR0_SRST1_OPBA2 |	\
-				SDR0_SRST1_PLB42OPB1 |	\
-				SDR0_SRST1_OPB2PLB40);
-		mtsdr(SDR0_SRST1, sdr0_srst1);
+		/* clear resets */
 		udelay(1000);
-
-		mfsdr(SDR0_SRST1, sdr0_srst1);
-		sdr0_srst1 &= ~SDR0_SRST1_USB20PHY;
-		mtsdr(SDR0_SRST1, sdr0_srst1);
-		udelay(1000);
-
-		mfsdr(SDR0_SRST0, sdr0_srst0);
-		sdr0_srst0 &= ~SDR0_SRST0_USB2H;
-		mtsdr(SDR0_SRST0, sdr0_srst0);
-		udelay(4000);
-
-		/* finally all the other resets */
 		mtsdr(SDR0_SRST1, 0x00000000);
+		udelay(1000);
 		mtsdr(SDR0_SRST0, 0x00000000);
-
-		if (!(in_be32((void *)GPIO0_IR) & GPIO0_USB_PRSNT)) {
-			/* enable power on USB socket */
-			out_be32((void *)GPIO1_OR,
-				 in_be32((void *)GPIO1_OR) & ~GPIO1_USB_PWR_N);
-		}
 
 		printf("USB:   Host\n");
 
 	} else if ((strcmp(act, "dev") == 0) ||
-		   (in_be32((void *)GPIO0_IR) & GPIO0_USB_PRSNT)) {
+		   (in_be32((void*)GPIO0_IR) & GPIO0_USB_PRSNT)) {
 		mfsdr(SDR0_USB2PHY0CR, usb2phy0cr);
 
 		usb2phy0cr = usb2phy0cr &~SDR0_USB2PHY0CR_XOCLK_MASK;
@@ -404,39 +370,38 @@ int misc_init_r(void)
 	 * This fix will make the MAL burst disabling patch for the Linux
 	 * EMAC driver obsolete.
 	 */
-	reg = mfdcr(PLB4A0_ACR) & ~PLB4Ax_ACR_WRP_MASK;
-	mtdcr(PLB4A0_ACR, reg);
+	reg = mfdcr(plb4_acr) & ~PLB4_ACR_WRP;
+	mtdcr(plb4_acr, reg);
 
 #ifdef CONFIG_FPGA
 	pmc440_init_fpga();
 #endif
 
 	/* turn off POST LED */
-	out_be32((void *)GPIO1_OR, in_be32((void *)GPIO1_OR) & ~GPIO1_POST_N);
+	out_be32((void*)GPIO1_OR,  in_be32((void*)GPIO1_OR) & ~GPIO1_POST_N);
 	/* turn on RUN LED */
-	out_be32((void *)GPIO0_OR,
-		 in_be32((void *)GPIO0_OR) & ~GPIO0_LED_RUN_N);
+	out_be32((void*)GPIO0_OR,  in_be32((void*)GPIO0_OR) & ~GPIO0_LED_RUN_N);
 	return 0;
 }
 
 int is_monarch(void)
 {
-	if (in_be32((void *)GPIO1_IR) & GPIO1_NONMONARCH)
+	if (in_be32((void*)GPIO1_IR) & GPIO1_NONMONARCH)
 		return 0;
 
 	return 1;
 }
 
-static int pci_is_66mhz(void)
+int pci_is_66mhz(void)
 {
-	if (in_be32((void *)GPIO1_IR) & GPIO1_M66EN)
+	if (in_be32((void*)GPIO1_IR) & GPIO1_M66EN)
 		return 1;
 	return 0;
 }
 
-static int board_revision(void)
+int board_revision(void)
 {
-	return (int)((in_be32((void *)GPIO1_IR) & GPIO1_HWID_MASK) >> 4);
+	return (int)((in_be32((void*)GPIO1_IR) & GPIO1_HWID_MASK) >> 4);
 }
 
 int checkboard(void)
@@ -459,7 +424,7 @@ int checkboard(void)
 /*
  * Assign interrupts to PCI devices. Some OSs rely on this.
  */
-void board_pci_fixup_irq(struct pci_controller *hose, pci_dev_t dev)
+void pmc440_pci_fixup_irq(struct pci_controller *hose, pci_dev_t dev)
 {
 	unsigned char int_line[] = {IRQ_PCIC, IRQ_PCID, IRQ_PCIA, IRQ_PCIB};
 
@@ -469,13 +434,71 @@ void board_pci_fixup_irq(struct pci_controller *hose, pci_dev_t dev)
 #endif
 
 /*
+ * pci_pre_init
+ *
+ * This routine is called just prior to registering the hose and gives
+ * the board the opportunity to check things. Returning a value of zero
+ * indicates that things are bad & PCI initialization should be aborted.
+ *
+ * Different boards may wish to customize the pci controller structure
+ * (add regions, override default access routines, etc) or perform
+ * certain pre-initialization actions.
+ */
+#if defined(CONFIG_PCI)
+int pci_pre_init(struct pci_controller *hose)
+{
+	unsigned long addr;
+
+	/*
+	 * Set priority for all PLB3 devices to 0.
+	 * Set PLB3 arbiter to fair mode.
+	 */
+	mfsdr(sdr_amp1, addr);
+	mtsdr(sdr_amp1, (addr & 0x000000FF) | 0x0000FF00);
+	addr = mfdcr(plb3_acr);
+	mtdcr(plb3_acr, addr | 0x80000000);
+
+	/*
+	 * Set priority for all PLB4 devices to 0.
+	 */
+	mfsdr(sdr_amp0, addr);
+	mtsdr(sdr_amp0, (addr & 0x000000FF) | 0x0000FF00);
+	addr = mfdcr(plb4_acr) | 0xa0000000;	/* Was 0x8---- */
+	mtdcr(plb4_acr, addr);
+
+	/*
+	 * Set Nebula PLB4 arbiter to fair mode.
+	 */
+	/* Segment0 */
+	addr = (mfdcr(plb0_acr) & ~plb0_acr_ppm_mask) | plb0_acr_ppm_fair;
+	addr = (addr & ~plb0_acr_hbu_mask) | plb0_acr_hbu_enabled;
+	addr = (addr & ~plb0_acr_rdp_mask) | plb0_acr_rdp_4deep;
+	addr = (addr & ~plb0_acr_wrp_mask) | plb0_acr_wrp_2deep;
+	mtdcr(plb0_acr, addr);
+
+	/* Segment1 */
+	addr = (mfdcr(plb1_acr) & ~plb1_acr_ppm_mask) | plb1_acr_ppm_fair;
+	addr = (addr & ~plb1_acr_hbu_mask) | plb1_acr_hbu_enabled;
+	addr = (addr & ~plb1_acr_rdp_mask) | plb1_acr_rdp_4deep;
+	addr = (addr & ~plb1_acr_wrp_mask) | plb1_acr_wrp_2deep;
+	mtdcr(plb1_acr, addr);
+
+#ifdef CONFIG_PCI_PNP
+	hose->fixup_irq = pmc440_pci_fixup_irq;
+#endif
+
+	return 1;
+}
+#endif /* defined(CONFIG_PCI) */
+
+/*
  * pci_target_init
  *
  * The bootstrap configuration provides default settings for the pci
  * inbound map (PIM). But the bootstrap config choices are limited and
  * may not be sufficient for a given board.
  */
-#if defined(CONFIG_PCI) && defined(CONFIG_SYS_PCI_TARGET_INIT)
+#if defined(CONFIG_PCI) && defined(CFG_PCI_TARGET_INIT)
 void pci_target_init(struct pci_controller *hose)
 {
 	char *ptmla_str, *ptmms_str;
@@ -491,48 +514,47 @@ void pci_target_init(struct pci_controller *hose)
 	 * Use byte reversed out routines to handle endianess.
 	 * Make this region non-prefetchable.
 	 */
-	out32r(PCIL0_PMM0MA, 0x00000000);	/* PMM0 Mask/Attribute */
+	out32r(PCIX0_PMM0MA, 0x00000000);	/* PMM0 Mask/Attribute */
 						/* - disabled b4 setting */
-	out32r(PCIL0_PMM0LA, CONFIG_SYS_PCI_MEMBASE);	/* PMM0 Local Address */
-	out32r(PCIL0_PMM0PCILA, CONFIG_SYS_PCI_MEMBASE); /* PMM0 PCI Low Addr */
-	out32r(PCIL0_PMM0PCIHA, 0x00000000);	/* PMM0 PCI High Address */
-	out32r(PCIL0_PMM0MA, 0xc0000001);	/* 1G + No prefetching, */
+	out32r(PCIX0_PMM0LA, CFG_PCI_MEMBASE);	/* PMM0 Local Address */
+	out32r(PCIX0_PMM0PCILA, CFG_PCI_MEMBASE); /* PMM0 PCI Low Address */
+	out32r(PCIX0_PMM0PCIHA, 0x00000000);	/* PMM0 PCI High Address */
+	out32r(PCIX0_PMM0MA, 0xc0000001);	/* 1G + No prefetching, */
 						/* and enable region */
 
 	if (!is_monarch()) {
 		ptmla_str = getenv("ptm1la");
 		ptmms_str = getenv("ptm1ms");
 		if(NULL != ptmla_str && NULL != ptmms_str ) {
-			out32r(PCIL0_PTM1MS,
+			out32r(PCIX0_PTM1MS,
 			       simple_strtoul(ptmms_str, NULL, 16));
-			out32r(PCIL0_PTM1LA,
+			out32r(PCIX0_PTM1LA,
 			       simple_strtoul(ptmla_str, NULL, 16));
 		} else {
 			/* BAR1: default top 64MB of RAM */
-			out32r(PCIL0_PTM1MS, 0xfc000001);
-			out32r(PCIL0_PTM1LA, 0x0c000000);
+			out32r(PCIX0_PTM1MS, 0xfc000001);
+			out32r(PCIX0_PTM1LA, 0x0c000000);
 		}
 	} else {
 		/* BAR1: default: complete 256MB RAM */
-		out32r(PCIL0_PTM1MS, 0xf0000001);
-		out32r(PCIL0_PTM1LA, 0x00000000);
+		out32r(PCIX0_PTM1MS, 0xf0000001);
+		out32r(PCIX0_PTM1LA, 0x00000000);
 	}
 
 	ptmla_str = getenv("ptm2la");		/* Local Addr. Reg */
 	ptmms_str = getenv("ptm2ms");		/* Memory Size/Attribute */
 	if(NULL != ptmla_str && NULL != ptmms_str ) {
-		out32r(PCIL0_PTM2MS, simple_strtoul(ptmms_str, NULL, 16));
-		out32r(PCIL0_PTM2LA, simple_strtoul(ptmla_str, NULL, 16));
+		out32r(PCIX0_PTM2MS, simple_strtoul(ptmms_str, NULL, 16));
+		out32r(PCIX0_PTM2LA, simple_strtoul(ptmla_str, NULL, 16));
 	} else {
-		/* BAR2: default: 4MB FPGA */
-		out32r(PCIL0_PTM2MS, 0xffc00001); /* Memory Size/Attribute */
-		out32r(PCIL0_PTM2LA, 0xef000000); /* Local Addr. Reg */
+		/* BAR2: default: 16 MB FPGA + registers */
+		out32r(PCIX0_PTM2MS, 0xff000001); /* Memory Size/Attribute */
+		out32r(PCIX0_PTM2LA, 0xef000000); /* Local Addr. Reg */
 	}
 
 	if (is_monarch()) {
 		/* BAR2: map FPGA registers behind system memory at 1GB */
-		pci_hose_write_config_dword(hose, 0,
-					    PCI_BASE_ADDRESS_2, 0x40000008);
+		pci_write_config_dword(0, PCI_BASE_ADDRESS_2, 0x40000008);
 	}
 
 	/*
@@ -540,8 +562,8 @@ void pci_target_init(struct pci_controller *hose)
 	 */
 
 	/* Program the board's vendor id */
-	pci_hose_write_config_word(hose, 0, PCI_SUBSYSTEM_VENDOR_ID,
-				   CONFIG_SYS_PCI_SUBSYS_VENDORID);
+	pci_write_config_word(0, PCI_SUBSYSTEM_VENDOR_ID,
+			      CFG_PCI_SUBSYS_VENDORID);
 
 	/* disabled for PMC405 backward compatibility */
 	/* Configure command register as bus master */
@@ -549,60 +571,76 @@ void pci_target_init(struct pci_controller *hose)
 
 
 	/* 240nS PCI clock */
-	pci_hose_write_config_word(hose, 0, PCI_LATENCY_TIMER, 1);
+	pci_write_config_word(0, PCI_LATENCY_TIMER, 1);
 
 	/* No error reporting */
-	pci_hose_write_config_word(hose, 0, PCI_ERREN, 0);
+	pci_write_config_word(0, PCI_ERREN, 0);
+
+	pci_write_config_dword(0, PCI_BRDGOPT2, 0x00000101);
 
 	if (!is_monarch()) {
 		/* Program the board's subsystem id/classcode */
-		pci_hose_write_config_word(hose, 0, PCI_SUBSYSTEM_ID,
-					   CONFIG_SYS_PCI_SUBSYS_ID_NONMONARCH);
-		pci_hose_write_config_word(hose, 0, PCI_CLASS_SUB_CODE,
-					   CONFIG_SYS_PCI_CLASSCODE_NONMONARCH);
+		pci_write_config_word(0, PCI_SUBSYSTEM_ID,
+				      CFG_PCI_SUBSYS_ID_NONMONARCH);
+		pci_write_config_word(0, PCI_CLASS_SUB_CODE,
+				      CFG_PCI_CLASSCODE_NONMONARCH);
 
 		/* PCI configuration done: release ERREADY */
-		out_be32((void *)GPIO1_OR,
-			 in_be32((void *)GPIO1_OR) | GPIO1_PPC_EREADY);
-		out_be32((void *)GPIO1_TCR,
-			 in_be32((void *)GPIO1_TCR) | GPIO1_PPC_EREADY);
+		out_be32((void*)GPIO1_OR,
+			 in_be32((void*)GPIO1_OR) | GPIO1_PPC_EREADY);
+		out_be32((void*)GPIO1_TCR,
+			 in_be32((void*)GPIO1_TCR) | GPIO1_PPC_EREADY);
 	} else {
 		/* Program the board's subsystem id/classcode */
-		pci_hose_write_config_word(hose, 0, PCI_SUBSYSTEM_ID,
-					   CONFIG_SYS_PCI_SUBSYS_ID_MONARCH);
-		pci_hose_write_config_word(hose, 0, PCI_CLASS_SUB_CODE,
-					   CONFIG_SYS_PCI_CLASSCODE_MONARCH);
+		pci_write_config_word(0, PCI_SUBSYSTEM_ID,
+				      CFG_PCI_SUBSYS_ID_MONARCH);
+		pci_write_config_word(0, PCI_CLASS_SUB_CODE,
+				      CFG_PCI_CLASSCODE_MONARCH);
 	}
-
-	/* enable host configuration */
-	pci_hose_write_config_dword(hose, 0, PCI_BRDGOPT2, 0x00000101);
 }
-#endif /* defined(CONFIG_PCI) && defined(CONFIG_SYS_PCI_TARGET_INIT) */
+#endif /* defined(CONFIG_PCI) && defined(CFG_PCI_TARGET_INIT) */
 
 /*
- * Override weak default pci_master_init()
+ * pci_master_init
  */
-#if defined(CONFIG_PCI) && defined(CONFIG_SYS_PCI_MASTER_INIT)
+#if defined(CONFIG_PCI) && defined(CFG_PCI_MASTER_INIT)
 void pci_master_init(struct pci_controller *hose)
 {
+	unsigned short temp_short;
+
 	/*
-	 * Only configure the master in monach mode
+	 * Write the PowerPC440 EP PCI Configuration regs.
+	 * Enable PowerPC440 EP to be a master on the PCI bus (PMM).
+	 * Enable PowerPC440 EP to act as a PCI memory target (PTM).
 	 */
-	if (is_monarch())
-		__pci_master_init(hose);
+	if (is_monarch()) {
+		pci_read_config_word(0, PCI_COMMAND, &temp_short);
+		pci_write_config_word(0, PCI_COMMAND,
+				      temp_short | PCI_COMMAND_MASTER |
+				      PCI_COMMAND_MEMORY);
+	}
 }
-#endif /* defined(CONFIG_PCI) && defined(CONFIG_SYS_PCI_MASTER_INIT) */
+#endif /* defined(CONFIG_PCI) && defined(CFG_PCI_MASTER_INIT) */
 
 static void wait_for_pci_ready(void)
 {
-	if (!(in_be32((void *)GPIO1_IR) & GPIO1_PPC_EREADY)) {
+	int i;
+	char *s = getenv("pcidelay");
+	if (s) {
+		int ms = simple_strtoul(s, NULL, 10);
+		printf("PCI:   Waiting for %d ms\n", ms);
+		for (i=0; i<ms; i++)
+			udelay(1000);
+	}
+
+	if (!(in_be32((void*)GPIO1_IR) & GPIO1_PPC_EREADY)) {
 		printf("PCI:   Waiting for EREADY (CTRL-C to skip) ... ");
 		while (1) {
 			if (ctrlc()) {
 				puts("abort\n");
 				break;
 			}
-			if (in_be32((void *)GPIO1_IR) & GPIO1_PPC_EREADY) {
+			if (in_be32((void*)GPIO1_IR) & GPIO1_PPC_EREADY) {
 				printf("done\n");
 				break;
 			}
@@ -611,7 +649,7 @@ static void wait_for_pci_ready(void)
 }
 
 /*
- * Override weak is_pci_host()
+ * is_pci_host
  *
  * This routine is called to determine if a pci scan should be
  * performed. With various hardware environments (especially cPCI and
@@ -640,79 +678,37 @@ int is_pci_host(struct pci_controller *hose)
 }
 #endif /* defined(CONFIG_PCI) */
 
+#if defined(CONFIG_POST)
+/*
+ * Returns 1 if keys pressed to start the power-on long-running tests
+ * Called from board_init_f().
+ */
+int post_hotkeys_pressed(void)
+{
+	return 0;	/* No hotkeys supported */
+}
+#endif /* CONFIG_POST */
+
 #ifdef CONFIG_RESET_PHY_R
-static int pmc440_setup_vsc8601(char *devname, int phy_addr,
-				unsigned short behavior, unsigned short method)
-{
-	/* adjust LED behavior */
-	if (miiphy_write(devname, phy_addr, 0x1f, 0x0001) != 0) {
-		printf("Phy%d: register write access failed\n", phy_addr);
-		return -1;
-	}
-
-	miiphy_write(devname, phy_addr, 0x11, 0x0010);
-	miiphy_write(devname, phy_addr, 0x11, behavior);
-	miiphy_write(devname, phy_addr, 0x10, method);
-	miiphy_write(devname, phy_addr, 0x1f, 0x0000);
-
-	return 0;
-}
-
-static int pmc440_setup_ksz9031(char *devname, int phy_addr)
-{
-	unsigned short id1, id2;
-
-	if (miiphy_read(devname, phy_addr, 2, &id1) ||
-	    miiphy_read(devname, phy_addr, 3, &id2)) {
-		printf("Phy%d: cannot read id\n", phy_addr);
-		return -1;
-	}
-
-	if ((id1 != 0x0022) || ((id2 & 0xfff0) != 0x1620)) {
-		printf("Phy%d: unexpected id\n", phy_addr);
-		return -1;
-	}
-
-	/* MMD 2.08: adjust tx_clk pad skew */
-	miiphy_write(devname, phy_addr, 0x0d, 2);
-	miiphy_write(devname, phy_addr, 0x0e, 8);
-	miiphy_write(devname, phy_addr, 0x0d, 0x4002);
-	miiphy_write(devname, phy_addr, 0x0e, 0xf | (0x17 << 5));
-
-	return 0;
-}
-
 void reset_phy(void)
 {
-	char *s;
-	unsigned short val_method, val_behavior;
+	if (miiphy_write("ppc_4xx_eth0", CONFIG_PHY_ADDR, 0x1f, 0x0001) == 0) {
+		miiphy_write("ppc_4xx_eth0", CONFIG_PHY_ADDR, 0x11, 0x0010);
+		miiphy_write("ppc_4xx_eth0", CONFIG_PHY_ADDR, 0x11, 0x0df0);
+		miiphy_write("ppc_4xx_eth0", CONFIG_PHY_ADDR, 0x10, 0x0e10);
+		miiphy_write("ppc_4xx_eth0", CONFIG_PHY_ADDR, 0x1f, 0x0000);
+	}
 
-	if (gd->board_type < 4) {
-		/* special LED setup for NGCC/CANDES */
-		s = getenv("bd_type");
-		if (s && ((!strcmp(s, "ngcc")) || (!strcmp(s, "candes")))) {
-			val_method   = 0x0e0a;
-			val_behavior = 0x0cf2;
-		} else {
-			/* PMC440 standard type */
-			val_method   = 0x0e10;
-			val_behavior = 0x0cf0;
-		}
-
-		/* boards up to rev. 1.3 use Vitesse VSC8601 phys */
-		pmc440_setup_vsc8601("ppc_4xx_eth0", CONFIG_PHY_ADDR,
-				     val_method, val_behavior);
-		pmc440_setup_vsc8601("ppc_4xx_eth1", CONFIG_PHY1_ADDR,
-				     val_method, val_behavior);
-	} else {
-		/* rev. 1.4 uses a Micrel KSZ9031 */
-		pmc440_setup_ksz9031("ppc_4xx_eth0", CONFIG_PHY_ADDR);
-		pmc440_setup_ksz9031("ppc_4xx_eth1", CONFIG_PHY1_ADDR);
+	if (miiphy_write("ppc_4xx_eth1", CONFIG_PHY1_ADDR, 0x1f, 0x0001) == 0) {
+		miiphy_write("ppc_4xx_eth1", CONFIG_PHY1_ADDR, 0x11, 0x0010);
+		miiphy_write("ppc_4xx_eth1", CONFIG_PHY1_ADDR, 0x11, 0x0df0);
+		miiphy_write("ppc_4xx_eth1", CONFIG_PHY1_ADDR, 0x10, 0x0e10);
+		miiphy_write("ppc_4xx_eth1", CONFIG_PHY1_ADDR, 0x1f, 0x0000);
 	}
 }
 #endif
 
-#if defined(CONFIG_SYS_EEPROM_WREN)
+#if defined(CFG_EEPROM_WREN)
 /*
  *  Input: <dev_addr> I2C address of EEPROM device to enable.
  *         <state>    -1: deliver current state
@@ -724,35 +720,32 @@ void reset_phy(void)
  */
 int eeprom_write_enable(unsigned dev_addr, int state)
 {
-	if ((CONFIG_SYS_I2C_EEPROM_ADDR != dev_addr) &&
-	    (CONFIG_SYS_I2C_BOOT_EEPROM_ADDR != dev_addr)) {
+	if ((CFG_I2C_EEPROM_ADDR != dev_addr) &&
+	    (CFG_I2C_BOOT_EEPROM_ADDR != dev_addr)) {
 		return -1;
 	} else {
 		switch (state) {
 		case 1:
 			/* Enable write access, clear bit GPIO_SINT2. */
-			out_be32((void *)GPIO0_OR,
-			      in_be32((void *)GPIO0_OR) & ~GPIO0_EP_EEP);
+			out32(GPIO0_OR, in32(GPIO0_OR) & ~GPIO0_EP_EEP);
 			state = 0;
 			break;
 		case 0:
 			/* Disable write access, set bit GPIO_SINT2. */
-			out_be32((void *)GPIO0_OR,
-				 in_be32((void *)GPIO0_OR) | GPIO0_EP_EEP);
+			out32(GPIO0_OR, in32(GPIO0_OR) | GPIO0_EP_EEP);
 			state = 0;
 			break;
 		default:
 			/* Read current status back. */
-			state = (0 == (in_be32((void *)GPIO0_OR)
-				       & GPIO0_EP_EEP));
+			state = (0 == (in32(GPIO0_OR) & GPIO0_EP_EEP));
 			break;
 		}
 	}
 	return state;
 }
-#endif /* #if defined(CONFIG_SYS_EEPROM_WREN) */
+#endif /* #if defined(CFG_EEPROM_WREN) */
 
-#define CONFIG_SYS_BOOT_EEPROM_PAGE_WRITE_BITS 3
+#define CFG_BOOT_EEPROM_PAGE_WRITE_BITS 3
 int bootstrap_eeprom_write(unsigned dev_addr, unsigned offset,
 			   uchar *buffer, unsigned cnt)
 {
@@ -760,7 +753,7 @@ int bootstrap_eeprom_write(unsigned dev_addr, unsigned offset,
 	unsigned blk_off;
 	int rcode = 0;
 
-#if defined(CONFIG_SYS_EEPROM_WREN)
+#if defined(CFG_EEPROM_WREN)
 	eeprom_write_enable(dev_addr, 1);
 #endif
 	/*
@@ -768,6 +761,7 @@ int bootstrap_eeprom_write(unsigned dev_addr, unsigned offset,
 	 * We must write the address again when changing pages
 	 * because the address counter only increments within a page.
 	 */
+
 	while (offset < end) {
 		unsigned alen, len;
 		unsigned maxlen;
@@ -782,7 +776,7 @@ int bootstrap_eeprom_write(unsigned dev_addr, unsigned offset,
 
 		len = end - offset;
 
-#define	BOOT_EEPROM_PAGE_SIZE	   (1 << CONFIG_SYS_BOOT_EEPROM_PAGE_WRITE_BITS)
+#define	BOOT_EEPROM_PAGE_SIZE	   (1 << CFG_BOOT_EEPROM_PAGE_WRITE_BITS)
 #define	BOOT_EEPROM_PAGE_OFFSET(x) ((x) & (BOOT_EEPROM_PAGE_SIZE - 1))
 
 		maxlen = BOOT_EEPROM_PAGE_SIZE -
@@ -799,18 +793,18 @@ int bootstrap_eeprom_write(unsigned dev_addr, unsigned offset,
 		buffer += len;
 		offset += len;
 
-#if defined(CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS)
-		udelay(CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS * 1000);
+#if defined(CFG_EEPROM_PAGE_WRITE_DELAY_MS)
+		udelay(CFG_EEPROM_PAGE_WRITE_DELAY_MS * 1000);
 #endif
 	}
-#if defined(CONFIG_SYS_EEPROM_WREN)
+#if defined(CFG_EEPROM_WREN)
 	eeprom_write_enable(dev_addr, 0);
 #endif
 	return rcode;
 }
 
-static int bootstrap_eeprom_read(unsigned dev_addr, unsigned offset,
-				 uchar *buffer, unsigned cnt)
+int bootstrap_eeprom_read (unsigned dev_addr, unsigned offset,
+			   uchar *buffer, unsigned cnt)
 {
 	unsigned end = offset + cnt;
 	unsigned blk_off;
@@ -851,17 +845,17 @@ static int bootstrap_eeprom_read(unsigned dev_addr, unsigned offset,
 	return rcode;
 }
 
-#if defined(CONFIG_USB_OHCI_NEW) && defined(CONFIG_SYS_USB_OHCI_BOARD_INIT)
-int board_usb_init(int index, enum usb_init_type init)
+#if defined(CONFIG_USB_OHCI_NEW) && defined(CFG_USB_OHCI_BOARD_INIT)
+int usb_board_init(void)
 {
 	char *act = getenv("usbact");
 	int i;
 
-	if ((act == NULL || strcmp(act, "host") == 0) &&
-	    !(in_be32((void *)GPIO0_IR) & GPIO0_USB_PRSNT))
+	if ((act == NULL || strcmp(act, "hostdev") == 0) &&
+	    !(in_be32((void*)GPIO0_IR) & GPIO0_USB_PRSNT))
 		/* enable power on USB socket */
-		out_be32((void *)GPIO1_OR,
-			 in_be32((void *)GPIO1_OR) & ~GPIO1_USB_PWR_N);
+		out_be32((void*)GPIO1_OR,
+			 in_be32((void*)GPIO1_OR) & ~GPIO1_USB_PWR_N);
 
 	for (i=0; i<1000; i++)
 		udelay(1000);
@@ -872,35 +866,13 @@ int board_usb_init(int index, enum usb_init_type init)
 int usb_board_stop(void)
 {
 	/* disable power on USB socket */
-	out_be32((void *)GPIO1_OR, in_be32((void *)GPIO1_OR) | GPIO1_USB_PWR_N);
+	out_be32((void*)GPIO1_OR, in_be32((void*)GPIO1_OR) | GPIO1_USB_PWR_N);
 	return 0;
 }
 
-int board_usb_cleanup(int index, enum usb_init_type init)
+int usb_board_init_fail(void)
 {
-	return usb_board_stop();
-}
-#endif /* defined(CONFIG_USB_OHCI) && defined(CONFIG_SYS_USB_OHCI_BOARD_INIT) */
-
-#if defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
-{
-	int rc;
-
-	__ft_board_setup(blob, bd);
-
-	/*
-	 * Disable PCI in non-monarch mode.
-	 */
-	if (!is_monarch()) {
-		rc = fdt_find_and_setprop(blob, "/plb/pci@1ec000000", "status",
-					  "disabled", sizeof("disabled"), 1);
-		if (rc) {
-			printf("Unable to update property status in PCI node, ");
-			printf("err=%s\n", fdt_strerror(rc));
-		}
-	}
-
+	usb_board_stop();
 	return 0;
 }
-#endif /* defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP) */
+#endif /* defined(CONFIG_USB_OHCI) && defined(CFG_USB_OHCI_BOARD_INIT) */

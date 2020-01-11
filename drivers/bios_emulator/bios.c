@@ -3,7 +3,7 @@
 *                        BIOS emulator and interface
 *                      to Realmode X86 Emulator Library
 *
-*  Copyright (C) 2007 Freescale Semiconductor, Inc.
+*  Copyright (C) 2007 Freescale Semiconductor, Inc. All rights reserved.
 *  Jason Jin <Jason.jin@freescale.com>
 *
 *               Copyright (C) 1996-1999 SciTech Software, Inc.
@@ -41,9 +41,10 @@
 *
 ****************************************************************************/
 
-#define __io
 #include <common.h>
-#include <asm/io.h>
+
+#if defined(CONFIG_BIOSEMU)
+
 #include "biosemui.h"
 
 /*----------------------------- Implementation ----------------------------*/
@@ -84,14 +85,14 @@ static void X86API int42(int intno)
 			PM_outpb(0x3c2, PM_inpb(0x3cc) & (u8) ~ 0x02);
 			return;
 		}
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef  DEBUG
 		else {
 			printf("int42: unknown function AH=0x12, BL=0x32, AL=%#02x\n",
 			     M.x86.R_AL);
 		}
 #endif
 	}
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef  DEBUG
 	else {
 		printf("int42: unknown function AH=%#02x, AL=%#02x, BL=%#02x\n",
 		     M.x86.R_AH, M.x86.R_AL, M.x86.R_BL);
@@ -322,3 +323,4 @@ void _BE_bios_init(u32 * intrTab)
 	bios_intr_tab[0x6D] = int10;
 	X86EMU_setupIntrFuncs(bios_intr_tab);
 }
+#endif

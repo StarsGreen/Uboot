@@ -21,7 +21,25 @@
  * Adapted for U-Boot:
  * (C) Copyright 2001 Denis Peter, MPL AG Switzerland
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
+ *
  */
 
 /**********************************************************************
@@ -49,7 +67,7 @@
  *
  * Interrupt Transfers.
  * --------------------
- * For Interrupt transfers USB_MAX_TEMP_INT_TD Transfer descriptor are available. They
+ * For Interupt transfers USB_MAX_TEMP_INT_TD Transfer descriptor are available. They
  * will be inserted after the appropriate (depending the interval setting) skeleton TD.
  * If an interrupt has been detected the dev->irqhandler is called. The status and number
  * of transfered bytes is stored in dev->irq_status resp. dev->irq_act_len. If the
@@ -417,9 +435,9 @@ void reset_hc(void)
 	out16r( usb_base_addr + USBCMD,USBCMD_GRESET | USBCMD_RS);
 	/* Turn off all interrupts */
 	out16r(usb_base_addr + USBINTR,0);
-	mdelay(50);
+	wait_ms(50);
 	out16r( usb_base_addr + USBCMD,0);
-	mdelay(10);
+	wait_ms(10);
 }
 
 void start_hc(void)
@@ -584,7 +602,7 @@ void handle_usb_interrupt(void)
 
 /* init uhci
  */
-int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
+int usb_lowlevel_init(void)
 {
 	unsigned char temp;
 	int	busdevfunc;
@@ -603,7 +621,7 @@ int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
 	pci_read_config_dword(busdevfunc,PCI_BASE_ADDRESS_4,&usb_base_addr);
 	USB_UHCI_PRINTF("IO Base Address = 0x%lx\n",usb_base_addr);
 	usb_base_addr&=0xFFFFFFF0;
-	usb_base_addr+=CONFIG_SYS_ISA_IO_BASE_ADDRESS;
+	usb_base_addr+=CFG_ISA_IO_BASE_ADDRESS;
 	rh.devnum = 0;
 	usb_init_skel();
 	reset_hc();
@@ -614,7 +632,7 @@ int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
 
 /* stop uhci
  */
-int usb_lowlevel_stop(int index)
+int usb_lowlevel_stop(void)
 {
 	if(irqvec==-1)
 		return 1;
@@ -640,9 +658,118 @@ static void usb_display_wValue(unsigned short wValue,unsigned short wIndex) {}
 static void usb_display_Req(unsigned short req) {}
 #endif
 
-#define WANT_USB_ROOT_HUB_HUB_DES
-#include <usbroothubdes.h>
-#undef WANT_USB_ROOT_HUB_HUB_DES
+static unsigned char root_hub_dev_des[] =
+{
+	0x12,			/*  __u8  bLength; */
+	0x01,			/*  __u8  bDescriptorType; Device */
+	0x00,			/*  __u16 bcdUSB; v1.0 */
+	0x01,
+	0x09,			/*  __u8  bDeviceClass; HUB_CLASSCODE */
+	0x00,			/*  __u8  bDeviceSubClass; */
+	0x00,			/*  __u8  bDeviceProtocol; */
+	0x08,			/*  __u8  bMaxPacketSize0; 8 Bytes */
+	0x00,			/*  __u16 idVendor; */
+	0x00,
+	0x00,			/*  __u16 idProduct; */
+	0x00,
+	0x00,			/*  __u16 bcdDevice; */
+	0x00,
+	0x01,			/*  __u8  iManufacturer; */
+	0x00,			/*  __u8  iProduct; */
+	0x00,			/*  __u8  iSerialNumber; */
+	0x01			/*  __u8  bNumConfigurations; */
+};
+
+
+/* Configuration descriptor */
+static unsigned char root_hub_config_des[] =
+{
+	0x09,			/*  __u8  bLength; */
+	0x02,			/*  __u8  bDescriptorType; Configuration */
+	0x19,			/*  __u16 wTotalLength; */
+	0x00,
+	0x01,			/*  __u8  bNumInterfaces; */
+	0x01,			/*  __u8  bConfigurationValue; */
+	0x00,			/*  __u8  iConfiguration; */
+	0x40,			/*  __u8  bmAttributes;
+				   Bit 7: Bus-powered, 6: Self-powered, 5 Remote-wakwup, 4..0: resvd */
+	0x00,			/*  __u8  MaxPower; */
+
+     /* interface */
+	0x09,			/*  __u8  if_bLength; */
+	0x04,			/*  __u8  if_bDescriptorType; Interface */
+	0x00,			/*  __u8  if_bInterfaceNumber; */
+	0x00,			/*  __u8  if_bAlternateSetting; */
+	0x01,			/*  __u8  if_bNumEndpoints; */
+	0x09,			/*  __u8  if_bInterfaceClass; HUB_CLASSCODE */
+	0x00,			/*  __u8  if_bInterfaceSubClass; */
+	0x00,			/*  __u8  if_bInterfaceProtocol; */
+	0x00,			/*  __u8  if_iInterface; */
+
+     /* endpoint */
+	0x07,			/*  __u8  ep_bLength; */
+	0x05,			/*  __u8  ep_bDescriptorType; Endpoint */
+	0x81,			/*  __u8  ep_bEndpointAddress; IN Endpoint 1 */
+	0x03,			/*  __u8  ep_bmAttributes; Interrupt */
+	0x08,			/*  __u16 ep_wMaxPacketSize; 8 Bytes */
+	0x00,
+	0xff			/*  __u8  ep_bInterval; 255 ms */
+};
+
+
+static unsigned char root_hub_hub_des[] =
+{
+	0x09,			/*  __u8  bLength; */
+	0x29,			/*  __u8  bDescriptorType; Hub-descriptor */
+	0x02,			/*  __u8  bNbrPorts; */
+	0x00,			/* __u16  wHubCharacteristics; */
+	0x00,
+	0x01,			/*  __u8  bPwrOn2pwrGood; 2ms */
+	0x00,			/*  __u8  bHubContrCurrent; 0 mA */
+	0x00,			/*  __u8  DeviceRemovable; *** 7 Ports max *** */
+	0xff			/*  __u8  PortPwrCtrlMask; *** 7 ports max *** */
+};
+
+static unsigned char root_hub_str_index0[] =
+{
+	0x04,			/*  __u8  bLength; */
+	0x03,			/*  __u8  bDescriptorType; String-descriptor */
+	0x09,			/*  __u8  lang ID */
+	0x04,			/*  __u8  lang ID */
+};
+
+static unsigned char root_hub_str_index1[] =
+{
+	28,			/*  __u8  bLength; */
+	0x03,			/*  __u8  bDescriptorType; String-descriptor */
+	'U',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'H',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'C',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'I',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	' ',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'R',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'o',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'o',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	't',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	' ',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'H',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'u',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'b',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+};
+
 
 /*
  * Root Hub Control Pipe (interrupt Pipes are not supported)
@@ -665,7 +792,7 @@ int uhci_submit_rh_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 	unsigned short wIndex;
 	unsigned short wLength;
 
-	if (usb_pipeint(pipe)) {
+	if ((pipe & PIPE_INTERRUPT) == PIPE_INTERRUPT) {
 		printf("Root-Hub submit IRQ: NOT implemented\n");
 #if 0
 		uhci->rh.urb = urb;
@@ -799,13 +926,13 @@ int uhci_submit_rh_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 			status = in16r(usb_base_addr+USBPORTSC1+2*(wIndex-1));
 			status = (status & 0xfff5) | USBPORTSC_PR;
 			out16r(usb_base_addr+USBPORTSC1+2*(wIndex-1),status);
-			mdelay(10);
+			wait_ms(10);
 			status = (status & 0xfff5) & ~USBPORTSC_PR;
 			out16r(usb_base_addr+USBPORTSC1+2*(wIndex-1),status);
 			udelay(10);
 			status = (status & 0xfff5) | USBPORTSC_PE;
 			out16r(usb_base_addr+USBPORTSC1+2*(wIndex-1),status);
-			mdelay(10);
+			wait_ms(10);
 			status = (status & 0xfff5) | 0xa;
 			out16r(usb_base_addr+USBPORTSC1+2*(wIndex-1),status);
 			len=0;

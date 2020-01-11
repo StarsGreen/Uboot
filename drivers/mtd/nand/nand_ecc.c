@@ -7,9 +7,21 @@
  * Copyright (C) 2000-2004 Steven J. Hill (sjhill@realitydiluted.com)
  *                         Toshiba America Electronics Components, Inc.
  *
- * Copyright (C) 2006 Thomas Gleixner <tglx@linutronix.de>
+ * $Id: nand_ecc.c,v 1.14 2004/06/16 15:34:37 gleixner Exp $
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This file is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 or (at your option) any
+ * later version.
+ *
+ * This file is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this file; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  *
  * As a special exception, if other files instantiate templates or use
  * macros or inline functions from these files, or you compile these
@@ -25,21 +37,16 @@
 
 #include <common.h>
 
-#include <asm/errno.h>
-#include <linux/mtd/mtd.h>
-#include <linux/mtd/nand_ecc.h>
+#if defined(CONFIG_CMD_NAND) && !defined(CFG_NAND_LEGACY)
 
-/* The PPC4xx NDFC uses Smart Media (SMC) bytes order */
-#ifdef CONFIG_NAND_NDFC
-#define CONFIG_MTD_NAND_ECC_SMC
-#endif
+#include<linux/mtd/mtd.h>
 
 /*
  * NAND-SPL has no sofware ECC for now, so don't include nand_calculate_ecc(),
  * only nand_correct_data() is needed
  */
 
-#if !defined(CONFIG_NAND_SPL) || defined(CONFIG_SPL_NAND_SOFTECC)
+#ifndef CONFIG_NAND_SPL
 /*
  * Pre-calculated 256-way 1 byte column parity
  */
@@ -187,5 +194,7 @@ int nand_correct_data(struct mtd_info *mtd, u_char *dat,
 	if(countbits(s0 | ((uint32_t)s1 << 8) | ((uint32_t)s2 <<16)) == 1)
 		return 1;
 
-	return -EBADMSG;
+	return -1;
 }
+
+#endif

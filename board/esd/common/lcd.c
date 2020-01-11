@@ -5,7 +5,23 @@
  * (C) Copyright 2005
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include "asm/io.h"
@@ -21,7 +37,7 @@ int lcd_depth;
 unsigned char *glob_lcd_reg;
 unsigned char *glob_lcd_mem;
 
-#if defined(CONFIG_SYS_LCD_ENDIAN)
+#if defined(CFG_LCD_ENDIAN)
 void lcd_setup(int lcd, int config)
 {
 	if (lcd == 0) {
@@ -31,21 +47,21 @@ void lcd_setup(int lcd, int config)
 
 		/* set reset to low */
 		out_be32((void*)GPIO0_OR,
-			 in_be32((void*)GPIO0_OR) & ~CONFIG_SYS_LCD0_RST);
+			 in_be32((void*)GPIO0_OR) & ~CFG_LCD0_RST);
 		udelay(10); /* wait 10us */
 		if (config == 1) {
 			/* big-endian */
 			out_be32((void*)GPIO0_OR,
-				 in_be32((void*)GPIO0_OR) | CONFIG_SYS_LCD_ENDIAN);
+				 in_be32((void*)GPIO0_OR) | CFG_LCD_ENDIAN);
 		} else {
 			/* little-endian */
 			out_be32((void*)GPIO0_OR,
-				 in_be32((void*)GPIO0_OR) & ~CONFIG_SYS_LCD_ENDIAN);
+				 in_be32((void*)GPIO0_OR) & ~CFG_LCD_ENDIAN);
 		}
 		udelay(10); /* wait 10us */
 		/* set reset to high */
 		out_be32((void*)GPIO0_OR,
-			 in_be32((void*)GPIO0_OR) | CONFIG_SYS_LCD0_RST);
+			 in_be32((void*)GPIO0_OR) | CFG_LCD0_RST);
 	} else {
 		/*
 		 * Set endianess and reset lcd controller 1 (big)
@@ -53,29 +69,29 @@ void lcd_setup(int lcd, int config)
 
 		/* set reset to low */
 		out_be32((void*)GPIO0_OR,
-			 in_be32((void*)GPIO0_OR) & ~CONFIG_SYS_LCD1_RST);
+			 in_be32((void*)GPIO0_OR) & ~CFG_LCD1_RST);
 		udelay(10); /* wait 10us */
 		if (config == 1) {
 			/* big-endian */
 			out_be32((void*)GPIO0_OR,
-				 in_be32((void*)GPIO0_OR) | CONFIG_SYS_LCD_ENDIAN);
+				 in_be32((void*)GPIO0_OR) | CFG_LCD_ENDIAN);
 		} else {
 			/* little-endian */
 			out_be32((void*)GPIO0_OR,
-				 in_be32((void*)GPIO0_OR) & ~CONFIG_SYS_LCD_ENDIAN);
+				 in_be32((void*)GPIO0_OR) & ~CFG_LCD_ENDIAN);
 		}
 		udelay(10); /* wait 10us */
 		/* set reset to high */
 		out_be32((void*)GPIO0_OR,
-			 in_be32((void*)GPIO0_OR) | CONFIG_SYS_LCD1_RST);
+			 in_be32((void*)GPIO0_OR) | CFG_LCD1_RST);
 	}
 
 	/*
-	 * CONFIG_SYS_LCD_ENDIAN may also be FPGA_RESET, so set inactive
+	 * CFG_LCD_ENDIAN may also be FPGA_RESET, so set inactive
 	 */
-	out_be32((void*)GPIO0_OR, in_be32((void*)GPIO0_OR) | CONFIG_SYS_LCD_ENDIAN);
+	out_be32((void*)GPIO0_OR, in_be32((void*)GPIO0_OR) | CFG_LCD_ENDIAN);
 }
-#endif /* CONFIG_SYS_LCD_ENDIAN */
+#endif /* CFG_LCD_ENDIAN */
 
 
 int lcd_bmp(uchar *logo_bmp)
@@ -100,20 +116,20 @@ int lcd_bmp(uchar *logo_bmp)
 		/*
 		 * Decompress bmp image
 		 */
-		len = CONFIG_SYS_VIDEO_LOGO_MAX_SIZE;
-		dst = malloc(CONFIG_SYS_VIDEO_LOGO_MAX_SIZE);
+		len = CFG_VIDEO_LOGO_MAX_SIZE;
+		dst = malloc(CFG_VIDEO_LOGO_MAX_SIZE);
 		if (dst == NULL) {
 			printf("Error: malloc for gunzip failed!\n");
 			return 1;
 		}
-		if (gunzip(dst, CONFIG_SYS_VIDEO_LOGO_MAX_SIZE,
+		if (gunzip(dst, CFG_VIDEO_LOGO_MAX_SIZE,
 			   (uchar *)logo_bmp, &len) != 0) {
 			free(dst);
 			return 1;
 		}
-		if (len == CONFIG_SYS_VIDEO_LOGO_MAX_SIZE) {
+		if (len == CFG_VIDEO_LOGO_MAX_SIZE) {
 			printf("Image could be truncated"
-			       " (increase CONFIG_SYS_VIDEO_LOGO_MAX_SIZE)!\n");
+			       " (increase CFG_VIDEO_LOGO_MAX_SIZE)!\n");
 		}
 
 		/*
@@ -244,7 +260,7 @@ int lcd_init(uchar *lcd_reg, uchar *lcd_mem, S1D_REGS *regs, int reg_count,
 		/*
 		 * Big epson detected
 		 */
-		reg_byte_swap = false;
+		reg_byte_swap = FALSE;
 		palette_index = 0x1e2;
 		palette_value = 0x1e4;
 		lcd_depth = 16;
@@ -253,7 +269,7 @@ int lcd_init(uchar *lcd_reg, uchar *lcd_mem, S1D_REGS *regs, int reg_count,
 		/*
 		 * Big epson detected (with register swap bug)
 		 */
-		reg_byte_swap = true;
+		reg_byte_swap = TRUE;
 		palette_index = 0x1e3;
 		palette_value = 0x1e5;
 		lcd_depth = 16;
@@ -262,7 +278,7 @@ int lcd_init(uchar *lcd_reg, uchar *lcd_mem, S1D_REGS *regs, int reg_count,
 		/*
 		 * Small epson detected (704)
 		 */
-		reg_byte_swap = false;
+		reg_byte_swap = FALSE;
 		palette_index = 0x15;
 		palette_value = 0x17;
 		lcd_depth = 8;
@@ -271,7 +287,7 @@ int lcd_init(uchar *lcd_reg, uchar *lcd_mem, S1D_REGS *regs, int reg_count,
 		/*
 		 * Small epson detected (705)
 		 */
-		reg_byte_swap = false;
+		reg_byte_swap = FALSE;
 		palette_index = 0x15;
 		palette_value = 0x17;
 		lcd_depth = 8;
@@ -284,7 +300,7 @@ int lcd_init(uchar *lcd_reg, uchar *lcd_mem, S1D_REGS *regs, int reg_count,
 			/*
 			 * S1D13505 detected
 			 */
-			reg_byte_swap = true;
+			reg_byte_swap = TRUE;
 			palette_index = 0x25;
 			palette_value = 0x27;
 			lcd_depth = 16;
@@ -323,14 +339,16 @@ int lcd_init(uchar *lcd_reg, uchar *lcd_mem, S1D_REGS *regs, int reg_count,
 	return lcd_bmp(logo_bmp);
 }
 
-int do_esdbmp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_esdbmp(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	ulong addr;
 #ifdef CONFIG_VIDEO_SM501
 	char *str;
 #endif
-	if (argc != 2)
-		return cmd_usage(cmdtp);
+	if (argc != 2) {
+		printf ("Usage:\n%s\n", cmdtp->usage);
+		return 1;
+	}
 
 	addr = simple_strtoul(argv[1], NULL, 16);
 
@@ -354,6 +372,6 @@ int do_esdbmp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 U_BOOT_CMD(
 	esdbmp,	2,	1,	do_esdbmp,
-	"display BMP image",
-	"<imageAddr> - display image"
+	"esdbmp   - display BMP image\n",
+	"<imageAddr> - display image\n"
 );

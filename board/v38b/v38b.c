@@ -5,16 +5,31 @@
  * (C) Copyright 2004
  * Mark Jonas, Freescale Semiconductor, mark.jonas@motorola.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <mpc5xxx.h>
-#include <net.h>
 #include <asm/processor.h>
 
 
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 static void sdram_start(int hi_addr)
 {
 	long hi_addr_bit = hi_addr ? 0x01000000 : 0;
@@ -53,7 +68,7 @@ static void sdram_start(int hi_addr)
 	*(vu_long *) MPC5XXX_SDRAM_CTRL = SDRAM_CONTROL | hi_addr_bit;
 	__asm__ volatile ("sync");
 }
-#endif /* !CONFIG_SYS_RAMBOOT */
+#endif /* !CFG_RAMBOOT */
 
 
 phys_size_t initdram(int board_type)
@@ -62,7 +77,7 @@ phys_size_t initdram(int board_type)
 	ulong dramsize2 = 0;
 	uint svr, pvr;
 
-#ifndef CONFIG_SYS_RAMBOOT
+#ifndef CFG_RAMBOOT
 	ulong test1, test2;
 
 	/* setup SDRAM chip selects */
@@ -83,9 +98,9 @@ phys_size_t initdram(int board_type)
 
 	/* find RAM size using SDRAM CS0 only */
 	sdram_start(0);
-	test1 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test1 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	sdram_start(1);
-	test2 = get_ram_size((long *)CONFIG_SYS_SDRAM_BASE, 0x80000000);
+	test2 = get_ram_size((long *)CFG_SDRAM_BASE, 0x80000000);
 	if (test1 > test2) {
 		sdram_start(0);
 		dramsize = test1;
@@ -108,10 +123,10 @@ phys_size_t initdram(int board_type)
 	/* find RAM size using SDRAM CS1 only */
 	if (!dramsize)
 		sdram_start(0);
-	test2 = test1 = get_ram_size((long *) (CONFIG_SYS_SDRAM_BASE + dramsize), 0x80000000);
+	test2 = test1 = get_ram_size((long *) (CFG_SDRAM_BASE + dramsize), 0x80000000);
 	if (!dramsize) {
 		sdram_start(1);
-		test2 = get_ram_size((long *) (CONFIG_SYS_SDRAM_BASE + dramsize), 0x80000000);
+		test2 = get_ram_size((long *) (CFG_SDRAM_BASE + dramsize), 0x80000000);
 	}
 	if (test1 > test2) {
 		sdram_start(0);
@@ -130,7 +145,7 @@ phys_size_t initdram(int board_type)
 	else
 		*(vu_long *) MPC5XXX_SDRAM_CS1CFG = dramsize; /* disabled */
 
-#else /* CONFIG_SYS_RAMBOOT */
+#else /* CFG_RAMBOOT */
 
 	/* retrieve size of memory connected to SDRAM CS0 */
 	dramsize = *(vu_long *) MPC5XXX_SDRAM_CS0CFG & 0xFF;
@@ -146,7 +161,7 @@ phys_size_t initdram(int board_type)
 	else
 		dramsize2 = 0;
 
-#endif /* CONFIG_SYS_RAMBOOT */
+#endif /* CFG_RAMBOOT */
 
 	/*
 	 * On MPC5200B we need to set the special configuration delay in the
@@ -208,18 +223,6 @@ int board_early_init_r(void)
 	return 0;
 }
 
-extern void board_get_enetaddr(uchar *enetaddr);
-int misc_init_r(void)
-{
-	uchar enetaddr[6];
-
-	if (!eth_getenv_enetaddr("ethaddr", enetaddr)) {
-		board_get_enetaddr(enetaddr);
-		eth_setenv_enetaddr("ethaddr", enetaddr);
-	}
-
-	return 0;
-}
 
 #if defined(CONFIG_CMD_IDE) && defined(CONFIG_IDE_RESET)
 void init_ide_reset(void)

@@ -2,7 +2,23 @@
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -17,19 +33,17 @@
 #ifndef	_ATA_H
 #define _ATA_H
 
-#include <libata.h>
-
 /* Register addressing depends on the hardware design; for instance,
  * 8-bit (register) and 16-bit (data) accesses might use different
  * address spaces. This is implemented by the following definitions.
  */
-#ifndef CONFIG_SYS_ATA_STRIDE
-#define CONFIG_SYS_ATA_STRIDE	1
+#ifndef CFG_ATA_STRIDE
+#define CFG_ATA_STRIDE	1
 #endif
 
-#define ATA_IO_DATA(x)	(CONFIG_SYS_ATA_DATA_OFFSET+((x) * CONFIG_SYS_ATA_STRIDE))
-#define ATA_IO_REG(x)	(CONFIG_SYS_ATA_REG_OFFSET +((x) * CONFIG_SYS_ATA_STRIDE))
-#define ATA_IO_ALT(x)	(CONFIG_SYS_ATA_ALT_OFFSET +((x) * CONFIG_SYS_ATA_STRIDE))
+#define ATA_IO_DATA(x)	(CFG_ATA_DATA_OFFSET+((x) * CFG_ATA_STRIDE))
+#define ATA_IO_REG(x)	(CFG_ATA_REG_OFFSET +((x) * CFG_ATA_STRIDE))
+#define ATA_IO_ALT(x)	(CFG_ATA_ALT_OFFSET +((x) * CFG_ATA_STRIDE))
 
 /*
  * I/O Register Descriptions
@@ -66,11 +80,69 @@
 /*
  * Device / Head Register Bits
  */
-#ifndef ATA_DEVICE
 #define ATA_DEVICE(x)	((x & 1)<<4)
-#endif /* ATA_DEVICE */
 #define ATA_LBA		0xE0
 
+enum {
+	ATA_MAX_DEVICES = 1,	/* per bus/port */
+	ATA_MAX_PRD = 256,	/* we could make these 256/256 */
+	ATA_SECT_SIZE = 256,	/*256 words per sector */
+
+	/* bits in ATA command block registers */
+	ATA_HOB = (1 << 7),	/* LBA48 selector */
+	ATA_NIEN = (1 << 1),	/* disable-irq flag */
+	/*ATA_LBA                 = (1 << 6), */ /* LBA28 selector */
+	ATA_DEV1 = (1 << 4),	/* Select Device 1 (slave) */
+	ATA_DEVICE_OBS = (1 << 7) | (1 << 5),	/* obs bits in dev reg */
+	ATA_DEVCTL_OBS = (1 << 3),	/* obsolete bit in devctl reg */
+	ATA_BUSY = (1 << 7),	/* BSY status bit */
+	ATA_DRDY = (1 << 6),	/* device ready */
+	ATA_DF = (1 << 5),	/* device fault */
+	ATA_DRQ = (1 << 3),	/* data request i/o */
+	ATA_ERR = (1 << 0),	/* have an error */
+	ATA_SRST = (1 << 2),	/* software reset */
+	ATA_ABORTED = (1 << 2),	/* command aborted */
+	/* ATA command block registers */
+	ATA_REG_DATA = 0x00,
+	ATA_REG_ERR = 0x01,
+	ATA_REG_NSECT = 0x02,
+	ATA_REG_LBAL = 0x03,
+	ATA_REG_LBAM = 0x04,
+	ATA_REG_LBAH = 0x05,
+	ATA_REG_DEVICE = 0x06,
+	ATA_REG_STATUS = 0x07,
+	ATA_PCI_CTL_OFS = 0x02,
+	/* and their aliases */
+	ATA_REG_FEATURE = ATA_REG_ERR,
+	ATA_REG_CMD = ATA_REG_STATUS,
+	ATA_REG_BYTEL = ATA_REG_LBAM,
+	ATA_REG_BYTEH = ATA_REG_LBAH,
+	ATA_REG_DEVSEL = ATA_REG_DEVICE,
+	ATA_REG_IRQ = ATA_REG_NSECT,
+
+	/* SETFEATURES stuff */
+	SETFEATURES_XFER = 0x03,
+	XFER_UDMA_7 = 0x47,
+	XFER_UDMA_6 = 0x46,
+	XFER_UDMA_5 = 0x45,
+	XFER_UDMA_4 = 0x44,
+	XFER_UDMA_3 = 0x43,
+	XFER_UDMA_2 = 0x42,
+	XFER_UDMA_1 = 0x41,
+	XFER_UDMA_0 = 0x40,
+	XFER_MW_DMA_2 = 0x22,
+	XFER_MW_DMA_1 = 0x21,
+	XFER_MW_DMA_0 = 0x20,
+	XFER_PIO_4 = 0x0C,
+	XFER_PIO_3 = 0x0B,
+	XFER_PIO_2 = 0x0A,
+	XFER_PIO_1 = 0x09,
+	XFER_PIO_0 = 0x08,
+	XFER_SW_DMA_2 = 0x12,
+	XFER_SW_DMA_1 = 0x11,
+	XFER_SW_DMA_0 = 0x10,
+	XFER_PIO_SLOW = 0x00
+};
 /*
  * ATA Commands (only mandatory commands listed here)
  */
@@ -97,9 +169,6 @@
 #define ATA_CMD_READ_EXT 0x24	/* Read Sectors (with retries)	with 48bit addressing */
 #define ATA_CMD_WRITE_EXT	0x34	/* Write Sectores (with retries) with 48bit addressing */
 #define ATA_CMD_VRFY_EXT	0x42	/* Read Verify	(with retries)	with 48bit addressing */
-
-#define ATA_CMD_FLUSH 0xE7 /* Flush drive cache */
-#define ATA_CMD_FLUSH_EXT 0xEA /* Flush drive cache, with 48bit addressing */
 
 /*
  * ATAPI Commands
@@ -225,9 +294,7 @@ typedef struct hd_driveid {
 	unsigned short	words130_155[26];/* reserved vendor words 130-155 */
 	unsigned short	word156;
 	unsigned short	words157_159[3];/* reserved vendor words 157-159 */
-	unsigned short	words160_162[3];/* reserved words 160-162 */
-	unsigned short	cf_advanced_caps;
-	unsigned short	words164_255[92];/* reserved words 164-255 */
+	unsigned short	words160_255[95];/* reserved words 160-255 */
 } hd_driveid_t;
 
 

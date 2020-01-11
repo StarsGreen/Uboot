@@ -40,6 +40,9 @@
 ****************************************************************************/
 
 #include <common.h>
+
+#if defined(CONFIG_BIOSEMU)
+
 #include "x86emu/x86emui.h"
 
 /*------------------------- Global Variables ------------------------------*/
@@ -273,11 +276,6 @@ void X86EMU_setupPioFuncs(X86EMU_pioFuncs * funcs)
 	sys_outl = funcs->outl;
 }
 
-void X86EMU_setupIntrFunc(int intnum, X86EMU_intrFuncs func)
-{
-	_X86EMU_intrTab[intnum] = func;
-}
-
 /****************************************************************************
 PARAMETERS:
 funcs   - New interrupt vector table to make active
@@ -326,3 +324,5 @@ void X86EMU_prepareForInt(int num)
 	M.x86.R_IP = mem_access_word(num * 4);
 	M.x86.intr = 0;
 }
+
+#endif

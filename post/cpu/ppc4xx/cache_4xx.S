@@ -4,7 +4,23 @@
  *
  * Author: Igor Lisitsin <igor@emcraft.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <config.h>
@@ -15,7 +31,7 @@
 #include <asm/cache.h>
 #include <asm/mmu.h>
 
-#if CONFIG_POST & CONFIG_SYS_POST_CACHE
+#if CONFIG_POST & CFG_POST_CACHE
 
 	.text
 
@@ -99,8 +115,8 @@ cache_post_wb:
  */
 cache_post_dinvalidate:
 	dcbi	r0, r3
-	addi	r3, r3, CONFIG_SYS_CACHELINE_SIZE
-	subic.	r4, r4, CONFIG_SYS_CACHELINE_SIZE
+	addi	r3, r3, CFG_CACHELINE_SIZE
+	subic.	r4, r4, CFG_CACHELINE_SIZE
 	bgt	cache_post_dinvalidate
 	sync
 	blr
@@ -109,8 +125,8 @@ cache_post_dinvalidate:
  */
 cache_post_dstore:
 	dcbst	r0, r3
-	addi	r3, r3, CONFIG_SYS_CACHELINE_SIZE
-	subic.	r4, r4, CONFIG_SYS_CACHELINE_SIZE
+	addi	r3, r3, CFG_CACHELINE_SIZE
+	subic.	r4, r4, CFG_CACHELINE_SIZE
 	bgt	cache_post_dstore
 	sync
 	blr
@@ -119,8 +135,8 @@ cache_post_dstore:
  */
 cache_post_dtouch:
 	dcbt	r0, r3
-	addi	r3, r3, CONFIG_SYS_CACHELINE_SIZE
-	subic.	r4, r4, CONFIG_SYS_CACHELINE_SIZE
+	addi	r3, r3, CFG_CACHELINE_SIZE
+	subic.	r4, r4, CFG_CACHELINE_SIZE
 	bgt	cache_post_dtouch
 	sync
 	blr
@@ -470,4 +486,4 @@ cache_post_test_inst:
 	li	r3, -1
 	blr
 
-#endif /* CONFIG_POST & CONFIG_SYS_POST_CACHE */
+#endif /* CONFIG_POST & CFG_POST_CACHE */

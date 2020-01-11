@@ -5,7 +5,23 @@
  * (C) Copyright 2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -40,12 +56,12 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 struct fec_info_dma fec_info[] = {
-#ifdef CONFIG_SYS_FEC0_IOBASE
+#ifdef CFG_FEC0_IOBASE
 	{
 	 0,			/* index */
-	 CONFIG_SYS_FEC0_IOBASE,	/* io base */
-	 CONFIG_SYS_FEC0_PINMUX,	/* gpio pin muxing */
-	 CONFIG_SYS_FEC0_MIIBASE,	/* mii base */
+	 CFG_FEC0_IOBASE,	/* io base */
+	 CFG_FEC0_PINMUX,	/* gpio pin muxing */
+	 CFG_FEC0_MIIBASE,	/* mii base */
 	 -1,			/* phy_addr */
 	 0,			/* duplex and speed */
 	 0,			/* phy name */
@@ -67,18 +83,18 @@ struct fec_info_dma fec_info[] = {
 	 0,			/* cleanTbdNum */
 	 },
 #endif
-#ifdef CONFIG_SYS_FEC1_IOBASE
+#ifdef CFG_FEC1_IOBASE
 	{
 	 1,			/* index */
-	 CONFIG_SYS_FEC1_IOBASE,	/* io base */
-	 CONFIG_SYS_FEC1_PINMUX,	/* gpio pin muxing */
-	 CONFIG_SYS_FEC1_MIIBASE,	/* mii base */
+	 CFG_FEC1_IOBASE,	/* io base */
+	 CFG_FEC1_PINMUX,	/* gpio pin muxing */
+	 CFG_FEC1_MIIBASE,	/* mii base */
 	 -1,			/* phy_addr */
 	 0,			/* duplex and speed */
 	 0,			/* phy name */
 	 0,			/* phy name init */
-#ifdef CONFIG_SYS_DMA_USE_INTSRAM
-	 (cbd_t *)DBUF_LENGTH,	/* RX BD */
+#ifdef CFG_DMA_USE_INTSRAM
+	 DBUF_LENGTH,		/* RX BD */
 #else
 	 0,			/* RX BD */
 #endif
@@ -100,7 +116,7 @@ struct fec_info_dma fec_info[] = {
 #endif
 };
 
-static int fec_send(struct eth_device *dev, void *packet, int length);
+static int fec_send(struct eth_device *dev, volatile void *packet, int length);
 static int fec_recv(struct eth_device *dev);
 static int fec_init(struct eth_device *dev, bd_t * bd);
 static void fec_halt(struct eth_device *dev);
@@ -178,16 +194,16 @@ static void set_fec_duplex_speed(volatile fecdma_t * fecp, bd_t * bd,
 	}
 }
 
-static int fec_send(struct eth_device *dev, void *packet, int length)
+static int fec_send(struct eth_device *dev, volatile void *packet, int length)
 {
 	struct fec_info_dma *info = dev->priv;
 	cbd_t *pTbd, *pUsedTbd;
 	u16 phyStatus;
 
-	miiphy_read(dev->name, info->phy_addr, MII_BMSR, &phyStatus);
+	miiphy_read(dev->name, info->phy_addr, PHY_BMSR, &phyStatus);
 
 	/* process all the consumed TBDs */
-	while (info->cleanTbdNum < CONFIG_SYS_TX_ETH_BUFFER) {
+	while (info->cleanTbdNum < CFG_TX_ETH_BUFFER) {
 		pUsedTbd = &info->txbd[info->usedTbdIdx];
 		if (pUsedTbd->cbd_sc & BD_ENET_TX_READY) {
 #ifdef ET_DEBUG
@@ -198,14 +214,14 @@ static int fec_send(struct eth_device *dev, void *packet, int length)
 		}
 
 		/* clean this buffer descriptor */
-		if (info->usedTbdIdx == (CONFIG_SYS_TX_ETH_BUFFER - 1))
+		if (info->usedTbdIdx == (CFG_TX_ETH_BUFFER - 1))
 			pUsedTbd->cbd_sc = BD_ENET_TX_WRAP;
 		else
 			pUsedTbd->cbd_sc = 0;
 
 		/* update some indeces for a correct handling of the TBD ring */
 		info->cleanTbdNum++;
-		info->usedTbdIdx = (info->usedTbdIdx + 1) % CONFIG_SYS_TX_ETH_BUFFER;
+		info->usedTbdIdx = (info->usedTbdIdx + 1) % CFG_TX_ETH_BUFFER;
 	}
 
 	/* Check for valid length of data. */
@@ -224,7 +240,7 @@ static int fec_send(struct eth_device *dev, void *packet, int length)
 	pTbd->cbd_datlen = length;
 	pTbd->cbd_bufaddr = (u32) packet;
 	pTbd->cbd_sc |= BD_ENET_TX_LAST | BD_ENET_TX_TC | BD_ENET_TX_READY;
-	info->txIdx = (info->txIdx + 1) % CONFIG_SYS_TX_ETH_BUFFER;
+	info->txIdx = (info->txIdx + 1) % CFG_TX_ETH_BUFFER;
 
 	/* Enable DMA transmit task */
 	MCD_continDma(info->txTask);
@@ -244,7 +260,7 @@ static int fec_recv(struct eth_device *dev)
 	struct fec_info_dma *info = dev->priv;
 	volatile fecdma_t *fecp = (fecdma_t *) (info->iobase);
 
-	cbd_t *prbd = &info->rxbd[info->rxIdx];
+	cbd_t *pRbd = &info->rxbd[info->rxIdx];
 	u32 ievent;
 	int frame_length, len = 0;
 
@@ -276,27 +292,27 @@ static int fec_recv(struct eth_device *dev)
 		}
 	}
 
-	if (!(prbd->cbd_sc & BD_ENET_RX_EMPTY)) {
-		if ((prbd->cbd_sc & BD_ENET_RX_LAST) &&
-		    !(prbd->cbd_sc & BD_ENET_RX_ERR) &&
-		    ((prbd->cbd_datlen - 4) > 14)) {
+	if (!(pRbd->cbd_sc & BD_ENET_RX_EMPTY)) {
+		if ((pRbd->cbd_sc & BD_ENET_RX_LAST)
+		    && !(pRbd->cbd_sc & BD_ENET_RX_ERR)
+		    && ((pRbd->cbd_datlen - 4) > 14)) {
 
 			/* Get buffer address and size */
-			frame_length = prbd->cbd_datlen - 4;
+			frame_length = pRbd->cbd_datlen - 4;
 
 			/* Fill the buffer and pass it to upper layers */
-			net_process_received_packet((uchar *)prbd->cbd_bufaddr,
-						    frame_length);
+			NetReceive((volatile uchar *)pRbd->cbd_bufaddr,
+				   frame_length);
 			len = frame_length;
 		}
 
 		/* Reset buffer descriptor as empty */
 		if ((info->rxIdx) == (PKTBUFSRX - 1))
-			prbd->cbd_sc = (BD_ENET_RX_WRAP | BD_ENET_RX_EMPTY);
+			pRbd->cbd_sc = (BD_ENET_RX_WRAP | BD_ENET_RX_EMPTY);
 		else
-			prbd->cbd_sc = BD_ENET_RX_EMPTY;
+			pRbd->cbd_sc = BD_ENET_RX_EMPTY;
 
-		prbd->cbd_datlen = PKTSIZE_ALIGN;
+		pRbd->cbd_datlen = PKTSIZE_ALIGN;
 
 		/* Now, we have an empty RxBD, restart the DMA receive task */
 		MCD_continDma(info->rxTask);
@@ -353,7 +369,6 @@ static int fec_init(struct eth_device *dev, bd_t * bd)
 	struct fec_info_dma *info = dev->priv;
 	volatile fecdma_t *fecp = (fecdma_t *) (info->iobase);
 	int i;
-	uchar enetaddr[6];
 
 #ifdef ET_DEBUG
 	printf("fec_init: iobase 0x%08x ...\n", info->iobase);
@@ -364,15 +379,15 @@ static int fec_init(struct eth_device *dev, bd_t * bd)
 	fec_halt(dev);
 
 #if defined(CONFIG_CMD_MII) || defined (CONFIG_MII) || \
-	defined (CONFIG_SYS_DISCOVER_PHY)
+	defined (CFG_DISCOVER_PHY)
 
 	mii_init();
 
 	set_fec_duplex_speed(fecp, bd, info->dup_spd);
 #else
-#ifndef CONFIG_SYS_DISCOVER_PHY
+#ifndef CFG_DISCOVER_PHY
 	set_fec_duplex_speed(fecp, bd, (FECDUPLEX << 16) | FECSPEED);
-#endif				/* ifndef CONFIG_SYS_DISCOVER_PHY */
+#endif				/* ifndef CFG_DISCOVER_PHY */
 #endif				/* CONFIG_CMD_MII || CONFIG_MII */
 
 	/* We use strictly polling mode only */
@@ -382,11 +397,11 @@ static int fec_init(struct eth_device *dev, bd_t * bd)
 	fecp->eir = 0xffffffff;
 
 	/* Set station address   */
-	if ((u32) fecp == CONFIG_SYS_FEC0_IOBASE)
-		eth_getenv_enetaddr("ethaddr", enetaddr);
-	else
-		eth_getenv_enetaddr("eth1addr", enetaddr);
-	fec_set_hwaddr(fecp, enetaddr);
+	if ((u32) fecp == CFG_FEC0_IOBASE) {
+		fec_set_hwaddr(fecp, bd->bi_enetaddr);
+	} else {
+		fec_set_hwaddr(fecp, bd->bi_enet1addr);
+	}
 
 	/* Set Opcode/Pause Duration Register */
 	fecp->opd = 0x00010020;
@@ -400,21 +415,21 @@ static int fec_init(struct eth_device *dev, bd_t * bd)
 	for (i = 0; i < PKTBUFSRX; i++) {
 		info->rxbd[i].cbd_sc = BD_ENET_RX_EMPTY;
 		info->rxbd[i].cbd_datlen = PKTSIZE_ALIGN;
-		info->rxbd[i].cbd_bufaddr = (uint) net_rx_packets[i];
+		info->rxbd[i].cbd_bufaddr = (uint) NetRxPackets[i];
 	}
 	info->rxbd[PKTBUFSRX - 1].cbd_sc |= BD_ENET_RX_WRAP;
 
 	/* Setup Ethernet Transmitter Buffer Descriptors (13.14.24.19)
 	 * Settings:    Last, Tx CRC */
-	for (i = 0; i < CONFIG_SYS_TX_ETH_BUFFER; i++) {
+	for (i = 0; i < CFG_TX_ETH_BUFFER; i++) {
 		info->txbd[i].cbd_sc = 0;
 		info->txbd[i].cbd_datlen = 0;
 		info->txbd[i].cbd_bufaddr = (uint) (&info->txbuf[0]);
 	}
-	info->txbd[CONFIG_SYS_TX_ETH_BUFFER - 1].cbd_sc |= BD_ENET_TX_WRAP;
+	info->txbd[CFG_TX_ETH_BUFFER - 1].cbd_sc |= BD_ENET_TX_WRAP;
 
 	info->usedTbdIdx = 0;
-	info->cleanTbdNum = CONFIG_SYS_TX_ETH_BUFFER;
+	info->cleanTbdNum = CFG_TX_ETH_BUFFER;
 
 	/* Set Rx FIFO alarm and granularity value */
 	fecp->rfcr = 0x0c000000;
@@ -501,14 +516,14 @@ int mcdmafec_initialize(bd_t * bis)
 {
 	struct eth_device *dev;
 	int i;
-#ifdef CONFIG_SYS_DMA_USE_INTSRAM
-	u32 tmp = CONFIG_SYS_INTSRAM + 0x2000;
+#ifdef CFG_DMA_USE_INTSRAM
+	u32 tmp = CFG_INTSRAM + 0x2000;
 #endif
 
-	for (i = 0; i < ARRAY_SIZE(fec_info); i++) {
+	for (i = 0; i < sizeof(fec_info) / sizeof(fec_info[0]); i++) {
 
 		dev =
-		    (struct eth_device *)memalign(CONFIG_SYS_CACHELINE_SIZE,
+		    (struct eth_device *)memalign(CFG_CACHELINE_SIZE,
 						  sizeof *dev);
 		if (dev == NULL)
 			hang();
@@ -524,26 +539,25 @@ int mcdmafec_initialize(bd_t * bis)
 		dev->recv = fec_recv;
 
 		/* setup Receive and Transmit buffer descriptor */
-#ifdef CONFIG_SYS_DMA_USE_INTSRAM
-		fec_info[i].rxbd = (cbd_t *)((u32)fec_info[i].rxbd + tmp);
-		tmp = (u32)fec_info[i].rxbd;
+#ifdef CFG_DMA_USE_INTSRAM
+		fec_info[i].rxbd = (int)fec_info[i].rxbd + tmp;
+		tmp = fec_info[i].rxbd;
 		fec_info[i].txbd =
-		    (cbd_t *)((u32)fec_info[i].txbd + tmp +
-		    (PKTBUFSRX * sizeof(cbd_t)));
-		tmp = (u32)fec_info[i].txbd;
+		    (int)fec_info[i].txbd + tmp + (PKTBUFSRX * sizeof(cbd_t));
+		tmp = fec_info[i].txbd;
 		fec_info[i].txbuf =
-		    (char *)((u32)fec_info[i].txbuf + tmp +
-		    (CONFIG_SYS_TX_ETH_BUFFER * sizeof(cbd_t)));
-		tmp = (u32)fec_info[i].txbuf;
+		    (int)fec_info[i].txbuf + tmp +
+		    (CFG_TX_ETH_BUFFER * sizeof(cbd_t));
+		tmp = fec_info[i].txbuf;
 #else
 		fec_info[i].rxbd =
-		    (cbd_t *) memalign(CONFIG_SYS_CACHELINE_SIZE,
+		    (cbd_t *) memalign(CFG_CACHELINE_SIZE,
 				       (PKTBUFSRX * sizeof(cbd_t)));
 		fec_info[i].txbd =
-		    (cbd_t *) memalign(CONFIG_SYS_CACHELINE_SIZE,
-				       (CONFIG_SYS_TX_ETH_BUFFER * sizeof(cbd_t)));
+		    (cbd_t *) memalign(CFG_CACHELINE_SIZE,
+				       (CFG_TX_ETH_BUFFER * sizeof(cbd_t)));
 		fec_info[i].txbuf =
-		    (char *)memalign(CONFIG_SYS_CACHELINE_SIZE, DBUF_LENGTH);
+		    (char *)memalign(CFG_CACHELINE_SIZE, DBUF_LENGTH);
 #endif
 
 #ifdef ET_DEBUG
@@ -551,7 +565,7 @@ int mcdmafec_initialize(bd_t * bis)
 		       (int)fec_info[i].rxbd, (int)fec_info[i].txbd);
 #endif
 
-		fec_info[i].phy_name = (char *)memalign(CONFIG_SYS_CACHELINE_SIZE, 32);
+		fec_info[i].phy_name = (char *)memalign(CFG_CACHELINE_SIZE, 32);
 
 		eth_register(dev);
 
@@ -568,5 +582,5 @@ int mcdmafec_initialize(bd_t * bis)
 	/* default speed */
 	bis->bi_ethspeed = 10;
 
-	return 0;
+	return 1;
 }

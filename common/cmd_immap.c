@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -12,13 +28,13 @@
 #include <common.h>
 #include <command.h>
 
-#if defined(CONFIG_8xx) || defined(CONFIG_MPC8260)
+#if defined(CONFIG_8xx) || defined(CONFIG_8260)
 
 #if defined(CONFIG_8xx)
 #include <asm/8xx_immap.h>
 #include <commproc.h>
 #include <asm/iopin_8xx.h>
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 #include <asm/immap_8260.h>
 #include <asm/cpm_8260.h>
 #include <asm/iopin_8260.h>
@@ -27,20 +43,20 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 static void
-unimplemented ( cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+unimplemented ( cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	printf ("Sorry, but the '%s' command has not been implemented\n",
 		cmdtp->name);
 }
 
 int
-do_siuinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_siuinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 #if defined(CONFIG_8xx)
 	volatile sysconf8xx_t *sc = &immap->im_siu_conf;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	volatile sysconf8260_t *sc = &immap->im_siu_conf;
 #endif
 
@@ -50,7 +66,7 @@ do_siuinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	printf ("SIPEND= %08x SIMASK= %08x\n", sc->sc_sipend, sc->sc_simask);
 	printf ("SIEL  = %08x SIVEC = %08x\n", sc->sc_siel, sc->sc_sivec);
 	printf ("TESR  = %08x SDCR  = %08x\n", sc->sc_tesr, sc->sc_sdcr);
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	printf ("BCR   = %08x\n", sc->sc_bcr);
 	printf ("P_ACR =       %02x P_ALRH= %08x P_ALRL= %08x\n",
 		sc->sc_ppc_acr, sc->sc_ppc_alrh, sc->sc_ppc_alrl);
@@ -65,14 +81,14 @@ do_siuinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 int
-do_memcinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_memcinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 #if defined(CONFIG_8xx)
 	volatile memctl8xx_t *memctl = &immap->im_memctl;
 	int nbanks = 8;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	volatile memctl8260_t *memctl = &immap->im_memctl;
 	int nbanks = 12;
 #endif
@@ -92,19 +108,19 @@ do_memcinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	printf ("MAR   = %08x", memctl->memc_mar);
 #if defined(CONFIG_8xx)
 	printf (" MCR   = %08x\n", memctl->memc_mcr);
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	putc ('\n');
 #endif
 	printf ("MAMR  = %08x MBMR  = %08x",
 		memctl->memc_mamr, memctl->memc_mbmr);
 #if defined(CONFIG_8xx)
 	printf ("\nMSTAT =     %04x\n", memctl->memc_mstat);
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	printf (" MCMR  = %08x\n", memctl->memc_mcmr);
 #endif
 	printf ("MPTPR =     %04x MDR   = %08x\n",
 		memctl->memc_mptpr, memctl->memc_mdr);
-#if defined(CONFIG_MPC8260)
+#if defined(CONFIG_8260)
 	printf ("PSDMR = %08x LSDMR = %08x\n",
 		memctl->memc_psdmr, memctl->memc_lsdmr);
 	printf ("PURT  =       %02x PSRT  =       %02x\n",
@@ -117,15 +133,15 @@ do_memcinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 int
-do_sitinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_sitinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
-#ifdef CONFIG_MPC8260
+#ifdef CONFIG_8260
 int
-do_icinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_icinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
@@ -133,13 +149,13 @@ do_icinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #endif
 
 int
-do_carinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_carinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 #if defined(CONFIG_8xx)
 	volatile car8xx_t *car = &immap->im_clkrst;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	volatile car8260_t *car = &immap->im_clkrst;
 #endif
 
@@ -147,7 +163,7 @@ do_carinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	printf ("SCCR  = %08x\n", car->car_sccr);
 	printf ("PLPRCR= %08x\n", car->car_plprcr);
 	printf ("RSR   = %08x\n", car->car_rsr);
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	printf ("SCCR  = %08x\n", car->car_sccr);
 	printf ("SCMR  = %08x\n", car->car_scmr);
 	printf ("RSR   = %08x\n", car->car_rsr);
@@ -207,7 +223,7 @@ static void binary (char *label, uint value, int nbits)
 #define PB_NB_ODR	16
 #define PC_NBITS	12
 #define PD_NBITS	13
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 #define PA_NBITS	32
 #define PA_NB_ODR	32
 #define PB_NBITS	28
@@ -217,14 +233,14 @@ static void binary (char *label, uint value, int nbits)
 #endif
 
 int
-do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 #if defined(CONFIG_8xx)
 	volatile iop8xx_t *iop = &immap->im_ioport;
 	volatile ushort *l, *r;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	volatile iop8260_t *iop = &immap->im_ioport;
 	volatile uint *l, *r;
 #endif
@@ -240,7 +256,7 @@ do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #if defined(CONFIG_8xx)
 	l = &iop->iop_padir;
 	R = &immap->im_cpm.cp_pbdir;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	l = &iop->iop_pdira;
 	R = &iop->iop_pdirb;
 #endif
@@ -248,7 +264,7 @@ do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	binary ("PB_DIR", *R++, PB_NBITS);
 	binary ("PA_PAR", *l++, PA_NBITS);
 	binary ("PB_PAR", *R++, PB_NBITS);
-#if defined(CONFIG_MPC8260)
+#if defined(CONFIG_8260)
 	binary ("PA_SOR", *l++, PA_NBITS);
 	binary ("PB_SOR", *R++, PB_NBITS);
 #endif
@@ -266,7 +282,7 @@ do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #if defined(CONFIG_8xx)
 	l = &iop->iop_pcdir;
 	r = &iop->iop_pddir;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	l = &iop->iop_pdirc;
 	r = &iop->iop_pdird;
 #endif
@@ -278,7 +294,7 @@ do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	binary ("PC_SO ", *l++, PC_NBITS);
 	binary ("      ", 0, 0);
 	r++;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	binary ("PC_SOR", *l++, PC_NBITS);
 	binary ("PD_SOR", *r++, PD_NBITS);
 	binary ("PC_ODR", *l++, PC_NBITS);
@@ -300,7 +316,7 @@ do_iopinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
  * use *uint and set the address based on cmd + port
  */
 int
-do_iopset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_iopset (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	uint rcode = 0;
 	iopin_t iopin;
@@ -415,14 +431,14 @@ do_iopset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 int
-do_dmainfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_dmainfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
 int
-do_fccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_fccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
@@ -436,8 +452,8 @@ static void prbrg (int n, uint val)
 
 #if defined(CONFIG_8xx)
 	ulong clock = gd->cpu_clk;
-#elif defined(CONFIG_MPC8260)
-	ulong clock = gd->arch.brg_clk;
+#elif defined(CONFIG_8260)
+	ulong clock = gd->brg_clk;
 #endif
 
 	printf ("BRG%d:", n);
@@ -482,14 +498,14 @@ static void prbrg (int n, uint val)
 }
 
 int
-do_brginfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_brginfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 #if defined(CONFIG_8xx)
 	volatile cpm8xx_t *cp = &immap->im_cpm;
 	volatile uint *p = &cp->cp_brgc1;
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	volatile uint *p = &immap->im_brgc1;
 #endif
 	int i = 1;
@@ -497,7 +513,7 @@ do_brginfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	while (i <= 4)
 		prbrg (i++, *p++);
 
-#if defined(CONFIG_MPC8260)
+#if defined(CONFIG_8260)
 	p = &immap->im_brgc5;
 	while (i <= 8)
 		prbrg (i++, *p++);
@@ -506,20 +522,20 @@ do_brginfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 int
-do_i2cinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_i2cinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *immap = (immap_t *) CFG_IMMR;
 
 #if defined(CONFIG_8xx)
 	volatile i2c8xx_t *i2c = &immap->im_i2c;
 	volatile cpm8xx_t *cp = &immap->im_cpm;
 	volatile iic_t *iip = (iic_t *) & cp->cp_dparam[PROFF_IIC];
-#elif defined(CONFIG_MPC8260)
+#elif defined(CONFIG_8260)
 	volatile i2c8260_t *i2c = &immap->im_i2c;
 	volatile iic_t *iip;
 	uint dpaddr;
 
-	dpaddr = immap->im_dprambase16[PROFF_I2C_BASE / sizeof(u16)];
+	dpaddr = *((unsigned short *) (&immap->im_dprambase[PROFF_I2C_BASE]));
 	if (dpaddr == 0)
 		iip = NULL;
 	else
@@ -553,42 +569,42 @@ do_i2cinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 int
-do_sccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_sccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
 int
-do_smcinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_smcinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
 int
-do_spiinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_spiinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
 int
-do_muxinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_muxinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
 int
-do_siinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_siinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
 }
 
 int
-do_mccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+do_mccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	unimplemented (cmdtp, flag, argc, argv);
 	return 0;
@@ -598,106 +614,107 @@ do_mccinfo (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 U_BOOT_CMD(
 	siuinfo,	1,	1,	do_siuinfo,
-	"print System Interface Unit (SIU) registers",
-	""
+	"siuinfo - print System Interface Unit (SIU) registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	memcinfo,	1,	1,	do_memcinfo,
-	"print Memory Controller registers",
-	""
+	"memcinfo- print Memory Controller registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	sitinfo,	1,	1,	do_sitinfo,
-	"print System Integration Timers (SIT) registers",
-	""
+	"sitinfo - print System Integration Timers (SIT) registers\n",
+	NULL
 );
 
-#ifdef CONFIG_MPC8260
+#ifdef CONFIG_8260
 U_BOOT_CMD(
 	icinfo,	1,	1,	do_icinfo,
-	"print Interrupt Controller registers",
-	""
+	"icinfo  - print Interrupt Controller registers\n",
+	NULL
 );
 #endif
 
 U_BOOT_CMD(
 	carinfo,	1,	1,	do_carinfo,
-	"print Clocks and Reset registers",
-	""
+	"carinfo - print Clocks and Reset registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	iopinfo,	1,	1,	do_iopinfo,
-	"print I/O Port registers",
-	""
+	"iopinfo - print I/O Port registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	iopset,	5,	0,	do_iopset,
-	"set I/O Port registers",
+	"iopset  - set I/O Port registers\n",
 	"PORT PIN CMD VALUE\nPORT: A-D, PIN: 0-31, CMD: [dat|dir|odr|sor], VALUE: 0|1"
 );
 
 U_BOOT_CMD(
 	dmainfo,	1,	1,	do_dmainfo,
-	"print SDMA/IDMA registers",
-	""
+	"dmainfo - print SDMA/IDMA registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	fccinfo,	1,	1,	do_fccinfo,
-	"print FCC registers",
-	""
+	"fccinfo - print FCC registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	brginfo,	1,	1,	do_brginfo,
-	"print Baud Rate Generator (BRG) registers",
-	""
+	"brginfo - print Baud Rate Generator (BRG) registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	i2cinfo,	1,	1,	do_i2cinfo,
-	"print I2C registers",
-	""
+	"i2cinfo - print I2C registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	sccinfo,	1,	1,	do_sccinfo,
-	"print SCC registers",
-	""
+	"sccinfo - print SCC registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	smcinfo,	1,	1,	do_smcinfo,
-	"print SMC registers",
-	""
+	"smcinfo - print SMC registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	spiinfo,	1,	1,	do_spiinfo,
-	"print Serial Peripheral Interface (SPI) registers",
-	""
+	"spiinfo - print Serial Peripheral Interface (SPI) registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	muxinfo,	1,	1,	do_muxinfo,
-	"print CPM Multiplexing registers",
-	""
+	"muxinfo - print CPM Multiplexing registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	siinfo,	1,	1,	do_siinfo,
-	"print Serial Interface (SI) registers",
-	""
+	"siinfo  - print Serial Interface (SI) registers\n",
+	NULL
 );
 
 U_BOOT_CMD(
 	mccinfo,	1,	1,	do_mccinfo,
-	"print MCC registers",
-	""
+	"mccinfo - print MCC registers\n",
+	NULL
 );
+
 
 #endif

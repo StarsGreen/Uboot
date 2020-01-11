@@ -1,20 +1,31 @@
 /*
- * Copyright (C) 2006-2009 Freescale Semiconductor, Inc.
+ * Copyright (C) 2006 Freescale Semiconductor, Inc.
  *
  * Dave Liu <daveliu@freescale.com>
  * based on source code of Shlomi Gridish
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __QE_H__
 #define __QE_H__
 
 #include "common.h"
-#ifdef CONFIG_U_QE
-#include <linux/immap_qe.h>
-#endif
 
+#define QE_NUM_OF_SNUM	28
 #define QE_NUM_OF_BRGS	16
 #define UCC_MAX_NUM	8
 
@@ -35,16 +46,11 @@ typedef struct qe_snum {
 
 /* QE RISC allocation
 */
-#define	QE_RISC_ALLOCATION_RISC1	0x1  /* RISC 1 */
-#define	QE_RISC_ALLOCATION_RISC2	0x2  /* RISC 2 */
-#define	QE_RISC_ALLOCATION_RISC3	0x4  /* RISC 3 */
-#define	QE_RISC_ALLOCATION_RISC4	0x8  /* RISC 4 */
-#define	QE_RISC_ALLOCATION_RISC1_AND_RISC2 	(QE_RISC_ALLOCATION_RISC1 | \
-						 QE_RISC_ALLOCATION_RISC2)
-#define	QE_RISC_ALLOCATION_FOUR_RISCS	(QE_RISC_ALLOCATION_RISC1 | \
-					 QE_RISC_ALLOCATION_RISC2 | \
-					 QE_RISC_ALLOCATION_RISC3 | \
-					 QE_RISC_ALLOCATION_RISC4)
+typedef enum qe_risc_allocation {
+	QE_RISC_ALLOCATION_RISC1		= 1,  /* RISC 1 */
+	QE_RISC_ALLOCATION_RISC2		= 2,  /* RISC 2 */
+	QE_RISC_ALLOCATION_RISC1_AND_RISC2	= 3   /* RISC 1 or RISC 2 */
+} qe_risc_allocation_e;
 
 /* QE CECR commands for UCC fast.
 */
@@ -224,7 +230,6 @@ typedef enum qe_clock {
 /* I-RAM */
 #define QE_IRAM_IADD_AIE	0x80000000	/* Auto Increment Enable */
 #define QE_IRAM_IADD_BADDR	0x00080000	/* Base Address */
-#define QE_IRAM_READY		0x80000000
 
 /* Structure that defines QE firmware binary files.
  *
@@ -285,15 +290,5 @@ int qe_set_mii_clk_src(int ucc_num);
 int qe_upload_firmware(const struct qe_firmware *firmware);
 struct qe_firmware_info *qe_get_firmware_info(void);
 void ft_qe_setup(void *blob);
-void qe_init(uint qe_base);
-void qe_reset(void);
-
-#ifdef CONFIG_U_QE
-void u_qe_init(void);
-int u_qe_upload_firmware(const struct qe_firmware *firmware);
-void u_qe_resume(void);
-int u_qe_firmware_resume(const struct qe_firmware *firmware,
-			 qe_map_t *qe_immrr);
-#endif
 
 #endif /* __QE_H__ */

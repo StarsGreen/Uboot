@@ -2,7 +2,20 @@
  * (C) Copyright 2002
  * Andrew May, Viasat Inc, amay@viasat.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -22,15 +35,26 @@
 	is what should be done.
 
 #define CONFIG_RTC_M41T11 1
-#define CONFIG_SYS_I2C_RTC_ADDR 0x68
+#define CFG_I2C_RTC_ADDR 0x68
 #if 0
-#define CONFIG_SYS_M41T11_EXT_CENTURY_DATA
+#define CFG_M41T11_EXT_CENTURY_DATA
 #else
-#define CONFIG_SYS_M41T11_BASE_YEAR 2000
+#define CFG_M41T11_BASE_YEAR 2000
 #endif
 */
 
-#if defined(CONFIG_SYS_I2C_RTC_ADDR) && defined(CONFIG_CMD_DATE)
+#if defined(CONFIG_RTC_M41T11) && defined(CFG_I2C_RTC_ADDR) && defined(CONFIG_CMD_DATE)
+
+static unsigned bcd2bin (uchar n)
+{
+	return ((((n >> 4) & 0x0F) * 10) + (n & 0x0F));
+}
+
+static unsigned char bin2bcd (unsigned int n)
+{
+	return (((n / 10) << 4) | (n % 10));
+}
+
 
 /* ------------------------------------------------------------------------- */
 /*
@@ -51,7 +75,7 @@
 #define RTC_CONTROL_ADDR   0x7
 
 
-#ifndef CONFIG_SYS_M41T11_EXT_CENTURY_DATA
+#ifndef CFG_M41T11_EXT_CENTURY_DATA
 
 #define REG_CNT            (RTC_REG_CNT+1)
 
@@ -59,8 +83,8 @@
   you only get 00-99 for the year we will asume you
   want from the year 2000 if you don't set the config
 */
-#ifndef CONFIG_SYS_M41T11_BASE_YEAR
-#define CONFIG_SYS_M41T11_BASE_YEAR 2000
+#ifndef CFG_M41T11_BASE_YEAR
+#define CFG_M41T11_BASE_YEAR 2000
 #endif
 
 #else
@@ -77,7 +101,7 @@ int rtc_get (struct rtc_time *tmp)
 	int rel = 0;
 	uchar data[RTC_REG_CNT];
 
-	i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, data, RTC_REG_CNT);
+	i2c_read(CFG_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, data, RTC_REG_CNT);
 
 	if( data[RTC_SEC_ADDR] & 0x80 ){
 		printf( "m41t11 RTC Clock stopped!!!\n" );
@@ -88,14 +112,14 @@ int rtc_get (struct rtc_time *tmp)
 	tmp->tm_hour = bcd2bin (data[RTC_HOUR_ADDR] & 0x3F);
 	tmp->tm_mday = bcd2bin (data[RTC_DATE_ADDR] & 0x3F);
 	tmp->tm_mon  = bcd2bin (data[RTC_MONTH_ADDR]& 0x1F);
-#ifndef CONFIG_SYS_M41T11_EXT_CENTURY_DATA
-	tmp->tm_year = CONFIG_SYS_M41T11_BASE_YEAR
+#ifndef CFG_M41T11_EXT_CENTURY_DATA
+	tmp->tm_year = CFG_M41T11_BASE_YEAR
 		+ bcd2bin(data[RTC_YEARS_ADDR])
 		+ ((data[RTC_HOUR_ADDR]&0x40) ? 100 : 0);
 #else
 	{
 		unsigned char cent;
-		i2c_read(CONFIG_SYS_I2C_RTC_ADDR, M41T11_YEAR_DATA, 1, &cent, M41T11_YEAR_SIZE);
+		i2c_read(CFG_I2C_RTC_ADDR, M41T11_YEAR_DATA, 1, &cent, M41T11_YEAR_SIZE);
 		if( !(data[RTC_HOUR_ADDR] & 0x80) ){
 			printf( "m41t11 RTC: cann't keep track of years without CEB set\n" );
 			rel = -1;
@@ -103,7 +127,7 @@ int rtc_get (struct rtc_time *tmp)
 		if( (cent & 0x1) != ((data[RTC_HOUR_ADDR]&0x40)>>7) ){
 			/*century flip store off new year*/
 			cent += 1;
-			i2c_write(CONFIG_SYS_I2C_RTC_ADDR, M41T11_YEAR_DATA, 1, &cent, M41T11_YEAR_SIZE);
+			i2c_write(CFG_I2C_RTC_ADDR, M41T11_YEAR_DATA, 1, &cent, M41T11_YEAR_SIZE);
 		}
 		tmp->tm_year =((int)cent*100)+bcd2bin(data[RTC_YEARS_ADDR]);
 	}
@@ -119,7 +143,7 @@ int rtc_get (struct rtc_time *tmp)
 	return rel;
 }
 
-int rtc_set (struct rtc_time *tmp)
+void rtc_set (struct rtc_time *tmp)
 {
 	uchar data[RTC_REG_CNT];
 
@@ -137,35 +161,47 @@ int rtc_set (struct rtc_time *tmp)
 	data[RTC_HOUR_ADDR]   |= 0x80;/*we will always use CEB*/
 
 	data[RTC_YEARS_ADDR]  = bin2bcd(tmp->tm_year%100);/*same thing either way*/
-#ifndef CONFIG_SYS_M41T11_EXT_CENTURY_DATA
-	if( ((tmp->tm_year - CONFIG_SYS_M41T11_BASE_YEAR) > 200) ||
-	    (tmp->tm_year < CONFIG_SYS_M41T11_BASE_YEAR) ){
+#ifndef CFG_M41T11_EXT_CENTURY_DATA
+	if( ((tmp->tm_year - CFG_M41T11_BASE_YEAR) > 200) ||
+	    (tmp->tm_year < CFG_M41T11_BASE_YEAR) ){
 		printf( "m41t11 RTC setting year out of range!!need recompile\n" );
 	}
-	data[RTC_HOUR_ADDR] |= (tmp->tm_year - CONFIG_SYS_M41T11_BASE_YEAR) > 100 ? 0x40 : 0;
+	data[RTC_HOUR_ADDR] |= (tmp->tm_year - CFG_M41T11_BASE_YEAR) > 100 ? 0x40 : 0;
 #else
 	{
 		unsigned char cent;
 		cent = tmp->tm_year ? tmp->tm_year / 100 : 0;
 		data[RTC_HOUR_ADDR] |= (cent & 0x1) ? 0x40 : 0;
-		i2c_write(CONFIG_SYS_I2C_RTC_ADDR, M41T11_YEAR_DATA, 1, &cent, M41T11_YEAR_SIZE);
+		i2c_write(CFG_I2C_RTC_ADDR, M41T11_YEAR_DATA, 1, &cent, M41T11_YEAR_SIZE);
 	}
 #endif
-	i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, data, RTC_REG_CNT);
-
-	return 0;
+	i2c_write(CFG_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, data, RTC_REG_CNT);
 }
 
 void rtc_reset (void)
 {
 	unsigned char val;
 	/* clear all control & status registers */
-	i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, &val, 1);
+	i2c_read(CFG_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, &val, 1);
 	val = val & 0x7F;/*make sure we are running*/
-	i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, &val, RTC_REG_CNT);
+	i2c_write(CFG_I2C_RTC_ADDR, RTC_SEC_ADDR, 1, &val, RTC_REG_CNT);
 
-	i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_CONTROL_ADDR, 1, &val, 1);
+	i2c_read(CFG_I2C_RTC_ADDR, RTC_CONTROL_ADDR, 1, &val, 1);
 	val = val & 0x3F;/*turn off freq test keep calibration*/
-	i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_CONTROL_ADDR, 1, &val, 1);
+	i2c_write(CFG_I2C_RTC_ADDR, RTC_CONTROL_ADDR, 1, &val, 1);
 }
+
+int rtc_store(int addr, unsigned char* data, int size)
+{
+	/*don't let things wrap onto the time on a write*/
+	if( (addr+size) >= M41T11_STORAGE_SZ )
+		return 1;
+	return i2c_write( CFG_I2C_RTC_ADDR, REG_CNT+addr, 1, data, size );
+}
+
+int rtc_recall(int addr, unsigned char* data, int size)
+{
+	return i2c_read( CFG_I2C_RTC_ADDR, REG_CNT+addr, 1, data, size );
+}
+
 #endif

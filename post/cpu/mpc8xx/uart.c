@@ -2,7 +2,23 @@
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -21,7 +37,7 @@
  */
 
 #include <post.h>
-#if CONFIG_POST & CONFIG_SYS_POST_UART
+#if CONFIG_POST & CFG_POST_UART
 #if defined(CONFIG_8xx)
 #include <commproc.h>
 #elif defined(CONFIG_MPC8260)
@@ -45,6 +61,8 @@ static int ctlr_list[][2] =
 static int ctlr_list[][2] = { };
 #endif
 
+#define CTRL_LIST_SIZE (sizeof(ctlr_list) / sizeof(ctlr_list[0]))
+
 static struct {
 	void (*init) (int index);
 	void (*halt) (int index);
@@ -66,7 +84,7 @@ static void smc_init (int smc_index)
 {
 	static int cpm_cr_ch[] = { CPM_CR_CH_SMC1, CPM_CR_CH_SMC2 };
 
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile smc_t *sp;
 	volatile smc_uart_t *up;
 	volatile cbd_t *tbdf, *rbdf;
@@ -87,24 +105,35 @@ static void smc_init (int smc_index)
 	im->im_siu_conf.sc_sdcr = 1;
 
 	/* clear error conditions */
-#ifdef	CONFIG_SYS_SDSR
-	im->im_sdma.sdma_sdsr = CONFIG_SYS_SDSR;
+#ifdef	CFG_SDSR
+	im->im_sdma.sdma_sdsr = CFG_SDSR;
 #else
 	im->im_sdma.sdma_sdsr = 0x83;
 #endif
 
 	/* clear SDMA interrupt mask */
-#ifdef	CONFIG_SYS_SDMR
-	im->im_sdma.sdma_sdmr = CONFIG_SYS_SDMR;
+#ifdef	CFG_SDMR
+	im->im_sdma.sdma_sdmr = CFG_SDMR;
 #else
 	im->im_sdma.sdma_sdmr = 0x00;
+#endif
+
+#if defined(CONFIG_FADS)
+	/* Enable RS232 */
+	*((uint *) BCSR1) &=
+			~(smc_index == 1 ? BCSR1_RS232EN_1 : BCSR1_RS232EN_2);
+#endif
+
+#if defined(CONFIG_RPXLITE) || defined(CONFIG_RPXCLASSIC)
+	/* Enable Monitor Port Transceiver */
+	*((uchar *) BCSR0) |= BCSR0_ENMONXCVR;
 #endif
 
 	/* Set the physical address of the host memory buffers in
 	 * the buffer descriptors.
 	 */
 
-#ifdef CONFIG_SYS_ALLOC_DPRAM
+#ifdef CFG_ALLOC_DPRAM
 	dpaddr = dpram_alloc_align (sizeof (cbd_t) * 2 + 2, 8);
 #else
 	dpaddr = CPM_POST_BASE;
@@ -129,6 +158,10 @@ static void smc_init (int smc_index)
 	up->smc_tbase = dpaddr + sizeof (cbd_t);
 	up->smc_rfcr = SMC_EB;
 	up->smc_tfcr = SMC_EB;
+
+#if defined(CONFIG_MBX)
+	board_serial_init ();
+#endif
 
 	/* Set UART mode, 8 bit, no parity, one stop.
 	 * Enable receive and transmit.
@@ -185,7 +218,7 @@ static void smc_putc (int smc_index, const char c)
 	volatile cbd_t *tbdf;
 	volatile char *buf;
 	volatile smc_uart_t *up;
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile cpm8xx_t *cpmp = &(im->im_cpm);
 
 	up = (smc_uart_t *) & cpmp->cp_dparam[proff_smc[smc_index]];
@@ -217,7 +250,7 @@ static int smc_getc (int smc_index)
 	volatile cbd_t *rbdf;
 	volatile unsigned char *buf;
 	volatile smc_uart_t *up;
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile cpm8xx_t *cpmp = &(im->im_cpm);
 	unsigned char c;
 	int i;
@@ -260,7 +293,7 @@ static void scc_init (int scc_index)
 		CPM_CR_CH_SCC4,
 	};
 
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile scc_t *sp;
 	volatile scc_uart_t *up;
 	volatile cbd_t *tbdf, *rbdf;
@@ -280,7 +313,7 @@ static void scc_init (int scc_index)
 	/* Allocate space for two buffer descriptors in the DP ram.
 	 */
 
-#ifdef CONFIG_SYS_ALLOC_DPRAM
+#ifdef CFG_ALLOC_DPRAM
 	dpaddr = dpram_alloc_align (sizeof (cbd_t) * 2 + 2, 8);
 #else
 	dpaddr = CPM_POST_BASE;
@@ -387,7 +420,7 @@ static void scc_init (int scc_index)
 
 static void scc_halt(int scc_index)
 {
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile cpm8xx_t *cp = &(im->im_cpm);
 	volatile scc_t *sp = (scc_t *) & (cp->cp_scc[scc_index]);
 
@@ -399,7 +432,7 @@ static void scc_putc (int scc_index, const char c)
 	volatile cbd_t *tbdf;
 	volatile char *buf;
 	volatile scc_uart_t *up;
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile cpm8xx_t *cpmp = &(im->im_cpm);
 
 	up = (scc_uart_t *) & cpmp->cp_dparam[proff_scc[scc_index]];
@@ -431,7 +464,7 @@ static int scc_getc (int scc_index)
 	volatile cbd_t *rbdf;
 	volatile unsigned char *buf;
 	volatile scc_uart_t *up;
-	volatile immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
+	volatile immap_t *im = (immap_t *) CFG_IMMR;
 	volatile cpm8xx_t *cpmp = &(im->im_cpm);
 	unsigned char c;
 	int i;
@@ -507,7 +540,7 @@ int uart_post_test (int flags)
 	ctlr_proc[CTLR_SCC].putc = scc_putc;
 	ctlr_proc[CTLR_SCC].getc = scc_getc;
 
-	for (i = 0; i < ARRAY_SIZE(ctlr_list); i++) {
+	for (i = 0; i < CTRL_LIST_SIZE; i++) {
 		if (test_ctlr (ctlr_list[i][0], ctlr_list[i][1]) != 0) {
 			res = -1;
 		}
@@ -520,4 +553,4 @@ int uart_post_test (int flags)
 	return res;
 }
 
-#endif /* CONFIG_POST & CONFIG_SYS_POST_UART */
+#endif /* CONFIG_POST & CFG_POST_UART */

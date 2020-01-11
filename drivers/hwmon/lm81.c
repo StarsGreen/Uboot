@@ -7,7 +7,23 @@
  * (C) Copyright 2001
  * Bill Hunter,  Wave 7 Optics, williamhunter@mediaone.net
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -15,6 +31,12 @@
  */
 
 #include <common.h>
+
+#if !defined(CFG_EEPROM_PAGE_WRITE_ENABLE) || \
+	(CFG_EEPROM_PAGE_WRITE_BITS < 1)
+# error "CFG_EEPROM_PAGE_WRITE_ENABLE must be defined and CFG_EEPROM_PAGE_WRITE_BITS must be greater than  1 to use CONFIG_DTT_LM81"
+#endif
+
 #include <i2c.h>
 #include <dtt.h>
 
@@ -73,7 +95,7 @@ int dtt_write(int sensor, int reg, int val)
 #define DTT_CONFIG	0x40
 #define DTT_ADR		0x48
 
-int dtt_init_one(int sensor)
+static int _dtt_init(int sensor)
 {
 	int	man;
 	int	adr;
@@ -90,13 +112,30 @@ int dtt_init_one(int sensor)
 	if (adr < 0)
 		return 1;
 	rev = dtt_read (sensor, DTT_REV);
-	if (rev < 0)
+	if (adr < 0)
 		return 1;
 
-	debug ("DTT:   Found LM81@%x Rev: %d\n", adr, rev);
+	printf ("DTT:   Found LM81@%x Rev: %d\n", adr, rev);
 	return 0;
-} /* dtt_init_one() */
+} /* _dtt_init() */
 
+
+int dtt_init (void)
+{
+    int i;
+    unsigned char sensors[] = CONFIG_DTT_SENSORS;
+    const char *const header = "DTT:   ";
+
+    for (i = 0; i < sizeof(sensors); i++) {
+	if (_dtt_init(sensors[i]) != 0)
+	    printf("%s%d FAILED INIT\n", header, i+1);
+	else
+	    printf("%s%d is %i C\n", header, i+1,
+		   dtt_get_temp(sensors[i]));
+    }
+
+    return (0);
+} /* dtt_init() */
 
 #define TEMP_FROM_REG(temp) \
    ((temp)<256?((((temp)&0x1fe) >> 1) * 10)	 + ((temp) & 1) * 5:  \

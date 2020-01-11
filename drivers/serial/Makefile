@@ -1,47 +1,57 @@
 #
-# (C) Copyright 2006-2009
+# (C) Copyright 2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-ifdef CONFIG_DM_SERIAL
-obj-y += serial-uclass.o
-obj-$(CONFIG_PL01X_SERIAL) += serial_pl01x.o
-else
-obj-y += serial.o
-obj-$(CONFIG_PL010_SERIAL) += serial_pl01x.o
-obj-$(CONFIG_PL011_SERIAL) += serial_pl01x.o
-obj-$(CONFIG_SYS_NS16550_SERIAL) += serial_ns16550.o
-endif
+include $(TOPDIR)/config.mk
 
-obj-$(CONFIG_ALTERA_UART) += altera_uart.o
-obj-$(CONFIG_ALTERA_JTAG_UART) += altera_jtag_uart.o
-obj-$(CONFIG_ARM_DCC) += arm_dcc.o
-obj-$(CONFIG_ATMEL_USART) += atmel_usart.o
-obj-$(CONFIG_EFI_APP) += serial_efi.o
-obj-$(CONFIG_LPC32XX_HSUART) += lpc32xx_hsuart.o
-obj-$(CONFIG_MCFUART) += mcfuart.o
-obj-$(CONFIG_OPENCORES_YANU) += opencores_yanu.o
-obj-$(CONFIG_SYS_NS16550) += ns16550.o
-obj-$(CONFIG_S5P) += serial_s5p.o
-obj-$(CONFIG_IMX_SERIAL) += serial_imx.o
-obj-$(CONFIG_MAX3100_SERIAL) += serial_max3100.o
-obj-$(CONFIG_MXC_UART) += serial_mxc.o
-obj-$(CONFIG_PXA_SERIAL) += serial_pxa.o
-obj-$(CONFIG_SA1100_SERIAL) += serial_sa1100.o
-obj-$(CONFIG_S3C24X0_SERIAL) += serial_s3c24x0.o
-obj-$(CONFIG_XILINX_UARTLITE) += serial_xuartlite.o
-obj-$(CONFIG_SANDBOX_SERIAL) += sandbox.o
-obj-$(CONFIG_SCIF_CONSOLE) += serial_sh.o
-obj-$(CONFIG_ZYNQ_SERIAL) += serial_zynq.o
-obj-$(CONFIG_BFIN_SERIAL) += serial_bfin.o
-obj-$(CONFIG_FSL_LPUART) += serial_lpuart.o
-obj-$(CONFIG_MXS_AUART) += mxs_auart.o
-obj-$(CONFIG_ARC_SERIAL) += serial_arc.o
-obj-$(CONFIG_UNIPHIER_SERIAL) += serial_uniphier.o
-obj-$(CONFIG_STM32_SERIAL) += serial_stm32.o
+LIB	:= $(obj)libserial.a
 
-ifndef CONFIG_SPL_BUILD
-obj-$(CONFIG_USB_TTY) += usbtty.o
-endif
+COBJS-$(CONFIG_ATMEL_USART) += atmel_usart.o
+COBJS-$(CONFIG_MCFUART) += mcfuart.o
+COBJS-y += ns9750_serial.o
+COBJS-y += ns16550.o
+COBJS-$(CONFIG_DRIVER_S3C4510_UART) += s3c4510b_uart.o
+COBJS-y += serial.o
+COBJS-$(CONFIG_MAX3100_SERIAL) += serial_max3100.o
+COBJS-y += serial_pl010.o
+COBJS-y += serial_pl011.o
+COBJS-$(CONFIG_XILINX_UARTLITE) += serial_xuartlite.o
+COBJS-y += serial_sh.o
+COBJS-$(CONFIG_USB_TTY) += usbtty.o
+
+COBJS	:= $(COBJS-y)
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+all:	$(LIB)
+
+$(LIB):	$(obj).depend $(OBJS)
+	$(AR) $(ARFLAGS) $@ $(OBJS)
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

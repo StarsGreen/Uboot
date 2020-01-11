@@ -4,7 +4,23 @@
  * r.meyer@emk-elektronik.de
  * www.emk-elektronik.de
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*****************************************************************************
@@ -16,7 +32,7 @@
 #include <command.h>
 #include <rtc.h>
 
-#if defined(CONFIG_CMD_DATE)
+#if defined(CONFIG_RTC_MPC5200) && defined(CONFIG_CMD_DATE)
 
 /*****************************************************************************
  * this structure should be defined in mpc5200.h ...
@@ -28,7 +44,7 @@ typedef struct rtc5200 {
 	volatile ulong	aier;	/* MBAR+0x80C: alarm and interrupt enable register */
 	volatile ulong	ctr;	/* MBAR+0x810: current time register */
 	volatile ulong	cdr;	/* MBAR+0x814: current data register */
-	volatile ulong	asir;	/* MBAR+0x818: alarm and stopwatch interrupt register */
+	volatile ulong	asir;	/* MBAR+0x818: alarm and stopwatch interupt register */
 	volatile ulong	piber;	/* MBAR+0x81C: periodic interrupt and bus error register */
 	volatile ulong	trdr;	/* MBAR+0x820: test register/divides register */
 } RTC5200;
@@ -41,7 +57,7 @@ typedef struct rtc5200 {
  *****************************************************************************/
 int rtc_get (struct rtc_time *tmp)
 {
-	RTC5200	*rtc = (RTC5200 *) (CONFIG_SYS_MBAR+0x800);
+	RTC5200	*rtc = (RTC5200 *) (CFG_MBAR+0x800);
 	ulong time, date, time2;
 
 	/* read twice to avoid getting a funny time when the second is just changing */
@@ -72,9 +88,9 @@ int rtc_get (struct rtc_time *tmp)
 /*****************************************************************************
  * set time
  *****************************************************************************/
-int rtc_set (struct rtc_time *tmp)
+void rtc_set (struct rtc_time *tmp)
 {
-	RTC5200	*rtc = (RTC5200 *) (CONFIG_SYS_MBAR+0x800);
+	RTC5200	*rtc = (RTC5200 *) (CFG_MBAR+0x800);
 	ulong time, date, year;
 
 	debug ( "Set DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
@@ -113,8 +129,6 @@ int rtc_set (struct rtc_time *tmp)
 	udelay (1000);
 	rtc->tsr = time;
 	udelay (1000);
-
-	return 0;
 }
 
 /*****************************************************************************

@@ -3,7 +3,21 @@
  *
  * (c) 2007 Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
@@ -24,20 +38,20 @@
 #if defined(CONFIG_PCMCIA)
 
 /* MR-SHPC-01 register */
-#define MRSHPC_MODE	(CONFIG_SYS_MARUBUN_MRSHPC + 4)
-#define MRSHPC_OPTION   (CONFIG_SYS_MARUBUN_MRSHPC + 6)
-#define MRSHPC_CSR      (CONFIG_SYS_MARUBUN_MRSHPC + 8)
-#define MRSHPC_ISR      (CONFIG_SYS_MARUBUN_MRSHPC + 10)
-#define MRSHPC_ICR      (CONFIG_SYS_MARUBUN_MRSHPC + 12)
-#define MRSHPC_CPWCR    (CONFIG_SYS_MARUBUN_MRSHPC + 14)
-#define MRSHPC_MW0CR1   (CONFIG_SYS_MARUBUN_MRSHPC + 16)
-#define MRSHPC_MW1CR1   (CONFIG_SYS_MARUBUN_MRSHPC + 18)
-#define MRSHPC_IOWCR1   (CONFIG_SYS_MARUBUN_MRSHPC + 20)
-#define MRSHPC_MW0CR2   (CONFIG_SYS_MARUBUN_MRSHPC + 22)
-#define MRSHPC_MW1CR2   (CONFIG_SYS_MARUBUN_MRSHPC + 24)
-#define MRSHPC_IOWCR2   (CONFIG_SYS_MARUBUN_MRSHPC + 26)
-#define MRSHPC_CDCR     (CONFIG_SYS_MARUBUN_MRSHPC + 28)
-#define MRSHPC_PCIC_INFO (CONFIG_SYS_MARUBUN_MRSHPC + 30)
+#define MRSHPC_MODE	(CFG_MARUBUN_MRSHPC + 4)
+#define MRSHPC_OPTION   (CFG_MARUBUN_MRSHPC + 6)
+#define MRSHPC_CSR      (CFG_MARUBUN_MRSHPC + 8)
+#define MRSHPC_ISR      (CFG_MARUBUN_MRSHPC + 10)
+#define MRSHPC_ICR      (CFG_MARUBUN_MRSHPC + 12)
+#define MRSHPC_CPWCR    (CFG_MARUBUN_MRSHPC + 14)
+#define MRSHPC_MW0CR1   (CFG_MARUBUN_MRSHPC + 16)
+#define MRSHPC_MW1CR1   (CFG_MARUBUN_MRSHPC + 18)
+#define MRSHPC_IOWCR1   (CFG_MARUBUN_MRSHPC + 20)
+#define MRSHPC_MW0CR2   (CFG_MARUBUN_MRSHPC + 22)
+#define MRSHPC_MW1CR2   (CFG_MARUBUN_MRSHPC + 24)
+#define MRSHPC_IOWCR2   (CFG_MARUBUN_MRSHPC + 26)
+#define MRSHPC_CDCR     (CFG_MARUBUN_MRSHPC + 28)
+#define MRSHPC_PCIC_INFO (CFG_MARUBUN_MRSHPC + 30)
 
 int pcmcia_on (void)
 {
@@ -84,8 +98,8 @@ int pcmcia_on (void)
 
 	outw(0x0000,MRSHPC_ISR);
 	outw(0x2000,MRSHPC_ICR);
-	outb(0x00,(CONFIG_SYS_MARUBUN_MW2 + 0x206));
-	outb(0x42,(CONFIG_SYS_MARUBUN_MW2 + 0x200));
+	outb(0x00,(CFG_MARUBUN_MW2 + 0x206));
+	outb(0x42,(CFG_MARUBUN_MW2 + 0x200));
 
 	return 0;
 }

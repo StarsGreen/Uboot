@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Adapted for PATI
  */
@@ -15,13 +31,13 @@
 #include "pci_eeprom.h"
 
 extern void show_pld_regs(void);
-extern int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
+extern int do_mplcommon(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
 
 extern void user_led0(int led_on);
 extern void user_led1(int led_on);
 
 /* ------------------------------------------------------------------------- */
-#if defined(CONFIG_SYS_PCI_CON_DEVICE)
+#if defined(CFG_PCI_CON_DEVICE)
 extern void pci_con_disc(void);
 extern void pci_con_connect(void);
 #endif
@@ -260,7 +276,7 @@ static int pati_pci_eeprom_write(unsigned short offset, unsigned long addr, unsi
 static int pati_pci_eeprom_read(unsigned short offset, unsigned long addr, unsigned short size)
 {
 	int i;
-	unsigned short value = 0;
+	unsigned short value;
 	unsigned short *buffer =(unsigned short *)addr;
 	if((offset + size) > PATI_EEPROM_LAST_OFFSET) {
 		size = PATI_EEPROM_LAST_OFFSET - offset;
@@ -339,7 +355,7 @@ static void display_pci_regs(void)
 }
 
 
-int do_pati(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_pati(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	if (strcmp(argv[1], "info") == 0)
 	{
@@ -362,7 +378,7 @@ int do_pati(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			user_led1(led_on);
 		return 0;
 	}
-#if defined(CONFIG_SYS_PCI_CON_DEVICE)
+#if defined(CFG_PCI_CON_DEVICE)
 	if (strcmp(argv[1], "con") == 0) {
 		pci_con_connect();
 		return 0;
@@ -411,7 +427,7 @@ int do_pati(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 U_BOOT_CMD(
 	pati,	8,	1,	do_pati,
-	"PATI specific Cmds",
+	"pati    - PATI specific Cmds\n",
 	"info - displays board information\n"
 	"pati pci  - displays PCI registers\n"
 	"pati led <nr> <on> \n"
@@ -427,7 +443,7 @@ U_BOOT_CMD(
 	"    era   - erase PCI EEPROM (write all word to 0xffff)\n"
 	"    reload- Reload PCI Bridge with EEPROM Values\n"
 	"    NOTE: <addr> must start on word boundary\n"
-	"          <offset> and <size> must be even byte values"
+	"          <offset> and <size> must be even byte values\n"
 );
 
 /* ------------------------------------------------------------------------- */

@@ -2,7 +2,23 @@
  * (C) Copyright 2003
  * Stefan Roese, esd gmbh germany, stefan.roese@esd-electronics.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*******************************************************/
@@ -16,7 +32,6 @@
 
 #include <common.h>
 #include <asm/processor.h>
-#include <asm/io.h>
 
 #include "ports.h"
 
@@ -26,7 +41,9 @@ static int oldstate = 0;
 static int newstate = 0;
 static int readptr = 0;
 
-extern const unsigned char *xsvfdata;
+extern long filesize;
+extern const unsigned char fpgadata[];
+
 
 /* if in debugging mode, then just set the variables */
 void setPort(short p,short val)
@@ -51,7 +68,7 @@ void setPort(short p,short val)
 		} else {
 			output &= ~JTAG_TCK;
 		}
-		out_be32((void *)GPIO0_OR, output);
+		out32(GPIO0_OR, output);
 	}
 }
 
@@ -68,10 +85,10 @@ void pulseClock(void)
 void readByte(unsigned char *data)
 {
 	/* pretend reading using a file */
-	*data = xsvfdata[readptr++];
-	newstate = filepos++ >> 10;
+	*data = fpgadata[readptr++];
+	newstate = (100 * filepos++) / filesize;
 	if (newstate != oldstate) {
-		printf("%4d kB\r\r\r\r", newstate);
+		printf("%4d\r\r\r\r", newstate);
 		oldstate = newstate;
 	}
 }
@@ -81,7 +98,7 @@ unsigned char readTDOBit(void)
 {
 	unsigned long inputs;
 
-	inputs = in_be32((void *)GPIO0_IR);
+	inputs = in32(GPIO0_IR);
 	if (inputs & JTAG_TDO)
 		return 1;
 	else
