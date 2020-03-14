@@ -88,8 +88,12 @@ config TARGET_VCMA9
 	bool "Support VCMA9"
 	select CPU_ARM920T
 
-config TARGET_SMDK2410
+config TARGET_2410
 	bool "Support smdk2410"
+	select CPU_ARM920T
+
+config TARGET_2440
+	bool "Support smdk2440"
 	select CPU_ARM920T
 
 config TARGET_ASPENITE
@@ -816,6 +820,7 @@ source "board/phytec/pcm051/Kconfig"
 source "board/phytec/pcm052/Kconfig"
 source "board/ppcag/bg0900/Kconfig"
 source "board/samsung/smdk2410/Kconfig"
+source "board/samsung/smdk2440/Kconfig"
 source "board/sandisk/sansa_fuze_plus/Kconfig"
 source "board/schulercontrol/sc_sps_1/Kconfig"
 source "board/siemens/draco/Kconfig"
